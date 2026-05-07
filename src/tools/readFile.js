@@ -24,15 +24,18 @@ export function readFile({ file_path }) {
     const fullPath = path.join(config.codebasePath, file_path);
 
     if (!fs.existsSync(fullPath)) {
-      return { error: `File not found: ${file_path}` };
+      return {
+        error: `File not found: ${file_path}`,
+        suggestion: 'Use list_files to explore the directory structure first',
+      };
     }
 
     const stats = fs.statSync(fullPath);
 
-    // Skip very large files (>100KB) to stay within context limits
     if (stats.size > 100 * 1024) {
       return {
-        error: `File too large (${Math.round(stats.size / 1024)}KB). Use search_code to find specific sections instead.`,
+        error: `File too large (${Math.round(stats.size / 1024)}KB). Cannot read in full.`,
+        suggestion: 'Use search_code to find specific sections instead',
       };
     }
 
@@ -42,9 +45,14 @@ export function readFile({ file_path }) {
     return {
       file_path,
       total_lines: lines.length,
+      size_bytes: stats.size,
+      readAt: new Date().toISOString(),
       content,
     };
   } catch (err) {
-    return { error: err.message };
+    return {
+      error: err.message,
+      suggestion: 'Check if the path is correct and the file exists',
+    };
   }
 }
