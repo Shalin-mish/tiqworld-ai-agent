@@ -6,14 +6,12 @@ import { searchCodeDefinition, searchCode } from './tools/searchCode.js';
 
 const client = new Anthropic({ apiKey: config.anthropicApiKey });
 
-// All available tools
 const toolDefinitions = [
   listFilesDefinition,
   readFileDefinition,
   searchCodeDefinition,
 ];
 
-// Execute the tool Claude chose to call
 function executeTool(toolName, toolInput) {
   switch (toolName) {
     case 'list_files':
@@ -23,12 +21,11 @@ function executeTool(toolName, toolInput) {
     case 'search_code':
       return searchCode(toolInput);
     default:
-      return { error: `Unknown tool: ${toolName}` };
+      return { error: `Unknown tool: ${toolName}`, suggestion: 'Available tools: list_files, read_file, search_code' };
   }
 }
 
-// System prompt — gives Claude the identity of a TIQ team member
-const SYSTEM_PROMPT = `You are an expert AI developer and tech team member working on the TIQ World project — an Intern Training & Assessment Platform (ITAP) built with the MERN stack.
+const SYSTEM_PROMPT_TEXT = `You are an expert AI developer and tech team member working on the TIQ World project — an Intern Training & Assessment Platform (ITAP) built with the MERN stack.
 
 The codebase structure:
 - backend/ — Node.js + Express + MongoDB (ES modules)
@@ -64,8 +61,17 @@ Rules:
 - If you need to read a file before answering, use the tools
 - Never guess — if unsure, read the file first`;
 
+// System prompt as array with cache_control so Anthropic caches the 800+ token
+// prompt across API calls — avoids re-charging those tokens every turn
+const SYSTEM_PROMPT = [
+  {
+    type: 'text',
+    text: SYSTEM_PROMPT_TEXT,
+    cache_control: { type: 'ephemeral' },
+  },
+];
+
 export async function runAgent(userQuestion, conversationHistory = []) {
-  // Add user message to history
   const messages = [
     ...conversationHistory,
     { role: 'user', content: userQuestion },
@@ -73,7 +79,6 @@ export async function runAgent(userQuestion, conversationHistory = []) {
 
   console.log('\n🔍 Agent thinking...\n');
 
-  // Agentic loop — runs until Claude stops calling tools
   while (true) {
     const response = await client.messages.create({
       model: config.model,
@@ -84,19 +89,16 @@ export async function runAgent(userQuestion, conversationHistory = []) {
       messages,
     });
 
-    // Add assistant response to history
     messages.push({ role: 'assistant', content: response.content });
 
-    // Claude is done — return final answer
     if (response.stop_reason === 'end_turn') {
       const textBlock = response.content.find((b) => b.type === 'text');
       return {
         answer: textBlock ? textBlock.text : 'No response generated.',
-        messages, // return updated history for multi-turn
+        messages,
       };
     }
 
-    // Claude wants to call tools
     if (response.stop_reason === 'tool_use') {
       const toolUseBlocks = response.content.filter(
         (b) => b.type === 'tool_use'
@@ -121,7 +123,6 @@ export async function runAgent(userQuestion, conversationHistory = []) {
         });
       }
 
-      // Feed tool results back to Claude
       messages.push({ role: 'user', content: toolResults });
     }
   }
