@@ -23,20 +23,17 @@ export const searchCodeDefinition = {
   },
 };
 
-// Recursively collect all files
 function getAllFiles(dirPath, fileList = []) {
   if (!fs.existsSync(dirPath)) return fileList;
 
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name);
-    // Skip node_modules and hidden folders
     if (entry.isDirectory()) {
       if (entry.name !== 'node_modules' && !entry.name.startsWith('.')) {
         getAllFiles(fullPath, fileList);
       }
     } else {
-      // Only search code files
       const ext = path.extname(entry.name);
       if (['.js', '.jsx', '.ts', '.tsx', '.json', '.md'].includes(ext)) {
         fileList.push(fullPath);
@@ -49,6 +46,14 @@ function getAllFiles(dirPath, fileList = []) {
 export function searchCode({ keyword, directory = '' }) {
   try {
     const searchPath = path.join(config.codebasePath, directory);
+
+    if (!fs.existsSync(searchPath)) {
+      return {
+        error: `Directory not found: ${directory}`,
+        suggestion: 'Use list_files with directory="" to find valid paths',
+      };
+    }
+
     const allFiles = getAllFiles(searchPath);
     const matches = [];
 
@@ -58,7 +63,6 @@ export function searchCode({ keyword, directory = '' }) {
 
       lines.forEach((line, index) => {
         if (line.toLowerCase().includes(keyword.toLowerCase())) {
-          // Get relative path for cleaner output
           const relativePath = path
             .relative(config.codebasePath, filePath)
             .replace(/\\/g, '/');
@@ -74,10 +78,15 @@ export function searchCode({ keyword, directory = '' }) {
 
     return {
       keyword,
+      searched_files: allFiles.length,
       total_matches: matches.length,
-      matches: matches.slice(0, 50), // limit to 50 results
+      searchedAt: new Date().toISOString(),
+      matches: matches.slice(0, 50),
     };
   } catch (err) {
-    return { error: err.message };
+    return {
+      error: err.message,
+      suggestion: 'Check if the keyword is valid and the directory exists',
+    };
   }
 }
