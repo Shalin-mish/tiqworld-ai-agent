@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import { config } from '../config.js';
 
-// Tool definition — Claude ko batata hai yeh tool kya karta hai
 export const listFilesDefinition = {
   name: 'list_files',
   description:
@@ -20,13 +19,15 @@ export const listFilesDefinition = {
   },
 };
 
-// Actual tool execution
 export function listFiles({ directory }) {
   try {
     const targetPath = path.join(config.codebasePath, directory);
 
     if (!fs.existsSync(targetPath)) {
-      return { error: `Directory not found: ${directory}` };
+      return {
+        error: `Directory not found: ${directory}`,
+        suggestion: 'Use list_files with directory="" to see the root structure first',
+      };
     }
 
     const entries = fs.readdirSync(targetPath, { withFileTypes: true });
@@ -40,9 +41,13 @@ export function listFiles({ directory }) {
     return {
       directory,
       total: result.length,
+      scannedAt: new Date().toISOString(),
       entries: result,
     };
   } catch (err) {
-    return { error: err.message };
+    return {
+      error: err.message,
+      suggestion: 'Check if the directory path is correct',
+    };
   }
 }
