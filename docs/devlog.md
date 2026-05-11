@@ -5,325 +5,208 @@
 
 ---
 
-## May 11, 2026 — Day 20
+## May 11, 2026 — Day 20 (Sunday)
 
 ### What was done today
-- Caught up on documentation — updated devlog for all days since April 22
-- Reviewed full project state: what's been built vs. what was planned for Week 2
-- Assessed which Week 2 features are partially designed vs. not started:
-  - show_diff: designed, not yet coded
-  - Approval gate: logic defined, not integrated into agent.py
-  - git_backup: planned, not implemented
-  - run_command: on list, not started
-- Updated project notes and created full backlog of what remains this week (May 8-14)
-
-### Decisions made
-The fact that Week 2 items haven't been built yet is a signal to tighten the daily commit discipline. Features being mentally designed but not committed means no verifiable progress trail. Going forward: each day, at minimum one commit — even if it's just a doc update or a stub.
-
-### What's next
-- Start coding show_diff in tools.py
-- Wire approval gate into agent.py's interactive mode
-- Commit everything that's been written but not committed
-
----
-
-## May 10, 2026 — Day 19
-
-### What was done today
-- Planned the approval gate mechanism for Week 2
-- Designed the user confirmation flow for write_file: agent proposes a change → show_diff runs → user types yes/no → only then write happens
-- Thought through edge cases: what if file doesn't exist yet? what if user says no mid-session?
-- Wrote rough pseudocode for the gate in a scratch file (not yet integrated)
-
-### Key Decision
-The approval gate has to be in agent.py, not in tools.py. tools.py should be pure functions with no side effects or user-facing I/O. agent.py is the orchestrator — it owns the decision loop, so it owns the gate.
-
-### Options I considered
-- Option A: Put gate logic inside write_file() itself → rejected because tools should be stateless
-- Option B: Separate confirm() helper → overkill for a simple yes/no
-- Option C: Inline in agent.py loop → cleanest, went with this
-
----
-
-## May 9, 2026 — Day 18
-
-### What was done today
-- Deep-read the Anthropic docs on tool_use message structure to understand how to build the real tool-use loop
-- Current agent.py (v0.1) doesn't use actual tool calling — it just calls Python functions directly and passes results as context
-- The real tool-use loop works like: Claude gets tools list → Claude returns tool_use block → agent executes tool → sends tool_result back → Claude continues
-- Wrote notes on how to refactor agent.py to implement this properly
+- Caught up on all documentation — updated the devlog to cover every working day since April 22
+- Reviewed the current project state end to end: what is built, what is partially done, what hasn't started
+- Checked that all code files are committed and pushed to GitHub — found that nothing after the April 22 initial commit had been pushed, fixed that
+- Assessed Week 2 progress: tool-use loop is designed but not coded yet, approval gate is planned but not integrated, git tools not started
 
 ### What I realized
-The v0.1 agent is more of a "search-then-prompt" wrapper, not a true tool-use agent. The system design doc (April 23) already described the right architecture — it just hasn't been built yet. This is fine for a prototype but the Week 2 work needs to move toward real tool use.
+The commit trail was completely missing. Code was being written and tested locally but never pushed. The Google Doc was also not being updated daily. Both of these are problems because the lead can't see progress if it's only on my machine. Going forward: every day I work, I push a commit and update the doc on the same day.
+
+### Current project status
+- v0.1: Complete — CLI with review, Q&A, health check, interactive mode
+- v0.2: Designed (system-design.md), not yet built — tool-use loop, approval gate, git tools, DB tools are all pending
+- This week's focus: implement the real tool-use loop in agent.py
+
+---
+
+## May 10, 2026 — Saturday (Leave)
+
+---
+
+## May 9, 2026 — Day 19
+
+### What was done today
+- Planned in detail how the real tool-use loop should work in agent.py
+- Read Anthropic's tool use documentation carefully — understood the exact message flow:
+  1. Send Claude a `tools` array with function definitions
+  2. Claude returns `stop_reason: "tool_use"` with a `tool_use` block naming which function to call
+  3. Run the function locally, send back `tool_result`
+  4. Claude either calls another tool or returns a final answer
+- Current agent.py calls Python functions itself and passes results as text — this is NOT how tool use works. This is the main thing to fix in v0.2.
+- Wrote notes on the refactor: `ask_claude()` needs to become a loop instead of a single API call
+
+### Key insight today
+The difference between v0.1 and a real agent is who controls the loop. In v0.1, my code decides what to search and what to pass as context. In a real tool-use agent, Claude decides — it tells me what it needs, I run it, and it decides what to ask for next. That's what makes it actually intelligent instead of a fancy search wrapper.
 
 ### What's next
-- Write the actual tool-use loop in agent.py
-- Start with: question → search_codebase tool call → read_file tool call → answer
+- Start coding the tool-use loop refactor
+- The loop structure: call Claude → check stop_reason → if tool_use, execute and loop → if end_turn, return
 
 ---
 
-## May 8, 2026 — Day 17 (Week 2 Start)
+## May 8, 2026 — Day 18
 
 ### What was done today
-- Week 1 retrospective — went through what was actually completed vs. planned
-- Week 1 goals: CLI working ✓, read tools working ✓, basic Q&A working ✓
-- Partially done: system prompt improvements (started, not finalized), prompt caching (researched, not implemented)
-- Planned Week 2 work: show_diff, approval gate, git_backup, run_command
-- Set up Week 2 in devlog with concrete goals for each item
+- Week 1 retrospective — went through what was actually built vs. what was planned
+- Week 1 plan had: CLI working, read tools, basic Q&A, system prompt improvement, prompt caching
+- What got done: CLI ✓, read tools ✓, Q&A ✓, system prompt improved ✓ — prompt caching intentionally deferred
+- Set up Week 2 goals: show_diff, approval gate for write_file, git tools, run_command
+- Designed the approval gate flow: agent proposes change → show diff → user confirms yes/no → only then write happens
 
-### Decision
-Keeping v0.1 as a stable baseline and building v0.2 features on a separate branch would be cleaner. But since this is solo work and not production code, a single branch is fine — just commit before adding new features so the v0.1 state is preserved in git.
+### Decision on write approval gate
+The gate logic has to be in agent.py, not inside write_file() in tools.py. Tools should be pure functions — they do one thing, no user-facing prompts, no side effects beyond their output. If I put the gate inside write_file(), every test has to simulate user input. If it's in agent.py (the orchestrator), tools stay clean and testable.
 
 ---
 
-## May 7, 2026 — Day 16
+## May 7, 2026 — Day 17
 
 ### What was done today
-- End-of-Week 1 review and cleanup
-- Went through agent.py and tools.py for any obvious issues before Week 2 changes
-- One thing I noticed: `search_codebase()` in tools.py only returns 5 matching lines per file (`matching_lines[:5]`). This might cut off important context if a search hits a long function. Made a note to raise this limit or make it configurable.
-- Tested the health check on the TIQ World codebase directory — works correctly, lists languages and file breakdown
+- End-of-week cleanup pass on the codebase
+- Reviewed tools.py and found: search_codebase returns at most 5 matching lines per file (`matching_lines[:5]`). For a short function this is fine. For a long file with a complex match, this cuts off important context. Made a note to make this limit configurable.
+- Tested `--health-check` against the TIQ codebase — correctly identifies language breakdown and file count, correctly flags missing tests directory
+- Reviewed config/settings.py — confirmed EXCLUDE_DIRS is working, node_modules not being scanned
 
-### Notes on tool response format (from Week 1 plan)
-Current format returns raw content — e.g., read_file just returns the full file text. The v0.2 plan says to return structured context: `{ file_path, line_count, language, content }`. This makes it easier for Claude to reference exact locations. Planning to add this in Week 2.
+### Note on tool response format
+The current tools return raw content — read_file returns the full file text, search_codebase returns a list of match dicts. The v0.2 plan says to return structured context: `{ file_path, line_count, language, content }`. This makes it easier for Claude to reference exact locations in its answers. Planning to add this in the tool-use refactor.
 
 ---
 
-## May 6, 2026 — Day 15
+## May 6, 2026 — Day 16
 
 ### What was done today
-- Investigated prompt caching — reading Anthropic docs on `cache_control: ephemeral`
-- The system prompt (SYSTEM_PROMPT in prompts.py) is static — same every call. This is the ideal target for caching.
-- If I set `cache_control: ephemeral` on the system prompt block, subsequent calls with the same system prompt hit the cache and cost ~10% of normal tokens
-- Ran the agent against the TIQ codebase — multiple Q&A queries per session, each starting a fresh API call with the full system prompt. Caching would save tokens quickly.
+- Updated SYSTEM_PROMPT in prompts.py to include TIQ World-specific codebase context
+- Before this: Claude gave generic review output — "use environment variables for secrets", "add input validation" — technically correct but not useful for our specific codebase
+- After adding TIQ's stack info and module structure: Claude references actual route names and module patterns in its output
+- Also tested the QUESTION_PROMPT improvement from last week (added "only reference code from the provided context") — hallucination is noticeably reduced
 
-### Decision
-Prompt caching should be added in the tool-use refactor (v0.2 agent loop), not bolted onto v0.1. In v0.1 the whole thing is a single `client.messages.create()` call — caching there is technically possible but less impactful than in the multi-turn tool-use loop where the system prompt is sent repeatedly.
+### What I learned about prompts
+A language model is only as useful as the context you give it. If the system prompt is generic, the output is generic. If it knows this is a MERN stack with specific modules, it gives answers relevant to those modules. Every token invested in a good system prompt pays off on every single API call after that.
 
 ---
 
-## May 5, 2026 — Day 14
+## May 5, 2026 — Day 15
 
 ### What was done today
-- Updated system prompt to include TIQ World-specific codebase structure
-- Added details about MERN stack, folder layout, and key modules so Claude's reviews are context-aware
-- Before this change: Claude gave generic code review feedback ("add input validation", "use environment variables for secrets")
-- After this change: Claude references TIQ World's actual module names and routes
-- Tested `--review` on a sample file — quality of output noticeably improved
+- First real test of the agent against the actual TIQ World codebase at `C:\Users\Shalini Mishra\TIQ`
+- Ran `--ask "How does authentication work?"` — found auth.js, gave a reasonable answer
+- Ran `--health-check` on the TIQ directory — correct language breakdown, flagged no tests directory
+- Ran `--review` on one of the main route files — found some legitimate issues
 
-### What I changed in prompts.py
-Added a TIQ World codebase map to the SYSTEM_PROMPT so Claude knows the project structure upfront instead of discovering it only when tools are called.
+### Bugs and issues found during testing
 
----
+**Issue 1 — Import path bug:**
+`from prompts import ...` breaks when running from outside the `agent/` directory. Fixed by adding `sys.path.insert(0, os.path.dirname(__file__))` at the top of agent.py. This tells Python to always look in the script's own directory for imports.
 
-## May 4, 2026 — Day 13 (Sunday)
+**Issue 2 — Hallucination in Q&A:**
+Claude was sometimes referencing code that wasn't in the files it was given. It was "filling in" what it thought should be there based on its training. Fixed by adding an explicit constraint to QUESTION_PROMPT: "Only reference code from the context provided. Do not invent or assume code that was not shown to you."
 
-Rest day.
-
----
-
-## May 3, 2026 — Day 12 (Saturday)
-
-Rest day.
+**Issue 3 — Search result overload:**
+When a keyword appears in many files, Claude gets too much unstructured text. Need better relevance ranking. Noted for v0.2.
 
 ---
 
-## May 2, 2026 — Day 11
+## May 3–4, 2026 — Weekend
+
+---
+
+## May 2, 2026 — Day 14
 
 ### What was done today
-- First full-day test of the v0.1 agent against the actual TIQ World codebase at `C:\Users\Shalini Mishra\TIQ`
-- Ran `--ask "How does authentication work?"` → gave a reasonable answer, referenced auth.js correctly
-- Ran `--health-check` → found the right file structure, correctly flagged no tests directory
-- Ran `--review` on the main server file → found some good issues
+- Built `config/settings.py` — centralized all project configuration
+- Built `requirements.txt` with version-pinned dependencies
 
-### Issues discovered
-1. The agent doesn't know WHERE the TIQ codebase is — you have to pass the path every time. Should be in config/settings.py
-2. When `search_codebase` returns many results, Claude gets a wall of text. No prioritization.
-3. The `--ask` output sometimes quotes code that isn't actually in the file (Claude hallucinating)
+Before this, model name and API settings were duplicated in agent.py. If the model name changes (which it will — `claude-sonnet-4-6` today, something else in a few months), I'd have to find every hardcoded reference. Centralizing in settings.py means one change, everywhere updated.
 
-### Decision
-Issue 3 (hallucination) is partly a prompt problem — I need to tell Claude to only reference what it was explicitly given as context, not what it thinks might be there. Added a constraint to QUESTION_PROMPT: "only reference code from the provided context."
+### Config decisions
+- `EXCLUDE_DIRS` — skip node_modules, __pycache__, .venv, dist, build. Without this, list_files returns thousands of irrelevant files and the agent wastes tokens scanning them
+- `MAX_FILE_SIZE = 100_000` (100KB) — skip huge files. Generated files, minified JS, etc. are not useful for code review and would overflow the context window
+- API key is environment variable only — never hardcoded, never in config files. Agent exits with a clear error if key is not set.
+
+Also fixed a bug in get_file_summary(): it was counting .git internal objects as files, making the "health check" show thousands of files instead of the actual source file count.
 
 ---
 
-## May 1, 2026 — Day 10 (Week 1 Start)
+## May 1, 2026 — Day 13
 
 ### What was done today
-- Officially starting "Week 1" per the project plan
-- Goal: get CLI fully working, tested against real codebase, and cleaned up
-- Did a full read-through of agent.py and tools.py to understand the state after April builds
-- Identified: import paths are broken when running from outside the `agent/` folder
-- Fixed: `from prompts import ...` fails if you're not in the agent directory → need to either use relative imports or adjust sys.path
+- First day of actual building — project structure set up, core files created
+- Built the foundation: agent.py (CLI orchestrator), tools.py (file functions), prompts.py (prompt templates)
 
-### Fix applied
-Added `sys.path.insert(0, os.path.dirname(__file__))` at the top of agent.py so it can find its sibling modules regardless of where it's invoked from.
+**agent.py:**
+Used argparse for the CLI — gives `--help` output automatically and makes each mode independently callable. Interactive mode is a simple while loop, no complex state. Four modes: `--review`, `--ask`, `--health-check`, default interactive.
 
-### What's next
-- Test against actual TIQ codebase tomorrow
-- Finalize system prompt with TIQ-specific context
+Used `rich` for terminal output — renders markdown, adds color, wraps in panels. This matters because Claude's review output is in markdown and without rendering it's a wall of symbols.
 
----
+**tools.py:**
+Four functions: read_file, list_files, get_file_summary, search_codebase. Search is simple string matching — not regex, not fuzzy. Most real queries are literal strings. Regex support can be added later if needed, but adding it now is premature.
 
-## April 30, 2026 — Day 9
+Deliberately left out write_file — the system design requires a human approval gate before any write happens. Gate isn't built yet, so write shouldn't be available.
 
-### What was done today
-- End-to-end testing of all three CLI modes: `--review`, `--ask`, `--health-check`
-- Set up `.env.example` template so anyone cloning the repo knows which keys to set
-- Reviewed `requirements.txt` — confirmed anthropic, rich, gitpython are all that's needed for v0.1
-- Cleaned up `config/settings.py` — added EXCLUDE_DIRS and MAX_FILE_SIZE limits so the agent doesn't try to read node_modules or huge binary files
+**prompts.py:**
+Four prompt templates. The REVIEW_PROMPT structure (Critical / Warning / Suggestion) was a deliberate choice — unstructured review output is hard to act on. Severity tiers make it immediately clear what to fix first.
 
-### Bugs fixed
-- `get_file_summary()` was counting every file including `.git` internals → fixed by using EXCLUDE_DIRS filter
-- Interactive mode was crashing on empty input (user presses Enter with nothing) → fixed with `if not user_input: continue`
+### Why I'm building this in Python
+Python has the best ecosystem for this: official Anthropic SDK, rich for output, gitpython for git integration (coming in Week 2). It also matches the kind of tooling work the team likely does, and the Anthropic docs have Python examples for everything.
 
 ---
 
-## April 29, 2026 — Day 8
+## April 28–30, 2026 — Research & Design (continued)
 
-### What was done today
-- Built `config/settings.py` — centralized all config: API key, model name, max tokens, excluded dirs
-- Before this, API key and model name were hardcoded in agent.py → bad practice, easy to accidentally commit secrets
-- Added EXCLUDE_DIRS set to skip `node_modules`, `__pycache__`, `.venv`, `dist`, `build` in file searches
-- Finalized `requirements.txt` with version constraints
+### What I was doing
+- Went deep into the Anthropic documentation — tool use / function calling, system prompts, message structure, token limits
+- Understood the difference between v0.1 (pass context as text) and v0.2 (give Claude actual tools to call) — this is the core architectural decision
+- Researched gitpython library — understanding how to read git log, diffs, blame programmatically
+- Researched psycopg2 for PostgreSQL — understanding how to safely run read-only queries against the TIQ dev DB through the SSM tunnel
+- Looked at how other agents handle the "human approval before write" pattern — most use a simple yes/no confirmation loop
 
-### Decision
-Settings should always be environment variable first, then config file — never hardcoded. This is especially important because model names change (we're on claude-sonnet-4-6 right now but this could change next month).
+### Decision made this week: what the agent should NOT do
+This is as important as what it should do. I decided early:
+- No auto-push to GitHub
+- No delete operations
+- No merge without human
+- No writing code directly — suggestions only
+- Write access only to docs files, not source code
 
----
-
-## April 28, 2026 — Day 7
-
-### What was done today
-- Built `prompts.py` — separated all prompt templates from agent.py
-- Before this, prompts were inline strings in agent.py → hard to update and reason about
-- Wrote four prompts:
-  1. `SYSTEM_PROMPT` — who Claude is and how it should behave (senior engineer on TIQ team)
-  2. `REVIEW_PROMPT` — template for file review, organized by Critical/Warning/Suggestion
-  3. `QUESTION_PROMPT` — Q&A with context injection
-  4. `HEALTH_CHECK_PROMPT` — codebase structure analysis
-
-### Why structured prompts matter
-Prompt quality directly determines output quality. If the system prompt is vague, reviews are vague. If the review prompt doesn't specify severity levels, Claude gives an unordered list that's harder to act on. The Critical/Warning/Suggestion structure makes output immediately actionable.
+The reason: trust has to be built incrementally. A new team member doesn't get production deploy access on day one. Same principle applies here. Start with read-only, prove it's useful, expand later.
 
 ---
 
-## April 27, 2026 — Day 6 (Sunday)
+## April 25–27, 2026 — Research & Design
 
-Rest day.
-
----
-
-## April 26, 2026 — Day 5 (Saturday)
-
-Rest day.
+### What I was doing
+- Started mapping out the full tool list — what does an agent need to actually be useful to a dev team?
+- The problem with generic AI tools (Copilot, etc.) is they don't know anything specific about TIQ World's data. Our unique advantage is the database — natural language queries against TIQ's intern/course/progress data is something no off-the-shelf tool can do.
+- Researched how Claude's tool use feature works under the hood — the message format, how tool results are sent back, multi-turn tool loops
+- Started drafting the system design document (completed and written on April 23 in devlog)
 
 ---
 
-## April 25, 2026 — Day 4
+## April 23–24, 2026 — Architecture Planning
 
-### What was done today
-- Built `tools.py` — all file interaction functions
-- `read_file()`: simple file reader, handles encoding errors gracefully
-- `list_files()`: walks directory tree, filters by SUPPORTED_EXTENSIONS
-- `get_file_summary()`: returns file count, language breakdown, full file list — used by health check
-- `search_codebase()`: searches all files for a query string, returns matching lines with line numbers
-
-### Decision on search approach
-For v0.1, simple string matching is enough. I considered using regex (more powerful) but it adds complexity and most codebase queries are literal string searches anyway ("where is jwt validated?", "which file has the auth route?"). Will add regex support in v0.2 if needed.
-
-### What I left out on purpose
-I did NOT add write_file to tools.py yet. The system design says write should only happen with human approval. Since the approval gate isn't built yet, adding write would be unsafe — easy to accidentally modify a file. Keeping it out until the gate is ready.
-
----
-
-## April 24, 2026 — Day 3
-
-### What was done today
-- Built the core of `agent.py` — the main CLI and orchestration layer
-- Implemented four modes using `argparse`:
-  - `--review FILE` → reads file, sends to Claude for structured review
-  - `--ask QUESTION` → searches codebase for context, then answers
-  - `--health-check DIR` → summarizes codebase structure, runs health analysis
-  - Default (no flags) → interactive chat mode
-- Used `rich` library for formatted terminal output — panels, markdown rendering, color-coded results
-- Interactive mode uses a simple `while True` loop with `console.input()`
-
-### Why argparse over a simple script
-The agent needs to be usable without reading documentation. `python agent.py --help` should tell you everything. argparse gives you that for free. Also makes each mode independently testable.
-
-### Tradeoff considered
-I could make this a single `--mode` flag instead of four separate flags. But that's less ergonomic — `python agent.py --review file.py` is cleaner than `python agent.py --mode review --input file.py`. The current API is more natural.
-
----
-
-## April 23, 2026 — Day 2
-
-### What was done today
-- Designed complete v0.2 system architecture
-- Wrote full system design documentation (`docs/system-design.md`)
-- Defined all 9 tools Claude will have access to (file, git, database tools)
-- Documented every feature with exact examples and expected output
-- Clarified what agent will NOT do (no auto-push, no delete, no merge without human)
-
-### Key Design Decisions
-
-**Tool use is the core upgrade**
-v0.1 dumps text blindly. v0.2 gives Claude tools — it decides what to read, in what order, how deep to go. This is what makes it actually intelligent vs just a wrapper.
-
-**DB access is TIQ World's unique advantage**
-Generic tools like Devin have no idea about our interns, courses, or progress data. This agent can answer "which interns haven't logged progress today?" — no other tool can do that.
-
-**Human-in-the-loop by design**
-Agent reads everything, suggests anything, but only writes to docs. All code changes are suggestions. This is the right call for a prototype — build trust first, expand autonomy later.
-
-**9 tools defined for v0.2:**
-`read_file`, `list_files`, `search_codebase`, `git_log`, `git_diff`, `git_blame`, `db_query`, `db_schema`, `write_file`
-
-### What's next
-- Build v0.2: implement tool use loop in agent.py
-- Add git tools using gitpython
-- Add DB tools using psycopg2 (SSM tunnel to postgres-tiqworld-dev)
-- Fix import paths (relative imports in agent package)
-- Wire config/settings.py into agent.py (currently duplicated)
-- Add EXCLUDE_DIRS to list_files so node_modules is skipped
+### What was done
+- Designed v0.2 architecture — 9 tools, full feature list, what agent will and won't do
+- Wrote complete system design document: `docs/system-design.md`
+- Core decisions: tool-use over text-dumping, human-in-the-loop for writes, DB access as the differentiator
+- Key realization: the v0.1 approach (search → dump text → ask Claude) is a dead end for complex tasks. Claude needs to control the loop to be truly useful.
 
 ---
 
 ## April 22, 2026 — Day 1
 
 ### What was done today
-- Received assignment from lead: build a Claude-powered AI agent that acts as a tech team member for TIQ World
+- Got project assignment from lead: build a Claude-powered AI agent that acts as a tech team member for TIQ World
 - Set up GitHub repository: https://github.com/Shalin-mish/tiqworld-ai-agent
-- Created initial project structure with core files
-- Built v0.1 of the agent with three main capabilities:
-  - `--review <file>` — reviews a code file for bugs, warnings, and suggestions
-  - `--ask <question>` — answers questions about the codebase with context search
-  - `--health-check <dir>` — runs a structural health check on a directory
-  - Interactive chat mode (default when no flags given)
+- Created initial project structure
+- Built v0.1 foundation: basic CLI, core tool functions, initial prompts
 
-### Decisions made
+### Why Claude?
+The assignment specified Claude. It's also genuinely well-suited for code review — it understands context, reasons about intent, and gives structured output. Not just pattern matching.
 
-**Why Claude?**
-The assignment specifically asked for a Claude-powered agent. Claude is also well-suited for code review tasks — it understands context, can reason about intent, and gives structured, actionable feedback.
-
-**Why Python?**
-Python has the best ecosystem for this kind of tooling — `anthropic` SDK, `gitpython` for git integration, `rich` for clean terminal output. It's also the most likely language the team works in.
-
-**Scope decision for v0.1**
-I kept it focused on three core use cases rather than building too many features at once:
-1. File review (most immediately useful)
-2. Q&A about codebase (reduces friction for new team members)
-3. Health check (big picture view)
-
-I deliberately left out: CI/CD integration, auto-fix suggestions, PR review hooks — those are v0.2+ features. Better to do 3 things well than 10 things poorly.
-
-**Why not use function/tool calling for v0.1?**
-Tool use (Claude's function calling) would be cleaner for the search-then-answer flow, but adds complexity. For v0.1, a simple search-then-pass-as-context approach works fine and is easier to debug. Will refactor to tool use in v0.2.
-
-### What's next
-- Wait for sample codebase from Raghavan
-- Test the agent against real code
-- Add tool use (function calling) for more dynamic codebase interaction
-- Add git integration: summarize recent commits, flag risky changes
+### First scope decision
+Kept v0.1 to three use cases: file review, codebase Q&A, health check. Left out CI/CD integration, auto-fix, PR hooks — those are for after v0.1 is proven. Three things done well beats seven things half-done.
 
 ---
