@@ -20,9 +20,9 @@ The commit trail was completely missing. Code was being written and tested local
 - This week's focus: implement the real tool-use loop in agent.py
 
 
-## May 10, 2026 — Saturday (Leave)
+## May 10, 2026  
 
-## May 9, 2026 
+## May 9, 2026 (Leave)
 
 ### What was done today
 - Planned in detail how the real tool-use loop should work in agent.py
