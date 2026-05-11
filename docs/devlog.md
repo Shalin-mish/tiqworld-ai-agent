@@ -1,14 +1,12 @@
 # TIQ World AI Agent — Dev Log
 
-*Daily progress log for the TIQ World AI Agent internship project.*
-*Lead: Manu (TIQ) | Intern: Shalini Mishra | Started: April 22, 2026*
+*Daily progress log for the TIQ World AI Agent  project.*
 
 ---
 
-## May 11, 2026 — Monday
+## May 11, 2026 
 
 ### What was done today
-- Caught up on all documentation — updated the devlog to cover every working day since April 22
 - Reviewed the current project state end to end: what is built, what is partially done, what hasn't started
 - Checked that all code files are committed and pushed to GitHub — found that nothing after the April 22 initial commit had been pushed, fixed that
 - Assessed Week 2 progress: tool-use loop is designed but not coded yet, approval gate is planned but not integrated, git tools not started
@@ -21,19 +19,13 @@ The commit trail was completely missing. Code was being written and tested local
 - v0.2: Designed (system-design.md), not yet built — tool-use loop, approval gate, git tools, DB tools are all pending
 - This week's focus: implement the real tool-use loop in agent.py
 
----
 
-## May 10, 2026 — Sunday (Weekend)
+## May 10, 2026  
 
----
-
-## May 9, 2026 — Saturday (Leave)
-
----
-
-## May 8, 2026 — Friday
+## May 9, 2026 (Leave)
 
 ### What was done today
+- Planned in detail how the real tool-use loop should work in agent.py
 - Read Anthropic's tool use documentation carefully — understood the exact message flow:
   1. Send Claude a `tools` array with function definitions
   2. Claude returns `stop_reason: "tool_use"` with a `tool_use` block naming which function to call
@@ -42,15 +34,30 @@ The commit trail was completely missing. Code was being written and tested local
 - Current agent.py calls Python functions itself and passes results as text — this is NOT how tool use works. This is the main thing to fix in v0.2.
 - Wrote notes on the refactor: `ask_claude()` needs to become a loop instead of a single API call
 
-### Key insight
+### Key insight today
 The difference between v0.1 and a real agent is who controls the loop. In v0.1, my code decides what to search and what to pass as context. In a real tool-use agent, Claude decides — it tells me what it needs, I run it, and it decides what to ask for next. That's what makes it actually intelligent instead of a fancy search wrapper.
+
+### What's next
+- Start coding the tool-use loop refactor
+- The loop structure: call Claude → check stop_reason → if tool_use, execute and loop → if end_turn, return
+
+---
+
+## May 8, 2026 
+
+### What was done today
+- Week 1 retrospective — went through what was actually built vs. what was planned
+- Week 1 plan had: CLI working, read tools, basic Q&A, system prompt improvement, prompt caching
+- What got done: CLI ✓, read tools ✓, Q&A ✓, system prompt improved ✓ — prompt caching intentionally deferred
+- Set up Week 2 goals: show_diff, approval gate for write_file, git tools, run_command
+- Designed the approval gate flow: agent proposes change → show diff → user confirms yes/no → only then write happens
 
 ### Decision on write approval gate
 The gate logic has to be in agent.py, not inside write_file() in tools.py. Tools should be pure functions — they do one thing, no user-facing prompts, no side effects beyond their output. If I put the gate inside write_file(), every test has to simulate user input. If it's in agent.py (the orchestrator), tools stay clean and testable.
 
 ---
 
-## May 7, 2026 — Thursday
+## May 7, 2026 
 
 ### What was done today
 - End-of-week cleanup pass on the codebase
@@ -63,7 +70,7 @@ The current tools return raw content — read_file returns the full file text, s
 
 ---
 
-## May 6, 2026 — Wednesday
+## May 6, 2026 
 
 ### What was done today
 - Updated SYSTEM_PROMPT in prompts.py to include TIQ World-specific codebase context
@@ -76,7 +83,7 @@ A language model is only as useful as the context you give it. If the system pro
 
 ---
 
-## May 5, 2026 — Tuesday
+## May 5, 2026
 
 ### What was done today
 - First real test of the agent against the actual TIQ World codebase at `C:\Users\Shalini Mishra\TIQ`
@@ -97,11 +104,11 @@ When a keyword appears in many files, Claude gets too much unstructured text. Ne
 
 ---
 
-## May 3–4, 2026 — Saturday–Sunday (Weekend)
+## May 3–4, 2026 — Weekend
 
 ---
 
-## May 2, 2026 — Friday
+## May 2, 2026 
 
 ### What was done today
 - Built `config/settings.py` — centralized all project configuration
@@ -118,7 +125,7 @@ Also fixed a bug in get_file_summary(): it was counting .git internal objects as
 
 ---
 
-## May 1, 2026 — Thursday
+## May 1, 2026 
 
 ### What was done today
 - First day of actual building — project structure set up, core files created
@@ -183,10 +190,10 @@ The reason: trust has to be built incrementally. A new team member doesn't get p
 
 ---
 
-## April 22, 2026 — Wednesday
+## April 22, 2026 
 
 ### What was done today
-- Got project assignment from lead: build a Claude-powered AI agent that acts as a tech team member for TIQ World
+- Got project : build a Claude-powered AI agent that acts as a tech team member for TIQ World
 - Set up GitHub repository: https://github.com/Shalin-mish/tiqworld-ai-agent
 - Created initial project structure
 - Built v0.1 foundation: basic CLI, core tool functions, initial prompts
