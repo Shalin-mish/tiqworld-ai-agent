@@ -1,14 +1,12 @@
 # TIQ World AI Agent — Daily Work Log
 **Intern:** Shalini Mishra
 **Project:** Claude-powered AI Agent for TIQ World codebase
-**Lead:** Manu (TIQ)
-**Started:** April 22, 2026
 
----
 
-## April 22 — Day 1
 
-Got the project assignment from lead — build a Claude-powered AI agent that
+## April 22 
+
+Got the project  — build a Claude-powered AI agent that
 acts as a tech team member for TIQ World. It should be able to review code,
 answer questions about the codebase, and help maintain quality.
 
@@ -89,7 +87,7 @@ read-only, prove it's useful, then expand.
 
 ---
 
-## May 1 — Day 13 (Coding starts)
+## May 1 — (Coding starts)
 
 First real coding day. Built the three core files:
 
@@ -119,7 +117,7 @@ make it immediately clear what needs to be fixed first.
 
 ---
 
-## May 2 — Day 14
+## May 2 
 
 Built config/settings.py and finalized requirements.txt.
 
@@ -141,7 +139,7 @@ source file count.
 
 ---
 
-## May 5 — Day 15
+## May 5 
 
 First test against the actual TIQ World codebase.
 
@@ -170,7 +168,7 @@ Noted for v0.2.
 
 ---
 
-## May 6 — Day 16
+## May 6 
 
 Updated SYSTEM_PROMPT to include TIQ World-specific codebase context.
 
@@ -188,7 +186,7 @@ single API call after that.
 
 ---
 
-## May 7 — Day 17
+## May 7 
 
 End-of-week cleanup and review.
 
@@ -204,7 +202,7 @@ Will add this in the tool-use refactor.
 
 ---
 
-## May 8 — Day 18
+## May 8 
 
 Week 1 retrospective and Week 2 planning.
 
@@ -231,7 +229,7 @@ effects, no user-facing I/O. Orchestrator owns the confirmation loop.
 
 ---
 
-## May 9 — Day 19
+## May 9 
 
 Research day on Anthropic's tool use documentation.
 
@@ -252,11 +250,10 @@ tool_use, execute tool and loop again → if end_turn, return the answer.
 
 ---
 
-## May 10 — Saturday (Leave)
+## May 9 — ## May10   (Leave)
 
----
 
-## May 11 — Day 20 (Sunday)
+## May11
 
 Documentation day.
 
@@ -268,8 +265,6 @@ Pushed the first real substantive commit: the full v0.1 implementation
 including agent.py, tools.py, prompts.py, config/settings.py, the full
 system design doc, and the complete devlog.
 
-Going forward: every day I work, I push a commit. Every day I commit, I
-update this Google Doc. The two records should match each other.
 
 Current state:
 - v0.1: Complete
