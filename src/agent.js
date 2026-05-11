@@ -3,6 +3,8 @@ import { config } from './config.js';
 import { listFilesDefinition, listFiles } from './tools/listFiles.js';
 import { readFileDefinition, readFile } from './tools/readFile.js';
 import { searchCodeDefinition, searchCode } from './tools/searchCode.js';
+import { writeFileDefinition, writeFile } from './tools/writeFile.js';
+import { runCommandDefinition, runCommand } from './tools/runCommand.js';
 
 const client = new Anthropic({ apiKey: config.anthropicApiKey });
 
@@ -10,9 +12,11 @@ const toolDefinitions = [
   listFilesDefinition,
   readFileDefinition,
   searchCodeDefinition,
+  writeFileDefinition,
+  runCommandDefinition,
 ];
 
-function executeTool(toolName, toolInput) {
+async function executeTool(toolName, toolInput) {
   switch (toolName) {
     case 'list_files':
       return listFiles(toolInput);
@@ -20,8 +24,15 @@ function executeTool(toolName, toolInput) {
       return readFile(toolInput);
     case 'search_code':
       return searchCode(toolInput);
+    case 'write_file':
+      return await writeFile(toolInput);
+    case 'run_command':
+      return runCommand(toolInput);
     default:
-      return { error: `Unknown tool: ${toolName}`, suggestion: 'Available tools: list_files, read_file, search_code' };
+      return {
+        error: `Unknown tool: ${toolName}`,
+        suggestion: 'Available tools: list_files, read_file, search_code, write_file, run_command',
+      };
   }
 }
 
@@ -54,15 +65,18 @@ Your job:
 - Find bugs and explain them clearly with file path and line number
 - Suggest improvements with concrete code examples
 - Review code quality, security, and best practices
+- Apply fixes using write_file (always shows diff + requires user approval before writing)
+- Verify fixes using run_command (npm test, git status, etc.)
 
 Rules:
 - Always reference specific file paths and line numbers
 - Be direct and practical — like a senior developer on the team
 - If you need to read a file before answering, use the tools
-- Never guess — if unsure, read the file first`;
+- Never guess — if unsure, read the file first
+- Always pass a clear reason to write_file explaining what changed and why
+- After applying a fix, use run_command to verify it (npm test if tests exist)`;
 
-// System prompt as array with cache_control so Anthropic caches the 800+ token
-// prompt across API calls — avoids re-charging those tokens every turn
+// Cache the 800+ token system prompt across API calls to avoid re-charging tokens every turn
 const SYSTEM_PROMPT = [
   {
     type: 'text',
@@ -100,9 +114,7 @@ export async function runAgent(userQuestion, conversationHistory = []) {
     }
 
     if (response.stop_reason === 'tool_use') {
-      const toolUseBlocks = response.content.filter(
-        (b) => b.type === 'tool_use'
-      );
+      const toolUseBlocks = response.content.filter((b) => b.type === 'tool_use');
       const toolResults = [];
 
       for (const toolCall of toolUseBlocks) {
@@ -114,7 +126,7 @@ export async function runAgent(userQuestion, conversationHistory = []) {
           console.log(`     → ${inputStr}`);
         }
 
-        const result = executeTool(toolCall.name, toolCall.input);
+        const result = await executeTool(toolCall.name, toolCall.input);
 
         toolResults.push({
           type: 'tool_result',
