@@ -5,6 +5,7 @@ Claude-powered agent for codebase maintenance and improvement.
 """
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -14,22 +15,84 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from prompts import SYSTEM_PROMPT, REVIEW_PROMPT, QUESTION_PROMPT, HEALTH_CHECK_PROMPT
-from tools import read_file, get_file_summary, search_codebase
+sys.path.insert(0, os.path.dirname(__file__))
+
+from prompts import SYSTEM_PROMPT, REVIEW_PROMPT, HEALTH_CHECK_PROMPT
+from tools import read_file, get_file_summary, search_codebase, TOOL_DEFINITIONS
 
 console = Console()
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 MODEL = "claude-sonnet-4-6"
 
 
-def ask_claude(prompt: str) -> str:
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=4096,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return response.content[0].text
+def execute_tool(name: str, inputs: dict) -> str:
+    if name == "read_file":
+        result = read_file(inputs["filepath"])
+    elif name == "list_files":
+        from tools import list_files
+        result = list_files(inputs["directory"])
+    elif name == "search_codebase":
+        result = search_codebase(inputs["query"], inputs["directory"])
+    else:
+        result = {"error": f"Unknown tool: {name}"}
+    return json.dumps(result, indent=2)
+
+
+def run_agent(user_message: str) -> str:
+    """
+    Real tool-use loop.
+    Claude decides which tools to call, agent executes them,
+    loop continues until Claude returns a final answer.
+    """
+    messages = [{"role": "user", "content": user_message}]
+
+    while True:
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=4096,
+            system=[
+                {
+                    "type": "text",
+                    "text": SYSTEM_PROMPT,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            tools=TOOL_DEFINITIONS,
+            messages=messages,
+        )
+
+        # Claude finished — return final text answer
+        if response.stop_reason == "end_turn":
+            for block in response.content:
+                if hasattr(block, "text"):
+                    return block.text
+            return ""
+
+        # Claude wants to call tools
+        if response.stop_reason == "tool_use":
+            # Add Claude's response (with tool_use blocks) to message history
+            messages.append({"role": "assistant", "content": response.content})
+
+            # Execute every tool Claude asked for, collect results
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    console.print(f"[dim]→ calling {block.name}({json.dumps(block.input)})[/dim]")
+                    output = execute_tool(block.name, block.input)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": output,
+                    })
+
+            # Send tool results back to Claude and loop
+            messages.append({"role": "user", "content": tool_results})
+            continue
+
+        # Unexpected stop reason
+        break
+
+    return "Agent stopped unexpectedly."
 
 
 def review_file(filepath: str) -> None:
@@ -38,26 +101,25 @@ def review_file(filepath: str) -> None:
         sys.exit(1)
 
     console.print(f"[bold blue]Reviewing:[/bold blue] {filepath}\n")
-    code = read_file(filepath)
-    prompt = REVIEW_PROMPT.format(filename=filepath, code=code)
-    result = ask_claude(prompt)
+    result_data = read_file(filepath)
+    if "error" in result_data:
+        console.print(f"[red]{result_data['error']}[/red]")
+        sys.exit(1)
+
+    prompt = REVIEW_PROMPT.format(filename=filepath, code=result_data["content"])
+    result = run_agent(prompt)
     console.print(Panel(Markdown(result), title="Code Review", border_style="blue"))
 
 
 def ask_question(question: str, codebase_dir: str = ".") -> None:
     console.print(f"[bold blue]Question:[/bold blue] {question}\n")
-    matches = search_codebase(codebase_dir, question)
-    context = ""
-    if matches:
-        context = "\n".join(
-            f"File: {m['file']}\n" + "\n".join(f"  Line {l['line']}: {l['content']}" for l in m["matches"])
-            for m in matches[:3]
-        )
-    else:
-        context = "No specific files found related to this question."
-
-    prompt = QUESTION_PROMPT.format(question=question, context=context)
-    result = ask_claude(prompt)
+    # Pass codebase dir as context so Claude's tools know where to search
+    message = (
+        f"Codebase directory: {codebase_dir}\n\n"
+        f"Question: {question}\n\n"
+        "Use the available tools to search and read relevant files, then answer."
+    )
+    result = run_agent(message)
     console.print(Panel(Markdown(result), title="Answer", border_style="green"))
 
 
@@ -73,14 +135,16 @@ def health_check(codebase_dir: str = ".") -> None:
         languages=summary["languages"],
         file_list=file_list,
     )
-    result = ask_claude(prompt)
+    result = run_agent(prompt)
     console.print(Panel(Markdown(result), title="Codebase Health Check", border_style="yellow"))
 
 
 def interactive_mode() -> None:
     console.print(Panel(
-        "[bold green]TIQ World AI Agent[/bold green]\nYour AI-powered tech team member.\nType 'exit' to quit.",
-        border_style="green"
+        "[bold green]TIQ World AI Agent[/bold green]\n"
+        "Your AI-powered tech team member.\n"
+        "Type 'exit' to quit.",
+        border_style="green",
     ))
     while True:
         try:
@@ -89,7 +153,7 @@ def interactive_mode() -> None:
                 break
             if not user_input:
                 continue
-            result = ask_claude(user_input)
+            result = run_agent(user_input)
             console.print(f"\n[bold blue]Agent:[/bold blue]")
             console.print(Markdown(result))
         except KeyboardInterrupt:

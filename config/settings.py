@@ -10,3 +10,5 @@ EXCLUDE_FILES = {".env", ".env.local"}
 
 # Max file size to read (in bytes) — skip very large files
 MAX_FILE_SIZE = 100_000
+
+SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".java", ".rb", ".php", ".cs"}
