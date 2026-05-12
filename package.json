@@ -9,7 +9,10 @@
     "dev": "node --watch src/index.js"
   },
   "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "^0.29.1",
     "@anthropic-ai/sdk": "^0.52.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1045.0",
+    "@aws-sdk/credential-providers": "^3.1045.0",
     "dotenv": "^16.4.5"
   }
 }

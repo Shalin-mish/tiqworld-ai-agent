@@ -15,7 +15,7 @@ console.log('║     TIQ World AI Agent  🤖             ║');
 console.log('║     Powered by Claude claude-opus-4-7         ║');
 console.log('╚════════════════════════════════════════╝');
 console.log('');
-console.log('TIQ codebase ke baare mein kuch bhi poochho.');
+console.log('Ask anything about the TIQ codebase.');
 console.log('Type "exit" to quit | "clear" to reset conversation');
 console.log('');
 
