@@ -64,11 +64,11 @@ function askApproval(question) {
   });
 }
 
-function gitBackup(fullPath) {
+function gitCommit(fullPath, reason) {
   try {
     const relPath = path.relative(config.codebasePath, fullPath).replace(/\\/g, '/');
     execSync(
-      `git add "${relPath}" && git commit -m "backup: before AI write to ${path.basename(fullPath)}"`,
+      `git add "${relPath}" && git commit -m "agent: ${reason}"`,
       { cwd: config.codebasePath, stdio: 'pipe' }
     );
     return { success: true, method: 'git' };
@@ -76,7 +76,7 @@ function gitBackup(fullPath) {
     try {
       const backupPath = fullPath + '.bak';
       fs.copyFileSync(fullPath, backupPath);
-      return { success: true, method: 'file_copy', backup_path: backupPath + '.bak' };
+      return { success: true, method: 'file_copy', backup_path: backupPath };
     } catch {
       return { success: false };
     }
@@ -122,7 +122,7 @@ export async function writeFile({ file_path, new_content, reason }) {
 
     let backup = { success: false };
     if (!isNewFile) {
-      backup = gitBackup(fullPath);
+      backup = gitCommit(fullPath, reason);
     }
 
     fs.mkdirSync(path.dirname(fullPath), { recursive: true });

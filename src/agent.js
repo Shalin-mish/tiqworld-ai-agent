@@ -5,6 +5,7 @@ import { readFileDefinition, readFile } from './tools/readFile.js';
 import { searchCodeDefinition, searchCode } from './tools/searchCode.js';
 import { writeFileDefinition, writeFile } from './tools/writeFile.js';
 import { runCommandDefinition, runCommand } from './tools/runCommand.js';
+import { showDiffDefinition, showDiff } from './tools/showDiff.js';
 
 const client = new BedrockRuntimeClient({
   region: config.awsRegion,
@@ -31,6 +32,7 @@ const toolDefinitions = [
   searchCodeDefinition,
   writeFileDefinition,
   runCommandDefinition,
+  showDiffDefinition,
 ];
 
 const bedrockTools = toBedrockTools(toolDefinitions);
@@ -42,6 +44,7 @@ async function executeTool(toolName, toolInput) {
     case 'search_code':   return searchCode(toolInput);
     case 'write_file':    return await writeFile(toolInput);
     case 'run_command':   return runCommand(toolInput);
+    case 'show_diff':     return showDiff(toolInput);
     default:
       return {
         error: `Unknown tool: ${toolName}`,
