@@ -27,7 +27,11 @@ export function showDiff({ file_path, proposed_content }) {
     const fullPath = path.join(config.codebasePath, file_path);
 
     if (!fs.existsSync(fullPath)) {
-      return { error: `File not found: ${file_path}`, suggestion: 'Check the path with list_files' };
+      return {
+        error: `File not found: ${file_path}`,
+        path: file_path,
+        suggestion: 'Check the path with list_files',
+      };
     }
 
     const oldContent = fs.readFileSync(fullPath, 'utf-8');
@@ -39,8 +43,8 @@ export function showDiff({ file_path, proposed_content }) {
     for (let i = 0; i < maxLen; i++) {
       const oldLine = oldLines[i];
       const newLine = newLines[i];
-      if (oldLine === undefined)       diff.push(`+ ${newLine}`);
-      else if (newLine === undefined)  diff.push(`- ${oldLine}`);
+      if (oldLine === undefined)      diff.push(`+ ${newLine}`);
+      else if (newLine === undefined) diff.push(`- ${oldLine}`);
       else if (oldLine !== newLine) {
         diff.push(`- ${oldLine}`);
         diff.push(`+ ${newLine}`);
@@ -48,7 +52,11 @@ export function showDiff({ file_path, proposed_content }) {
     }
 
     if (diff.length === 0) {
-      return { file_path, status: 'no_changes', message: 'Proposed content is identical to current file.' };
+      return {
+        file_path,
+        status: 'no_changes',
+        message: 'Proposed content is identical to current file.',
+      };
     }
 
     return {
@@ -57,6 +65,10 @@ export function showDiff({ file_path, proposed_content }) {
       diff: diff.join('\n'),
     };
   } catch (err) {
-    return { error: err.message };
+    return {
+      error: err.message,
+      path: file_path,
+      suggestion: 'Check if the file path is correct and readable',
+    };
   }
 }
