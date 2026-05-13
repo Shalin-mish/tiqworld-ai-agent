@@ -5,7 +5,7 @@ import { config } from '../config.js';
 export const readFileDefinition = {
   name: 'read_file',
   description:
-    'Read the full content of a specific file in the TIQ codebase. Automatically parses and reads local imports (1 level deep) so you have full context without extra tool calls.',
+    'Read the full content of a specific file in the TIQ codebase. Automatically reads local imports up to 2 levels deep so you have full context without extra tool calls.',
   input_schema: {
     type: 'object',
     properties: {
@@ -17,7 +17,7 @@ export const readFileDefinition = {
       include_imports: {
         type: 'boolean',
         description:
-          'Auto-read locally imported files (1 level deep). Default: true. Set false if you only need this file.',
+          'Auto-read locally imported files up to 2 levels deep. Default: true. Set false if you only need this file.',
       },
     },
     required: ['file_path'],
@@ -26,7 +26,7 @@ export const readFileDefinition = {
 
 function parseLocalImports(content, filePath) {
   const dir = path.dirname(filePath);
-  const importRegex = /(?:import|require)\s*(?:.*?\s+from\s+)?['"](\.[^'"]+)['"]/g;
+  const importRegex = /(?:import|require)\s*(?:.*?\s+from\s+)?['"](\.{1,2}[^'"]+)['"]/g;
   const imports = [];
   let match;
 
@@ -78,6 +78,26 @@ function readSingleFile(file_path) {
   };
 }
 
+// Recursively read imports up to maxDepth, visited prevents circular loops
+function readWithImports(file_path, depth, maxDepth, visited) {
+  if (visited.has(file_path)) return null;
+  visited.add(file_path);
+
+  const result = readSingleFile(file_path);
+  if (result.error) return result;
+
+  if (depth < maxDepth) {
+    const importPaths = parseLocalImports(result.content, file_path);
+    if (importPaths.length > 0) {
+      result.imported_files = importPaths
+        .map((imp) => readWithImports(imp, depth + 1, maxDepth, visited))
+        .filter(Boolean);
+    }
+  }
+
+  return result;
+}
+
 export function readFile({ file_path, include_imports = true }) {
   try {
     const primary = readSingleFile(file_path);
@@ -89,12 +109,13 @@ export function readFile({ file_path, include_imports = true }) {
     };
 
     if (include_imports) {
+      const visited = new Set([file_path]);
       const importPaths = parseLocalImports(primary.content, file_path);
+
       if (importPaths.length > 0) {
-        result.imported_files = importPaths.map((imp) => {
-          const imported = readSingleFile(imp);
-          return imported.error ? { file_path: imp, error: imported.error } : imported;
-        });
+        result.imported_files = importPaths
+          .map((imp) => readWithImports(imp, 1, 2, visited))
+          .filter(Boolean);
       }
     }
 
