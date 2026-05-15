@@ -18,24 +18,38 @@ from rich.panel import Panel
 sys.path.insert(0, os.path.dirname(__file__))
 
 from prompts import SYSTEM_PROMPT, REVIEW_PROMPT, HEALTH_CHECK_PROMPT
-from tools import read_file, get_file_summary, search_codebase, TOOL_DEFINITIONS
+from tools import (
+    read_file,
+    list_files,
+    search_codebase,
+    error_tracer,
+    explain_route,
+    get_file_summary,
+    TOOL_DEFINITIONS,
+)
 
 console = Console()
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 MODEL = "claude-sonnet-4-6"
 
+# Registry pattern — add new tools here, no changes needed elsewhere
+TOOL_REGISTRY = {
+    "read_file":       lambda i: read_file(i["filepath"]),
+    "list_files":      lambda i: list_files(i["directory"]),
+    "search_codebase": lambda i: search_codebase(i["query"], i["directory"]),
+    "error_tracer":    lambda i: error_tracer(i["error_message"], i["directory"]),
+    "explain_route":   lambda i: explain_route(i["route_path"], i["directory"]),
+}
+
 
 def execute_tool(name: str, inputs: dict) -> str:
-    if name == "read_file":
-        result = read_file(inputs["filepath"])
-    elif name == "list_files":
-        from tools import list_files
-        result = list_files(inputs["directory"])
-    elif name == "search_codebase":
-        result = search_codebase(inputs["query"], inputs["directory"])
-    else:
-        result = {"error": f"Unknown tool: {name}"}
-    return json.dumps(result, indent=2)
+    handler = TOOL_REGISTRY.get(name)
+    if not handler:
+        return json.dumps({
+            "error": f"Unknown tool: {name}",
+            "suggestion": f"Available tools: {list(TOOL_REGISTRY.keys())}",
+        })
+    return json.dumps(handler(inputs), indent=2)
 
 
 def run_agent(user_message: str) -> str:
@@ -61,19 +75,15 @@ def run_agent(user_message: str) -> str:
             messages=messages,
         )
 
-        # Claude finished — return final text answer
         if response.stop_reason == "end_turn":
             for block in response.content:
                 if hasattr(block, "text"):
                     return block.text
             return ""
 
-        # Claude wants to call tools
         if response.stop_reason == "tool_use":
-            # Add Claude's response (with tool_use blocks) to message history
             messages.append({"role": "assistant", "content": response.content})
 
-            # Execute every tool Claude asked for, collect results
             tool_results = []
             for block in response.content:
                 if block.type == "tool_use":
@@ -85,11 +95,9 @@ def run_agent(user_message: str) -> str:
                         "content": output,
                     })
 
-            # Send tool results back to Claude and loop
             messages.append({"role": "user", "content": tool_results})
             continue
 
-        # Unexpected stop reason
         break
 
     return "Agent stopped unexpectedly."
@@ -113,7 +121,6 @@ def review_file(filepath: str) -> None:
 
 def ask_question(question: str, codebase_dir: str = ".") -> None:
     console.print(f"[bold blue]Question:[/bold blue] {question}\n")
-    # Pass codebase dir as context so Claude's tools know where to search
     message = (
         f"Codebase directory: {codebase_dir}\n\n"
         f"Question: {question}\n\n"
@@ -121,6 +128,28 @@ def ask_question(question: str, codebase_dir: str = ".") -> None:
     )
     result = run_agent(message)
     console.print(Panel(Markdown(result), title="Answer", border_style="green"))
+
+
+def trace_error(error_text: str, codebase_dir: str = ".") -> None:
+    console.print(f"[bold red]Tracing error:[/bold red] {error_text[:80]}...\n")
+    message = (
+        f"Codebase directory: {codebase_dir}\n\n"
+        f"I got this error. Use the error_tracer tool to find all relevant files, "
+        f"then explain the root cause and suggest a fix.\n\nError:\n{error_text}"
+    )
+    result = run_agent(message)
+    console.print(Panel(Markdown(result), title="Error Analysis", border_style="red"))
+
+
+def explain_route_cmd(route_path: str, codebase_dir: str = ".") -> None:
+    console.print(f"[bold blue]Explaining route:[/bold blue] {route_path}\n")
+    message = (
+        f"Codebase directory: {codebase_dir}\n\n"
+        f"Use the explain_route tool to trace the full request chain for this Express route, "
+        f"then describe each layer clearly.\n\nRoute: {route_path}"
+    )
+    result = run_agent(message)
+    console.print(Panel(Markdown(result), title=f"Route: {route_path}", border_style="cyan"))
 
 
 def health_check(codebase_dir: str = ".") -> None:
@@ -163,10 +192,12 @@ def interactive_mode() -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="TIQ World AI Agent")
-    parser.add_argument("--review", metavar="FILE", help="Review a specific file")
-    parser.add_argument("--ask", metavar="QUESTION", help="Ask a question about the codebase")
+    parser.add_argument("--review",      metavar="FILE",     help="Review a specific file")
+    parser.add_argument("--ask",         metavar="QUESTION", help="Ask a question about the codebase")
+    parser.add_argument("--trace-error", metavar="ERROR",    help="Trace a stack trace / error message")
+    parser.add_argument("--explain-route", metavar="ROUTE",  help="Explain a route end-to-end, e.g. /api/users/login")
     parser.add_argument("--health-check", metavar="DIR", nargs="?", const=".", help="Run codebase health check")
-    parser.add_argument("--codebase", metavar="DIR", default=".", help="Codebase root directory")
+    parser.add_argument("--codebase",    metavar="DIR", default=".", help="Codebase root directory")
     args = parser.parse_args()
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -177,6 +208,10 @@ def main():
         review_file(args.review)
     elif args.ask:
         ask_question(args.ask, args.codebase)
+    elif args.trace_error:
+        trace_error(args.trace_error, args.codebase)
+    elif args.explain_route:
+        explain_route_cmd(args.explain_route, args.codebase)
     elif args.health_check is not None:
         health_check(args.health_check)
     else:
