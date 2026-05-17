@@ -1,18 +1,19 @@
 import readline from 'readline';
 import { runAgent } from './agent.js';
+import { classify, getTools, TASK_LABELS } from './dispatcher.js';
 
-// CLI interface
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
 let conversationHistory = [];
+let currentTaskType = null;
 
 console.log('');
 console.log('╔════════════════════════════════════════╗');
-console.log('║     TIQ World AI Agent  🤖             ║');
-console.log('║     Powered by Claude claude-opus-4-7         ║');
+console.log('║     TIQ World AI Agent                 ║');
+console.log('║     Powered by Claude on Bedrock       ║');
 console.log('╚════════════════════════════════════════╝');
 console.log('');
 console.log('Ask anything about the TIQ codebase.');
@@ -29,29 +30,38 @@ function prompt() {
     }
 
     if (userInput.toLowerCase() === 'exit') {
-      console.log('\nBye! 👋\n');
+      console.log('\nBye!\n');
       rl.close();
       process.exit(0);
     }
 
     if (userInput.toLowerCase() === 'clear') {
       conversationHistory = [];
-      console.log('\n✅ Conversation cleared.\n');
+      currentTaskType = null;
+      console.log('\nConversation cleared.\n');
       prompt();
       return;
     }
 
+    // Only classify on the first turn of a conversation.
+    // Subsequent turns stay in the same task context so tool scope is stable.
+    if (!currentTaskType) {
+      currentTaskType = classify(userInput);
+      console.log(`\n[${TASK_LABELS[currentTaskType]}] Task detected — tools scoped accordingly.`);
+    }
+
+    const tools = getTools(currentTaskType);
+
     try {
-      const { answer, messages } = await runAgent(userInput, conversationHistory);
-      // Keep conversation history for multi-turn (last 10 exchanges to manage context)
+      const { answer, messages } = await runAgent(userInput, conversationHistory, tools);
       conversationHistory = messages.slice(-20);
-      console.log('\n🤖 Agent:\n');
+      console.log('\nAgent:\n');
       console.log(answer);
       console.log('\n' + '─'.repeat(50) + '\n');
     } catch (err) {
-      console.error('\n❌ Error:', err.message);
-      if (err.status === 401) {
-        console.error('   Check your ANTHROPIC_API_KEY in .env file\n');
+      console.error('\nError:', err.message);
+      if (err.name === 'CredentialsProviderError' || err.message?.includes('credential')) {
+        console.error('   Check AWS credentials in your .env file\n');
       }
     }
 

@@ -6,6 +6,7 @@ import { searchCodeDefinition, searchCode } from './tools/searchCode.js';
 import { writeFileDefinition, writeFile } from './tools/writeFile.js';
 import { runCommandDefinition, runCommand } from './tools/runCommand.js';
 import { showDiffDefinition, showDiff } from './tools/showDiff.js';
+import { gitBackupDefinition, gitBackup } from './tools/gitBackup.js';
 
 const client = new BedrockRuntimeClient({
   region: config.awsRegion,
@@ -15,7 +16,6 @@ const client = new BedrockRuntimeClient({
   },
 });
 
-// Convert Anthropic tool format → Bedrock Converse format
 function toBedrockTools(definitions) {
   return definitions.map((def) => ({
     toolSpec: {
@@ -26,31 +26,37 @@ function toBedrockTools(definitions) {
   }));
 }
 
-const toolDefinitions = [
-  listFilesDefinition,
-  readFileDefinition,
-  searchCodeDefinition,
-  writeFileDefinition,
-  runCommandDefinition,
-  showDiffDefinition,
-];
+// Full tool set — used as fallback when no scoped tools are passed.
+const DEFAULT_TOOLS = {
+  definitions: [
+    listFilesDefinition,
+    readFileDefinition,
+    searchCodeDefinition,
+    showDiffDefinition,
+    gitBackupDefinition,
+    writeFileDefinition,
+    runCommandDefinition,
+  ],
+  executors: {
+    list_files: listFiles,
+    read_file: readFile,
+    search_code: searchCode,
+    show_diff: showDiff,
+    git_backup: gitBackup,
+    write_file: writeFile,
+    run_command: runCommand,
+  },
+};
 
-const bedrockTools = toBedrockTools(toolDefinitions);
-
-async function executeTool(toolName, toolInput) {
-  switch (toolName) {
-    case 'list_files':    return listFiles(toolInput);
-    case 'read_file':     return readFile(toolInput);
-    case 'search_code':   return searchCode(toolInput);
-    case 'write_file':    return await writeFile(toolInput);
-    case 'run_command':   return runCommand(toolInput);
-    case 'show_diff':     return showDiff(toolInput);
-    default:
-      return {
-        error: `Unknown tool: ${toolName}`,
-        suggestion: 'Available tools: list_files, read_file, search_code, write_file, run_command',
-      };
+async function executeTool(toolName, toolInput, executors) {
+  const fn = executors[toolName];
+  if (!fn) {
+    return {
+      error: `Tool "${toolName}" is not available for this task type.`,
+      suggestion: `Available tools: ${Object.keys(executors).join(', ')}`,
+    };
   }
+  return fn(toolInput);
 }
 
 const SYSTEM_PROMPT = `You are an expert AI developer and tech team member working on the TIQ World project — an Intern Training & Assessment Platform built with the MERN stack.
@@ -82,16 +88,21 @@ Your job:
 - Find bugs and explain them clearly with file path and line number
 - Suggest improvements with concrete code examples
 - Review code quality, security, and best practices
-- Apply fixes using write_file (always shows diff + requires user approval before writing)
+- Apply fixes using write_file (always call git_backup first on existing files, then show_diff, then write_file)
 - Verify fixes using run_command (npm test, git status, etc.)
 
-Rules:
+Write rules:
+1. Call git_backup before any write_file on an existing file
+2. Call show_diff so the user can see what changes before writing
+3. Call write_file — it will ask for user approval before touching disk
+4. Call run_command("npm test") after a fix to verify it passes
+
+General rules:
 - Always reference specific file paths and line numbers
 - Be direct and practical — like a senior developer on the team
 - If you need to read a file before answering, use the tools
 - Never guess — if unsure, read the file first`;
 
-// Convert Anthropic-style messages → Bedrock Converse format
 function toBedrockMessages(messages) {
   return messages.map((msg) => {
     if (typeof msg.content === 'string') {
@@ -99,8 +110,8 @@ function toBedrockMessages(messages) {
     }
 
     const content = msg.content.map((block) => {
-      if (block.type === 'text')      return { text: block.text };
-      if (block.type === 'tool_use')  return { toolUse: { toolUseId: block.id, name: block.name, input: block.input } };
+      if (block.type === 'text')        return { text: block.text };
+      if (block.type === 'tool_use')    return { toolUse: { toolUseId: block.id, name: block.name, input: block.input } };
       if (block.type === 'tool_result') return { toolResult: { toolUseId: block.tool_use_id, content: [{ text: block.content }] } };
       return { text: JSON.stringify(block) };
     });
@@ -109,7 +120,12 @@ function toBedrockMessages(messages) {
   });
 }
 
-export async function runAgent(userQuestion, conversationHistory = []) {
+// tools param: { definitions, executors } — injected by dispatcher for scoped access.
+// Falls back to DEFAULT_TOOLS (full set) if not provided.
+export async function runAgent(userQuestion, conversationHistory = [], tools = null) {
+  const { definitions, executors } = tools || DEFAULT_TOOLS;
+  const bedrockTools = toBedrockTools(definitions);
+
   const messages = [
     ...conversationHistory,
     { role: 'user', content: userQuestion },
@@ -129,7 +145,6 @@ export async function runAgent(userQuestion, conversationHistory = []) {
     const stopReason = response.stopReason;
     const outputBlocks = response.output?.message?.content ?? [];
 
-    // Store assistant response in Anthropic format for history
     const assistantContent = outputBlocks.map((block) => {
       if (block.text)    return { type: 'text', text: block.text };
       if (block.toolUse) return { type: 'tool_use', id: block.toolUse.toolUseId, name: block.toolUse.name, input: block.toolUse.input };
@@ -158,7 +173,7 @@ export async function runAgent(userQuestion, conversationHistory = []) {
           console.log(`     → ${inputStr}`);
         }
 
-        const result = await executeTool(toolCall.name, toolCall.input);
+        const result = await executeTool(toolCall.name, toolCall.input, executors);
         toolResults.push({
           type: 'tool_result',
           tool_use_id: toolCall.id,
