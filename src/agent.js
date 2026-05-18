@@ -7,6 +7,9 @@ import { writeFileDefinition, writeFile } from './tools/writeFile.js';
 import { runCommandDefinition, runCommand } from './tools/runCommand.js';
 import { showDiffDefinition, showDiff } from './tools/showDiff.js';
 import { gitBackupDefinition, gitBackup } from './tools/gitBackup.js';
+import { traceErrorDefinition, traceError } from './tools/traceError.js';
+import { mapDependenciesDefinition, mapDependencies } from './tools/mapDependencies.js';
+import { explainRouteDefinition, explainRoute } from './tools/explainRoute.js';
 
 const client = new BedrockRuntimeClient({
   region: config.awsRegion,
@@ -36,6 +39,9 @@ const DEFAULT_TOOLS = {
     gitBackupDefinition,
     writeFileDefinition,
     runCommandDefinition,
+    traceErrorDefinition,
+    mapDependenciesDefinition,
+    explainRouteDefinition,
   ],
   executors: {
     list_files: listFiles,
@@ -45,6 +51,9 @@ const DEFAULT_TOOLS = {
     git_backup: gitBackup,
     write_file: writeFile,
     run_command: runCommand,
+    trace_error: traceError,
+    map_dependencies: mapDependencies,
+    explain_route: explainRoute,
   },
 };
 
@@ -90,6 +99,9 @@ Your job:
 - Review code quality, security, and best practices
 - Apply fixes using write_file (always call git_backup first on existing files, then show_diff, then write_file)
 - Verify fixes using run_command (npm test, git status, etc.)
+- Trace errors using trace_error (paste stack trace → auto-finds all relevant files)
+- Map import dependencies using map_dependencies (see what imports what, blast radius of changes)
+- Explain full request flow using explain_route (route path → router → middleware → controller → service)
 
 Write rules:
 1. Call git_backup before any write_file on an existing file

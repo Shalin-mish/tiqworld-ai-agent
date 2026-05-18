@@ -4,6 +4,57 @@
 
 ---
 
+## May 18, 2026
+
+### What was done today
+
+Built three new tools for Week 3 (code review mode + bug detection):
+
+**1. `trace_error` (`src/tools/traceError.js`)**
+Given a Node.js/Express error message or stack trace, this tool:
+- Parses the stack trace to extract file paths and line numbers
+- Reads those files automatically with context around the error line (8 lines before/after)
+- Extracts identifiers (controller names, route paths, function names) from the error text
+- Searches the codebase for those identifiers to find all related code
+- Returns everything structured so Claude can trace the full failure path without manual searching
+
+Why: Previously the agent could search for a keyword, but errors span multiple files. A real error tracer needs to follow the stack automatically, not wait for Claude to ask for each file one by one.
+
+**2. `map_dependencies` (`src/tools/mapDependencies.js`)**
+Builds an import dependency graph for a file or directory:
+- Outgoing: what does this file import (recursive, configurable depth 1-4)
+- Incoming: which files import this file (scans entire codebase)
+- Directory mode: full import map for all files in a folder (1-level, shows the whole wiring)
+
+Why: Before changing a shared file (middleware, utility, model), you need to know its blast radius — who will break if the interface changes. `incoming_importers` answers that instantly instead of grep-and-hope.
+
+**3. `explain_route` (`src/tools/explainRoute.js`)**
+Given an Express route path like `/api/auth/login`, traces the complete request pipeline:
+- Finds the route definition in routes files (auto-discovers, no path needed)
+- Finds where the router is registered in app.js/server.js
+- Extracts handler and middleware function names from the route definition
+- Finds where each handler function is actually defined (controller/service files)
+- Returns related middleware files (auth, validation, etc.)
+
+Why: The most common question on a MERN codebase is "how does this endpoint work end to end?" Previously that required reading 4-5 files manually. Now one tool call returns the entire pipeline.
+
+### Registration
+All three tools added to `src/agent.js`:
+- Imports added at top
+- Added to `toolDefinitions` array (now 9 tools total)
+- Added to `executeTool` switch
+- System prompt updated with tool descriptions
+
+### Tool count: 6 → 9
+`list_files`, `read_file`, `search_code`, `write_file`, `run_command`, `show_diff`, `trace_error`, `map_dependencies`, `explain_route`
+
+### What's next (remaining Week 3 work)
+- Test all three tools against the actual TIQ codebase to verify they find real results
+- Tune regex patterns if stack trace parsing misses edge cases
+- Week 4 starts May 22: session memory + web UI
+
+---
+
 ## May 11, 2026 
 
 ### What was done today
