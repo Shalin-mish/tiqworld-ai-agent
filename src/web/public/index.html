@@ -103,7 +103,7 @@
     }
     #sidebar.collapsed { width: 0; opacity: 0; pointer-events: none; }
 
-    .sidebar-section { padding: 14px 12px 6px; }
+    .sidebar-section { padding: 14px 12px 6px; overflow-y: auto; flex: 1; }
     .sidebar-title {
       font-size: 10px; font-weight: 700; text-transform: uppercase;
       letter-spacing: .08em; color: var(--text-dim); padding: 0 4px 8px;
@@ -122,9 +122,9 @@
     .tool-item .ti { font-size: 13px; flex-shrink: 0; }
     .tool-name { font-family: monospace; font-size: 11px; }
 
-    .sidebar-divider { height: 1px; background: var(--border); margin: 6px 12px; }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 6px 12px; flex-shrink: 0; }
 
-    .quick-actions { padding: 8px 12px 12px; }
+    .quick-actions { padding: 8px 12px 12px; flex-shrink: 0; }
     .qa-title { font-size: 10px; font-weight: 700; text-transform: uppercase;
       letter-spacing: .08em; color: var(--text-dim); padding: 0 4px 8px; }
     .qa-chip {
@@ -414,10 +414,10 @@
 
       <div class="tool-group">
         <div class="tool-group-label">✏️ Write</div>
-        <div class="tool-item"><span class="ti">💾</span><span class="tool-name">git_backup</span></div>
-        <div class="tool-item"><span class="ti">📝</span><span class="tool-name">show_diff</span></div>
-        <div class="tool-item"><span class="ti">✅</span><span class="tool-name">write_file</span></div>
-        <div class="tool-item"><span class="ti">⚡</span><span class="tool-name">run_command</span></div>
+        <div class="tool-item" data-q="Take a git backup before making changes"><span class="ti">💾</span><span class="tool-name">git_backup</span></div>
+        <div class="tool-item" data-q="Show diff of the fix you are about to apply"><span class="ti">📝</span><span class="tool-name">show_diff</span></div>
+        <div class="tool-item" data-q="Fix the bug in backend/src/controllers/authController.js"><span class="ti">✅</span><span class="tool-name">write_file</span></div>
+        <div class="tool-item" data-q="Run npm test in backend to verify the fix"><span class="ti">⚡</span><span class="tool-name">run_command</span></div>
       </div>
     </div>
 
@@ -590,7 +590,7 @@ function renderMarkdown(raw) {
       `<code id="${id}">${code.trim()}</code></pre>`;
   });
 
-  // Inline code (already html-escaped so use the escaped backtick)
+  // Inline code
   html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
 
   // Headers
@@ -608,7 +608,7 @@ function renderMarkdown(raw) {
   // Horizontal rule
   html = html.replace(/^---$/gm, '<hr>');
 
-  // Unordered lists — collect consecutive items
+  // Unordered lists
   html = html.replace(/((?:^[*\-] .+\n?)+)/gm, (block) => {
     const items = block.trim().split('\n')
       .map(l => `<li>${l.replace(/^[*\-] /, '')}</li>`).join('');
@@ -632,14 +632,10 @@ function renderMarkdown(raw) {
     return `<table><thead>${makeRow(head,'th')}</thead><tbody>${body.map(r=>makeRow(r,'td')).join('')}</tbody></table>`;
   });
 
-  // Paragraphs — wrap lines separated by blank lines
+  // Paragraphs
   html = html.replace(/\n{2,}/g, '</p><p>');
   html = `<p>${html}</p>`;
-
-  // Single newlines → br (inside paragraphs only — between block tags it's noise)
   html = html.replace(/(?<!>)\n(?!<)/g, '<br>');
-
-  // Clean up empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, '');
 
   return html;
@@ -737,10 +733,7 @@ async function send() {
     if (evt.type === 'tool_call') {
       const chip = document.createElement('span');
       chip.className = 'tool-chip';
-      // Show most useful input arg as suffix
-      const argVal = evt.input
-        ? Object.values(evt.input)[0] ?? ''
-        : '';
+      const argVal = evt.input ? Object.values(evt.input)[0] ?? '' : '';
       const argShort = String(argVal).slice(0, 30);
       chip.innerHTML = `<span class="tdot"></span><span class="tname">${escHtml(evt.name)}</span>${argShort ? `<span class="targ">: ${escHtml(argShort)}</span>` : ''}`;
       chips.push(chip);
