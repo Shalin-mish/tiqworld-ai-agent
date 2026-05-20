@@ -18,17 +18,21 @@ import { summarizeDiffDefinition,    summarizeDiff    } from './tools/summarizeD
 import { detectDeadCodeDefinition,   detectDeadCode   } from './tools/detectDeadCode.js';
 import { schemaToApiDefinition,      schemaToApi      } from './tools/schemaToApi.js';
 import { recallSessionDefinition,    recallSession    } from './tools/recallSession.js';
+import { gitLogDefinition,           gitLog           } from './tools/gitLog.js';
+import { healthCheckDefinition,      healthCheck      } from './tools/healthCheck.js';
+import { lintFileDefinition,         lintFile         } from './tools/lintFile.js';
+import { dbQueryDefinition,          dbQuery          } from './tools/dbQuery.js';
 
 const client = new BedrockRuntimeClient({
   region: config.awsRegion,
   credentials: {
-    accessKeyId: config.awsAccessKeyId,
+    accessKeyId:     config.awsAccessKeyId,
     secretAccessKey: config.awsSecretAccessKey,
   },
 });
 
 // ---------------------------------------------------------------------------
-// Tool registry — add new tools here; dispatcher spreads from this.
+// Tool registry — add new tools here; dispatcher filters from this.
 // ---------------------------------------------------------------------------
 
 export const ALL_TOOLS = {
@@ -47,7 +51,11 @@ export const ALL_TOOLS = {
     detectDeadCodeDefinition,
     schemaToApiDefinition,
     summarizeDiffDefinition,
-    // Write + verification (require approval/backup)
+    gitLogDefinition,
+    healthCheckDefinition,
+    lintFileDefinition,
+    dbQueryDefinition,
+    // Write + verification (require approval / backup)
     showDiffDefinition,
     gitBackupDefinition,
     writeFileDefinition,
@@ -66,12 +74,18 @@ export const ALL_TOOLS = {
     detect_dead_code: detectDeadCode,
     schema_to_api:    schemaToApi,
     summarize_diff:   summarizeDiff,
+    git_log:          gitLog,
+    health_check:     healthCheck,
+    lint_file:        lintFile,
+    db_query:         dbQuery,
     show_diff:        showDiff,
     git_backup:       gitBackup,
     write_file:       writeFile,
     run_command:      runCommand,
   },
 };
+
+export const TOOL_COUNT = ALL_TOOLS.definitions.length;
 
 // ---------------------------------------------------------------------------
 // Bedrock helpers
@@ -80,7 +94,7 @@ export const ALL_TOOLS = {
 function toBedrockTools(definitions) {
   return definitions.map((def) => ({
     toolSpec: {
-      name: def.name,
+      name:        def.name,
       description: def.description,
       inputSchema: { json: def.input_schema },
     },
@@ -95,7 +109,7 @@ function toBedrockMessages(messages) {
 
     const content = msg.content.map((block) => {
       if (block.type === 'text')        return { text: block.text };
-      if (block.type === 'tool_use')    return { toolUse: { toolUseId: block.id,        name: block.name,  input: block.input } };
+      if (block.type === 'tool_use')    return { toolUse: { toolUseId: block.id, name: block.name, input: block.input } };
       if (block.type === 'tool_result') return { toolResult: { toolUseId: block.tool_use_id, content: [{ text: block.content }] } };
       return { text: JSON.stringify(block) };
     });
@@ -127,40 +141,42 @@ const SYSTEM_PROMPT = `You are an expert AI developer embedded in the TIQ World 
 ## Features already built
 JWT auth with RBAC (ADMIN / INTERN) · Training Tracks → Modules → Tasks hierarchy · Intern submissions (GitHub URL + notes) · AI roadmap generation · AI assessment (score 1-5, feedback) · Certificate issuance
 
-## Tools available to you
+## Tools available (20 total)
 ### Exploration
-- list_files        — directory tree
-- read_file         — file content + auto-import resolution (depth 2)
-- search_code       — keyword search across codebase
-- recall_session    — what you already read/changed this session (check before re-reading)
+- list_files       — directory tree
+- read_file        — file + auto-import resolution (depth 2)
+- search_code      — keyword search across codebase
+- recall_session   — what you already read/changed this session
 
 ### Analysis (read-only, safe anytime)
-- trace_error       — paste stack trace → auto-reads all involved files
-- map_dependencies  — outgoing/incoming import graph for a file or directory
-- explain_route     — route path → router → middleware → controller → service
-- find_todos        — scan for TODO/FIXME/HACK/DEPRECATED/BUG with severity
-- check_env_usage   — diff .env.example vs process.env usage in code
-- detect_dead_code  — find files with zero importers (orphaned code)
-- schema_to_api     — check CRUD completeness for a Mongoose model
-- summarize_diff    — git diff output for staged/unstaged/branch changes
+- health_check     — full codebase snapshot: file counts, todos, env gaps, git status
+- trace_error      — stack trace → auto-reads all involved files
+- map_dependencies — outgoing/incoming import graph
+- explain_route    — route path → router → middleware → controller → service
+- find_todos       — TODO/FIXME/HACK/BUG scan with severity
+- check_env_usage  — .env.example vs process.env diff
+- detect_dead_code — files with zero importers
+- schema_to_api    — CRUD completeness for a Mongoose model
+- summarize_diff   — git diff (staged/unstaged/branch)
+- git_log          — commit history with file/date filters
+- lint_file        — ESLint structured results for a file or directory
+- db_query         — read-only SQL against TIQ World dev PostgreSQL (SSM tunnel on localhost:5433)
 
-### Write + verification (always follow the sequence below)
-- git_backup        — create a timestamped backup branch BEFORE any write
-- show_diff         — show what will change BEFORE writing
-- write_file        — apply change (prompts user for approval at runtime)
-- run_command       — verify fix (npm test, git status, etc.)
-
-## Mandatory write sequence
-1. git_backup   — never skip, even for small changes
-2. show_diff    — user must see the change before it lands
-3. write_file   — has built-in approval gate
-4. run_command("npm test") — confirm nothing broke
+### Write + verification (always follow this sequence)
+- git_backup → show_diff → write_file → run_command
 
 ## Rules
-- Check recall_session before re-reading a file you likely already read this turn.
+- Run health_check first when starting a review session.
+- Check recall_session before re-reading a file already visited this turn.
 - Always cite file path and line number when discussing code.
-- Never guess — if unsure, read the file first.
-- Be direct and practical, like a senior dev on the team.`;
+- Never guess — read the file first.
+- db_query requires SSM tunnel running on localhost:5433.`;
+
+// cachePoint after the system prompt text tells Bedrock to cache this across turns.
+// Saves ~60% token cost on long sessions. Opt-in via ENABLE_PROMPT_CACHE=true in .env.
+const SYSTEM_BLOCKS = config.enablePromptCache
+  ? [{ text: SYSTEM_PROMPT }, { cachePoint: { type: 'default' } }]
+  : [{ text: SYSTEM_PROMPT }];
 
 // ---------------------------------------------------------------------------
 // Agent loop
@@ -170,23 +186,22 @@ async function executeTool(name, input, executors) {
   const fn = executors[name];
   if (!fn) {
     return {
-      error: `Tool "${name}" is not available for this task type.`,
+      error:      `Tool "${name}" is not available for this task type.`,
       suggestion: `Available: ${Object.keys(executors).join(', ')}`,
     };
   }
-  const result = await fn(input);
-
-  // Record in session log — store a lightweight summary, not the full result.
+  const result  = await fn(input);
   const summary = result?.error
     ? `error: ${result.error}`
     : result?.file_path ?? result?.keyword ?? result?.total ?? result?.message ?? 'ok';
   recordToolCall(name, input, String(summary));
-
   return result;
 }
 
-// tools: { definitions, executors } — injected by dispatcher for scoped access.
-export async function runAgent(userQuestion, conversationHistory = [], tools = null) {
+// onEvent: optional callback for streaming tool-use events to external consumers (web UI).
+// Called with: { type: 'tool_call', name: string, input: object }
+// CLI ignores it; web server uses it to push SSE events to the browser.
+export async function runAgent(userQuestion, conversationHistory = [], tools = null, onEvent = null) {
   const { definitions, executors } = tools ?? ALL_TOOLS;
   const bedrockTools = toBedrockTools(definitions);
 
@@ -199,15 +214,15 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
 
   while (true) {
     const response = await client.send(new ConverseCommand({
-      modelId: config.model,
-      system: [{ text: SYSTEM_PROMPT }],
-      messages: toBedrockMessages(messages),
-      toolConfig: { tools: bedrockTools },
+      modelId:         config.model,
+      system:          SYSTEM_BLOCKS,
+      messages:        toBedrockMessages(messages),
+      toolConfig:      { tools: bedrockTools },
       inferenceConfig: { maxTokens: config.maxTokens },
     }));
 
-    const stopReason    = response.stopReason;
-    const outputBlocks  = response.output?.message?.content ?? [];
+    const stopReason   = response.stopReason;
+    const outputBlocks = response.output?.message?.content ?? [];
 
     const assistantContent = outputBlocks.map((block) => {
       if (block.text)    return { type: 'text',     text: block.text };
@@ -222,7 +237,7 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
     }
 
     if (stopReason === 'tool_use') {
-      const toolCalls = assistantContent.filter((b) => b.type === 'tool_use');
+      const toolCalls  = assistantContent.filter((b) => b.type === 'tool_use');
       const toolResults = [];
 
       for (const call of toolCalls) {
@@ -232,11 +247,13 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
           console.log(`    ${args}`);
         }
 
+        onEvent?.({ type: 'tool_call', name: call.name, input: call.input });
+
         const result = await executeTool(call.name, call.input, executors);
         toolResults.push({
-          type: 'tool_result',
+          type:        'tool_result',
           tool_use_id: call.id,
-          content: JSON.stringify(result),
+          content:     JSON.stringify(result),
         });
       }
 
