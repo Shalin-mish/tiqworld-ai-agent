@@ -160,7 +160,7 @@ JWT auth with RBAC (ADMIN / INTERN) · Training Tracks → Modules → Tasks hie
 - summarize_diff   — git diff (staged/unstaged/branch)
 - git_log          — commit history with file/date filters
 - lint_file        — ESLint structured results for a file or directory
-- db_query         — read-only SQL against TIQ World dev PostgreSQL (SSM tunnel on localhost:5433)
+- db_query         — read-only SQL for dev purposes: check schema, verify migrations, inspect table structure (NOT for business analytics — SSM tunnel on localhost:5433)
 
 ### Write + verification (always follow this sequence)
 - git_backup → show_diff → write_file → run_command
@@ -170,6 +170,7 @@ JWT auth with RBAC (ADMIN / INTERN) · Training Tracks → Modules → Tasks hie
 - Check recall_session before re-reading a file already visited this turn.
 - Always cite file path and line number when discussing code.
 - Never guess — read the file first.
+- db_query is for developer tasks only: checking if a table exists, verifying column names, inspecting schema after migrations. Do NOT use it to answer business or analytics questions (e.g. "how many users", "which interns passed"). Those are not codebase questions.
 - db_query requires SSM tunnel running on localhost:5433.`;
 
 // cachePoint after the system prompt text tells Bedrock to cache this across turns.

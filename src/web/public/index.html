@@ -409,7 +409,7 @@
         <div class="tool-item" data-q="Show git diff for staged changes"><span class="ti">📊</span><span class="tool-name">summarize_diff</span></div>
         <div class="tool-item" data-q="Show the last 10 git commits"><span class="ti">📜</span><span class="tool-name">git_log</span></div>
         <div class="tool-item" data-q="Lint file backend/src/controllers"><span class="ti">🧹</span><span class="tool-name">lint_file</span></div>
-        <div class="tool-item" data-q="How many interns are enrolled in tracks?"><span class="ti">🗄️</span><span class="tool-name">db_query</span></div>
+        <div class="tool-item" data-q="Check if the certificates table exists in the database"><span class="ti">🗄️</span><span class="tool-name">db_query</span></div>
       </div>
 
       <div class="tool-group">
@@ -437,9 +437,9 @@
         <strong>📋 Schema → API</strong>
         <span class="eg-desc">Missing routes for Track</span>
       </button>
-      <button class="qa-chip" data-q="How many interns are enrolled in each track?">
-        <strong>🗄️ DB Query</strong>
-        <span class="eg-desc">Intern enrollment data</span>
+      <button class="qa-chip" data-q="Check if the certificates table exists in the database">
+        <strong>🗄️ DB Check</strong>
+        <span class="eg-desc">Verify schema / migrations</span>
       </button>
     </div>
   </nav>
@@ -450,7 +450,7 @@
       <div class="empty-state" id="empty-state">
         <div class="empty-icon">🤖</div>
         <h2>TIQ World AI Agent</h2>
-        <p>Your AI-powered teammate for the TIQ codebase. Ask questions, trace errors, review code, or query the database.</p>
+        <p>Your AI-powered teammate for the TIQ codebase. Ask questions, trace errors, review code, or inspect the database schema.</p>
         <div class="example-grid">
           <button class="eg-chip" data-q="Run a health check on the codebase">
             <span class="eg-icon">💊</span>
@@ -467,10 +467,10 @@
             <span class="eg-label">Find Tech Debt</span>
             <span class="eg-desc">TODOs, FIXMEs with severity</span>
           </button>
-          <button class="eg-chip" data-q="How many interns are enrolled in each track?">
+          <button class="eg-chip" data-q="Check if the certificates table exists in the database">
             <span class="eg-icon">🗄️</span>
-            <span class="eg-label">Query the DB</span>
-            <span class="eg-desc">Ask about intern/track data</span>
+            <span class="eg-label">DB Schema Check</span>
+            <span class="eg-desc">Verify tables after migration</span>
           </button>
           <button class="eg-chip" data-q="Detect dead code in backend/src/utils">
             <span class="eg-icon">🪦</span>
