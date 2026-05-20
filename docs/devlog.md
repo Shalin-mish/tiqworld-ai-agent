@@ -4,6 +4,42 @@
 
 ---
 
+## May 20, 2026
+
+### What was done today
+
+Found and fixed a wiring bug in `src/dispatcher.js` that made all three Week 3 tools silently unreachable.
+
+**The bug:**
+`trace_error`, `map_dependencies`, and `explain_route` were registered in `DEFAULT_TOOLS` inside `agent.js` — but every real code path goes through the dispatcher, which returns a scoped tool set per task type. None of the four task types (query / review / maintenance / feature) included the Week 3 tools. So if a user typed "explain route /api/auth/login", the dispatcher classified it as `query` and returned only `list_files`, `read_file`, `search_code`. The `explain_route` tool was simply never passed to Claude — it couldn't call it even if it wanted to.
+
+**The fix (`src/dispatcher.js`):**
+- Added imports for all three Week 3 tools at the top of dispatcher.js
+- Extracted a shared `ANALYSIS_TOOLS` constant (definitions + executors) so the three tools don't have to be duplicated in every task type
+- Spread `ANALYSIS_TOOLS` into all four task type tool sets — query, review, maintenance, feature
+- All three tools are read-only analysis (they only read files and search code), so giving them to every task type is safe
+- Also added `trace`, `map`, `route` as query classifier keywords so "trace this error" and "explain this route" route to the correct task type
+
+**Why this bug existed:**
+When I built the dispatcher (Week 2), it only had the original 6 tools. When I added Week 3 tools (May 18), I wired them into `agent.js`'s `DEFAULT_TOOLS` — which is only used when no `tools` param is passed to `runAgent`. The dispatcher always passes a scoped `tools` param, so `DEFAULT_TOOLS` is essentially dead code in normal operation. The tools were never unreachable in testing because the direct `runAgent` call (without dispatcher) uses `DEFAULT_TOOLS`. The bug only shows up in the real interactive path that goes through `index.js → dispatcher → runAgent`.
+
+### Week 3 close
+
+Week 3 goal was: code review mode + bug detection. What shipped:
+- `trace_error` — paste stack trace, auto-reads all relevant files with context
+- `map_dependencies` — outgoing/incoming import graph, blast radius before changes
+- `explain_route` — full Express pipeline from route path to controller to service
+- Dispatcher registry pattern (refactor from if-elif)
+- `git_backup` tool + dispatcher integration (May 17)
+- **Today:** dispatcher wiring fix — Week 3 tools now actually reachable in all task types
+
+### What's next (Week 4: May 22–31)
+- Session memory — remember what was read/changed within a conversation turn
+- Web UI — move from CLI to a browser interface
+- Final system prompt tuning based on real usage
+
+---
+
 ## May 18, 2026
 
 ### What was done today
@@ -184,8 +220,6 @@ Also fixed a bug in get_file_summary(): it was counting .git internal objects as
 
 **agent.py:**
 Used argparse for the CLI — gives `--help` output automatically and makes each mode independently callable. Interactive mode is a simple while loop, no complex state. Four modes: `--review`, `--ask`, `--health-check`, default interactive.
-
-Used `rich` for terminal output — renders markdown, adds color, wraps in panels. This matters because Claude's review output is in markdown and without rendering it's a wall of symbols.
 
 **tools.py:**
 Four functions: read_file, list_files, get_file_summary, search_codebase. Search is simple string matching — not regex, not fuzzy. Most real queries are literal strings. Regex support can be added later if needed, but adding it now is premature.
