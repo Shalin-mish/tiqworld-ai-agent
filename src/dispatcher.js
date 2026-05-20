@@ -5,6 +5,9 @@ import { writeFileDefinition, writeFile } from './tools/writeFile.js';
 import { runCommandDefinition, runCommand } from './tools/runCommand.js';
 import { showDiffDefinition, showDiff } from './tools/showDiff.js';
 import { gitBackupDefinition, gitBackup } from './tools/gitBackup.js';
+import { traceErrorDefinition, traceError } from './tools/traceError.js';
+import { mapDependenciesDefinition, mapDependencies } from './tools/mapDependencies.js';
+import { explainRouteDefinition, explainRoute } from './tools/explainRoute.js';
 
 // Classification keyword patterns — evaluated in order, first match wins.
 const PATTERNS = [
@@ -22,7 +25,7 @@ const PATTERNS = [
   },
   {
     type: 'query',
-    pattern: /\b(why|explain|what does|how does|describe|what is|where is|show me|walk me|tell me)\b/i,
+    pattern: /\b(why|explain|what does|how does|describe|what is|where is|show me|walk me|tell me|trace|map|route)\b/i,
   },
 ];
 
@@ -33,23 +36,46 @@ export function classify(input) {
   return 'query'; // safe read-only default for anything unrecognised
 }
 
+// Read-only analysis tools shared across all task types.
+const ANALYSIS_TOOLS = {
+  definitions: [traceErrorDefinition, mapDependenciesDefinition, explainRouteDefinition],
+  executors: {
+    trace_error: traceError,
+    map_dependencies: mapDependencies,
+    explain_route: explainRoute,
+  },
+};
+
 // Tool sets per task type — enforces write access only where needed.
 const TOOL_SETS = {
   query: {
-    definitions: [listFilesDefinition, readFileDefinition, searchCodeDefinition],
+    definitions: [
+      listFilesDefinition,
+      readFileDefinition,
+      searchCodeDefinition,
+      ...ANALYSIS_TOOLS.definitions,
+    ],
     executors: {
       list_files: listFiles,
       read_file: readFile,
       search_code: searchCode,
+      ...ANALYSIS_TOOLS.executors,
     },
   },
   review: {
-    definitions: [listFilesDefinition, readFileDefinition, searchCodeDefinition, showDiffDefinition],
+    definitions: [
+      listFilesDefinition,
+      readFileDefinition,
+      searchCodeDefinition,
+      showDiffDefinition,
+      ...ANALYSIS_TOOLS.definitions,
+    ],
     executors: {
       list_files: listFiles,
       read_file: readFile,
       search_code: searchCode,
       show_diff: showDiff,
+      ...ANALYSIS_TOOLS.executors,
     },
   },
   maintenance: {
@@ -61,6 +87,7 @@ const TOOL_SETS = {
       gitBackupDefinition,
       writeFileDefinition,
       runCommandDefinition,
+      ...ANALYSIS_TOOLS.definitions,
     ],
     executors: {
       list_files: listFiles,
@@ -70,6 +97,7 @@ const TOOL_SETS = {
       git_backup: gitBackup,
       write_file: writeFile,
       run_command: runCommand,
+      ...ANALYSIS_TOOLS.executors,
     },
   },
   feature: {
@@ -81,6 +109,7 @@ const TOOL_SETS = {
       gitBackupDefinition,
       writeFileDefinition,
       runCommandDefinition,
+      ...ANALYSIS_TOOLS.definitions,
     ],
     executors: {
       list_files: listFiles,
@@ -90,6 +119,7 @@ const TOOL_SETS = {
       git_backup: gitBackup,
       write_file: writeFile,
       run_command: runCommand,
+      ...ANALYSIS_TOOLS.executors,
     },
   },
 };
