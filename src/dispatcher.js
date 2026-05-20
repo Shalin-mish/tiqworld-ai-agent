@@ -1,127 +1,52 @@
-import { listFilesDefinition, listFiles } from './tools/listFiles.js';
-import { readFileDefinition, readFile } from './tools/readFile.js';
-import { searchCodeDefinition, searchCode } from './tools/searchCode.js';
-import { writeFileDefinition, writeFile } from './tools/writeFile.js';
-import { runCommandDefinition, runCommand } from './tools/runCommand.js';
-import { showDiffDefinition, showDiff } from './tools/showDiff.js';
-import { gitBackupDefinition, gitBackup } from './tools/gitBackup.js';
-import { traceErrorDefinition, traceError } from './tools/traceError.js';
-import { mapDependenciesDefinition, mapDependencies } from './tools/mapDependencies.js';
-import { explainRouteDefinition, explainRoute } from './tools/explainRoute.js';
+import { ALL_TOOLS } from './agent.js';
 
-// Classification keyword patterns — evaluated in order, first match wins.
+// ---------------------------------------------------------------------------
+// Classification
+// ---------------------------------------------------------------------------
+
 const PATTERNS = [
-  {
-    type: 'review',
-    pattern: /\b(review|audit|check quality|inspect|analyze|code smell|security check)\b/i,
-  },
-  {
-    type: 'maintenance',
-    pattern: /\b(fix|bug|revert|update dependency|refactor|clean up|rename|remove|delete|patch|migrate|deprecat)\b/i,
-  },
-  {
-    type: 'feature',
-    pattern: /\b(add|create|build|implement|new route|new component|new endpoint|new page|new feature|scaffold)\b/i,
-  },
-  {
-    type: 'query',
-    pattern: /\b(why|explain|what does|how does|describe|what is|where is|show me|walk me|tell me|trace|map|route)\b/i,
-  },
+  { type: 'review',      re: /\b(review|audit|check quality|inspect|analyze|code smell|security check|find todos|dead code|env usage|schema gap)\b/i },
+  { type: 'maintenance', re: /\b(fix|bug|revert|update dependency|refactor|clean up|rename|remove|delete|patch|migrate|deprecat)\b/i },
+  { type: 'feature',     re: /\b(add|create|build|implement|new route|new component|new endpoint|new page|new feature|scaffold)\b/i },
+  { type: 'query',       re: /\b(why|explain|what does|how does|describe|what is|where is|show me|walk me|tell me|trace|map|route|diff|todo)\b/i },
 ];
 
 export function classify(input) {
-  for (const { type, pattern } of PATTERNS) {
-    if (pattern.test(input)) return type;
+  for (const { type, re } of PATTERNS) {
+    if (re.test(input)) return type;
   }
-  return 'query'; // safe read-only default for anything unrecognised
+  return 'query';
 }
 
-// Read-only analysis tools shared across all task types.
-const ANALYSIS_TOOLS = {
-  definitions: [traceErrorDefinition, mapDependenciesDefinition, explainRouteDefinition],
-  executors: {
-    trace_error: traceError,
-    map_dependencies: mapDependencies,
-    explain_route: explainRoute,
-  },
-};
+// ---------------------------------------------------------------------------
+// Tool scopes — pick subsets of ALL_TOOLS by name.
+// Keeps dispatcher lean: just an allowlist, no repeated imports.
+// ---------------------------------------------------------------------------
 
-// Tool sets per task type — enforces write access only where needed.
+const READ_ONLY = new Set([
+  'list_files', 'read_file', 'search_code', 'recall_session',
+  'trace_error', 'map_dependencies', 'explain_route',
+  'find_todos', 'check_env_usage', 'detect_dead_code', 'schema_to_api', 'summarize_diff',
+]);
+
+const REVIEW_EXTRA = new Set([...READ_ONLY, 'show_diff']);
+
+const WRITE = new Set([...REVIEW_EXTRA, 'git_backup', 'write_file', 'run_command']);
+
+function scopeTools(allowedNames) {
+  return {
+    definitions: ALL_TOOLS.definitions.filter(d => allowedNames.has(d.name)),
+    executors:   Object.fromEntries(
+      Object.entries(ALL_TOOLS.executors).filter(([k]) => allowedNames.has(k))
+    ),
+  };
+}
+
 const TOOL_SETS = {
-  query: {
-    definitions: [
-      listFilesDefinition,
-      readFileDefinition,
-      searchCodeDefinition,
-      ...ANALYSIS_TOOLS.definitions,
-    ],
-    executors: {
-      list_files: listFiles,
-      read_file: readFile,
-      search_code: searchCode,
-      ...ANALYSIS_TOOLS.executors,
-    },
-  },
-  review: {
-    definitions: [
-      listFilesDefinition,
-      readFileDefinition,
-      searchCodeDefinition,
-      showDiffDefinition,
-      ...ANALYSIS_TOOLS.definitions,
-    ],
-    executors: {
-      list_files: listFiles,
-      read_file: readFile,
-      search_code: searchCode,
-      show_diff: showDiff,
-      ...ANALYSIS_TOOLS.executors,
-    },
-  },
-  maintenance: {
-    definitions: [
-      listFilesDefinition,
-      readFileDefinition,
-      searchCodeDefinition,
-      showDiffDefinition,
-      gitBackupDefinition,
-      writeFileDefinition,
-      runCommandDefinition,
-      ...ANALYSIS_TOOLS.definitions,
-    ],
-    executors: {
-      list_files: listFiles,
-      read_file: readFile,
-      search_code: searchCode,
-      show_diff: showDiff,
-      git_backup: gitBackup,
-      write_file: writeFile,
-      run_command: runCommand,
-      ...ANALYSIS_TOOLS.executors,
-    },
-  },
-  feature: {
-    definitions: [
-      listFilesDefinition,
-      readFileDefinition,
-      searchCodeDefinition,
-      showDiffDefinition,
-      gitBackupDefinition,
-      writeFileDefinition,
-      runCommandDefinition,
-      ...ANALYSIS_TOOLS.definitions,
-    ],
-    executors: {
-      list_files: listFiles,
-      read_file: readFile,
-      search_code: searchCode,
-      show_diff: showDiff,
-      git_backup: gitBackup,
-      write_file: writeFile,
-      run_command: runCommand,
-      ...ANALYSIS_TOOLS.executors,
-    },
-  },
+  query:       scopeTools(READ_ONLY),
+  review:      scopeTools(REVIEW_EXTRA),
+  maintenance: scopeTools(WRITE),
+  feature:     scopeTools(WRITE),
 };
 
 export function getTools(taskType) {
@@ -129,8 +54,8 @@ export function getTools(taskType) {
 }
 
 export const TASK_LABELS = {
-  query: 'Query',
+  query:       'Query',
   maintenance: 'Maintenance',
-  feature: 'Feature',
-  review: 'Review',
+  feature:     'Feature',
+  review:      'Review',
 };
