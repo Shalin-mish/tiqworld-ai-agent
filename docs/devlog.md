@@ -4,216 +4,183 @@
 
 ---
 
-## May 20, 2026
+## May 20, 2026 — Week 4 (full plan)
 
-### Part 1 — Dispatcher bug fix (morning)
+### Overview
 
-Found and fixed a silent wiring bug: `trace_error`, `map_dependencies`, `explain_route` (all built May 18) were in `DEFAULT_TOOLS` inside agent.js, but every real code path goes through the dispatcher which returns a scoped tool set. None of the four task types included Week 3 tools. Fixed by adding them to all scopes and extracting a shared `ANALYSIS_TOOLS` constant.
-
----
-
-### Part 2 — 7 new tools + architecture refactor (afternoon)
-
-Major expansion of the agent. Tool count: 9 → 16.
-
-#### New file: `src/utils/fs.js`
-Extracted a shared filesystem utility module — `getAllFiles`, `toRel`, `readSafe`, `SKIP_DIRS`, `CODE_EXTS`, `CONTENT_EXTS`. Before this, every tool had its own copy of the directory-walking logic with slightly different skip lists and extension filters. That's the kind of silent divergence that causes bugs — one tool scans `.json` files, another doesn't; one skips `.cache`, another doesn't.
-
-The shared util is the single source of truth. Adding a new directory to skip (e.g. `.turbo`) happens in one place and instantly applies to all tools.
-
-#### New tool: `find_todos` (`src/tools/findTodos.js`)
-Scans the entire codebase for `TODO`, `FIXME`, `HACK`, `DEPRECATED`, `BUG`, `OPTIMIZE`, `XXX`, `NOTE` comments. Groups results by file with line numbers. Each hit has a severity level: `critical` (FIXME/BUG), `warning` (HACK/DEPRECATED), `info` (TODO/OPTIMIZE). Also accepts a `tags` filter so you can ask for only FIXME items.
-
-Why: Technical debt is invisible until someone asks "what's broken or half-done?" This tool makes it answerable in one question. It's also a good thing to show a lead — it proves the agent can surface real, actionable information from the codebase, not just answer abstract questions.
-
-#### New tool: `check_env_usage` (`src/tools/checkEnvUsage.js`)
-Compares `.env.example` with actual `process.env.X` calls in code. Returns two lists:
-- `missing_from_example` — keys used in code but not documented (onboarding hazard — new devs won't know to set them)
-- `documented_but_unused` — keys in `.env.example` with no corresponding code usage (dead config)
-
-Why: This is a real problem on any growing project. Env vars get added in a rush, the example file doesn't get updated, someone clones the repo and the server fails with a cryptic `undefined` error. One tool call catches this category of problem permanently.
-
-#### New tool: `summarize_diff` (`src/tools/summarizeDiff.js`)
-Runs `git diff` in three modes — staged, unstaged, or all commits ahead of a base branch — and returns the output. Used by Claude when writing commit messages or PR descriptions so the summary is grounded in actual changed lines, not memory.
-
-Why: Without this, if you ask "write me a commit message", Claude has to guess from context. With this, it reads the actual diff and writes an accurate message. The `branch` mode (all commits since main) is specifically for PR description generation.
-
-#### New tool: `detect_dead_code` (`src/tools/detectDeadCode.js`)
-Builds a reverse import map of the entire codebase — which files are imported by which other files. Any file with zero importers is flagged as potentially dead. Entry-point files (index/main/server/app/cli/seed) are excluded since they're expected to have no importers.
-
-Why: Codebases accumulate orphaned files over time — a utility that got refactored away, a component that was replaced, a helper that nobody deleted. This surfaces them so you can decide whether to delete or re-wire them.
-
-#### New tool: `schema_to_api` (`src/tools/schemaToApi.js`)
-Given a Mongoose model name (e.g. "Track"), checks which standard CRUD operations are implemented — GET list, GET by ID, POST create, PUT update, DELETE. Scans all route and controller files for verb patterns matching the model name. Returns `found` / `missing` status for each operation.
-
-Why: TIQ has a consistent pattern for entities. When adding a new model, the question is always "what routes do I still need to write?" This tool answers that in one call instead of manually grepping for each verb. It also catches gaps in existing models — maybe GET by ID exists but DELETE was never implemented.
-
-#### New tool: `recall_session` (`src/tools/recallSession.js`) + `src/session.js`
-Two-part feature:
-- `session.js` — a lightweight in-memory log that records every tool call (name, input, result summary, timestamp) for the current process lifetime
-- `recall_session` tool — Claude can call this to see what it already read or changed this session before deciding to call `read_file` again
-
-Why: Without this, if Claude reads `auth.controller.js` at the start of a multi-turn conversation and you ask a follow-up question later, it either re-reads the file (wastes a tool call and tokens) or guesses from memory (may hallucinate stale details). `recall_session` gives it accurate, cheap access to session history. It's the difference between a developer who takes notes and one who doesn't.
+Completed the entire Week 4 plan in one session. Tool count went from 16 → 20. Added the Web UI (Express + SSE + single-file HTML frontend), Bedrock prompt caching, and four new tools.
 
 ---
 
-### Architecture improvements
+### New tools
 
-**`agent.js` — `ALL_TOOLS` registry**
-Replaced `DEFAULT_TOOLS` with a properly named `ALL_TOOLS` export. All 16 tools are registered here in one place, organized by category (exploration / analysis / write+verify). The dispatcher and index.js import from this registry instead of maintaining their own import lists.
+#### `git_log` (`src/tools/gitLog.js`)
+Returns recent git commit history — short hash, author, date, message. Accepts a `count` param (max 50), a `file_path` to scope to commits that touched a specific file, and a `since` date filter. Used by Claude when writing commit messages or auditing what changed recently.
 
-**`dispatcher.js` — allowlist-based scoping**
-The old dispatcher duplicated every tool import and manually built four identical-looking tool sets. The new version uses three named allowlist Sets (`READ_ONLY`, `REVIEW_EXTRA`, `WRITE`) and a single `scopeTools()` function that filters `ALL_TOOLS` by name. Adding a new tool now requires only one line in `ALL_TOOLS` and one line in the relevant allowlist — the dispatcher gets it automatically.
+Why: "What changed in the last week?" and "who last touched this file?" are real daily questions on a dev team. `git_log` answers both in one tool call instead of the agent having to run `run_command("git log ...")` and parse the raw output.
 
-Before: adding a new read-only tool required edits in 5 places (agent.js imports, DEFAULT_TOOLS definitions, DEFAULT_TOOLS executors, dispatcher imports, dispatcher all four task sets).
-After: 2 places (ALL_TOOLS definitions, ALL_TOOLS executors).
+#### `health_check` (`src/tools/healthCheck.js`)
+One-call codebase snapshot: total file count by extension, TODO/FIXME severity totals, uncommitted git files, env var gaps (missing from .env.example or documented-but-unused), and whether key config files exist. Takes no arguments.
 
-**`index.js` — CLI improvements**
-- `help` command added — shows task types, tool count, and example queries
-- Tool count displayed in banner (auto-updates when tools are added)
-- `clear` now reports how many tool calls were in the session before resetting
-- Better error messages for rate limiting vs credential errors
+Why: The ideal first thing to run at the start of any review session. Instead of the agent calling five different tools to get oriented, health_check gives the full picture in one call. It was designed to be the "opening move" — like a doctor doing a general exam before ordering specific tests.
+
+#### `lint_file` (`src/tools/lintFile.js`)
+Runs ESLint on a file or directory and returns structured output — errors and warnings grouped by file, each with line number, column, rule ID, and message. Auto-detects whether to use the backend or frontend ESLint binary based on the file path.
+
+Why: Code review without linting is incomplete. Previously, the agent could read a file and describe issues based on what it saw, but it couldn't run the actual linter. Now it can run lint before suggesting a refactor and after applying a fix — closing the loop. The structured JSON output (not raw ESLint text) makes it easy for Claude to cite specific line numbers.
+
+#### `db_query` (`src/tools/dbQuery.js`)
+Read-only SQL SELECT queries against the TIQ World dev PostgreSQL database via SSM tunnel on localhost:5433. Enforces read-only at the session level (`SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY`) and blocks INSERT/UPDATE/DELETE/DROP and all other write keywords before the query even reaches the DB. Returns up to 100 rows with column names.
+
+Why: This is the feature that makes TIQ's agent genuinely different from generic AI coding tools. No off-the-shelf tool knows how many interns are enrolled in which tracks, or which submissions got an AI score of 5, or which certificates were issued this month. This tool makes that data directly queryable from the agent. The SSM tunnel is already part of the TIQ dev setup, so the infrastructure is already there — this tool just wires into it.
 
 ---
 
-### Tool count progression
-| Week | Tools | New additions |
-|------|-------|---------------|
-| 1    | 3     | list_files, read_file, search_code |
-| 2    | 6     | write_file, run_command, show_diff |
-| 3    | 9     | trace_error, map_dependencies, explain_route |
-| 3 (late) | 10 | git_backup + dispatcher registry |
-| Today | 16  | find_todos, check_env_usage, summarize_diff, detect_dead_code, schema_to_api, recall_session + shared fs utils + architecture refactor |
+### Web UI (`src/web/`)
 
-### What's next (Week 4: May 22–31)
-- Web UI — Express server + React frontend, move out of CLI
-- `db_query` tool — natural language → SQL via postgres MCP tunnel
-- Session memory persistence across process restarts (optional — low priority vs web UI)
+**`src/web/server.js`** — Express server with three endpoints:
+- `GET /api/status` — health ping, returns tool count + model name
+- `POST /api/clear` — reset a session's conversation history and session log
+- `GET /api/chat` — SSE endpoint that streams the agent's tool call events and final answer to the browser in real time
+
+The chat endpoint uses Server-Sent Events (SSE) rather than WebSockets. SSE is simpler (standard HTTP, works through proxies, no upgrade handshake), and one-directional streaming from server to client is all we need — the user sends a message via query param, the server streams back events until `[DONE]`.
+
+Conversation state is stored in a `Map` keyed by `sessionId` (a UUID generated by the browser on load). Each session has `history` (last 20 messages, same trimming as the CLI) and `taskType` (locked on the first message of each session, same as the CLI).
+
+**`src/web/public/index.html`** — single-file frontend (no build step, no framework):
+- Dark theme chat interface with animated thinking dots while the agent works
+- Live tool call chips appear as each tool fires — pulse animation while running, green dot when the turn ends
+- Task type bar appears after the first message and stays visible for the session
+- Example query chips on the empty state so you can start immediately
+- Minimal markdown renderer for code blocks, inline code, bold, headers
+- Shift+Enter for newline, Enter to send
+- Tool count in header auto-fetched from `/api/status` on load
+
+Why a single HTML file with no framework: the CLI is already the primary interface. The web UI is for showing the agent to the lead in a review — it needs to just work when you clone the repo and run `npm run web`, without a build step, a separate React server, or any extra setup.
+
+**To start the web UI:**
+```
+npm install
+npm run web
+# → http://localhost:3001
+```
+
+---
+
+### Bedrock prompt caching (`src/agent.js`)
+
+Added opt-in prompt caching via the `cachePoint` block after the system prompt. When `ENABLE_PROMPT_CACHE=true` in `.env`, the system prompt is sent with a cache marker to Bedrock. Bedrock caches the processed system prompt tokens and reuses them on subsequent turns in the same session — skipping the cost and latency of re-processing the same ~800-token system prompt on every single API call.
+
+Expected savings on a 10-turn session: ~60% reduction in input token cost for those tokens. The system prompt is the largest fixed cost per call, and caching is the right place to apply this optimization because the prompt never changes within a session.
+
+Kept it opt-in (`ENABLE_PROMPT_CACHE=false` default) because Bedrock caching availability varies by region and model version — don't want it to silently break on a new setup.
+
+---
+
+### Updated files
+
+- `src/config.js` — added `dbUrl`, `webPort`, `enablePromptCache`
+- `package.json` — added `express`, `pg` deps; added `web` and `web:dev` npm scripts; bumped version to `0.4.0`
+- `src/agent.js` — wired 4 new tools, added `onEvent` callback param (used by SSE server to push tool call events to browser), added prompt caching system blocks
+- `src/dispatcher.js` — added `git_log`, `health_check`, `lint_file`, `db_query` to `READ_ONLY` scope; added `health`, `log`, `lint`, `query`, `select` to query classifier keywords
+- `.env.example` — documented all new vars with comments
+
+---
+
+### Final tool count: 20
+
+| Category | Tools |
+|----------|-------|
+| Exploration (4) | list_files, read_file, search_code, recall_session |
+| Analysis (12) | trace_error, map_dependencies, explain_route, find_todos, check_env_usage, detect_dead_code, schema_to_api, summarize_diff, git_log, health_check, lint_file, db_query |
+| Write + verify (4) | show_diff, git_backup, write_file, run_command |
+
+---
+
+### Week-by-week summary
+
+| Week | Focus | What shipped |
+|------|-------|--------------|
+| 1 | CLI + read tools | list_files, read_file, search_code, system prompt, config |
+| 2 | Fix + write safety | write_file, show_diff, run_command, approval gate, auto-context loader |
+| 3 | Code review + bug detection | trace_error, map_dependencies, explain_route, git_backup, dispatcher registry |
+| 3 (late) | Architecture + new tools | find_todos, check_env_usage, summarize_diff, detect_dead_code, schema_to_api, recall_session, shared fs utils, ALL_TOOLS registry |
+| 4 | Web UI + DB + polish | git_log, health_check, lint_file, db_query, Web UI (SSE), prompt caching, version 0.4.0 |
 
 ---
 
 ## May 18, 2026
 
-### What was done today
-
-Built three new tools for Week 3 (code review mode + bug detection):
-
-**1. `trace_error` (`src/tools/traceError.js`)**
-Given a Node.js/Express error message or stack trace, this tool:
-- Parses the stack trace to extract file paths and line numbers
-- Reads those files automatically with context around the error line (8 lines before/after)
-- Extracts identifiers (controller names, route paths, function names) from the error text
-- Searches the codebase for those identifiers to find all related code
-
-**2. `map_dependencies` (`src/tools/mapDependencies.js`)**
-Builds an import dependency graph for a file or directory (outgoing + incoming).
-
-**3. `explain_route` (`src/tools/explainRoute.js`)**
-Given an Express route path, traces route → middleware → controller → service.
-
-### Tool count: 6 → 9
+Built three new tools for Week 3: `trace_error`, `map_dependencies`, `explain_route`. Tool count: 6 → 9.
 
 ---
 
 ## May 11, 2026
 
-### What was done today
-- Reviewed the current project state end to end
-- Pushed all local commits that had never been pushed to GitHub
-- Assessed Week 2 progress: tool-use loop is designed but not coded yet
-
-### What I realized
-The commit trail was completely missing. Going forward: every day I work, I push a commit and update the doc on the same day.
+Pushed all local commits. Realised commit trail was missing entirely — fixed discipline going forward.
 
 ---
 
 ## May 9, 2026 (Leave)
 
-### What was done today
-- Planned the real tool-use loop in detail
-- Read Anthropic's tool use documentation: send `tools` array → Claude returns `stop_reason: "tool_use"` → run function → send `tool_result` → loop
-
-### Key insight
-The difference between v0.1 and a real agent is who controls the loop. Claude must decide what it needs, not my code.
+Planned the real tool-use loop. Key insight: Claude must control the loop, not the orchestrator code.
 
 ---
 
 ## May 8, 2026
 
-### What was done today
-- Week 1 retrospective
-- Set up Week 2 goals: show_diff, approval gate, git tools, run_command
-- Designed approval gate flow: propose → diff → confirm → write
+Week 1 retro. Set Week 2 goals. Designed approval gate flow.
 
 ---
 
 ## May 7, 2026
 
-### What was done today
-- End-of-week cleanup pass
-- Found search_codebase truncates at 5 matching lines — noted for v0.2
-- Confirmed EXCLUDE_DIRS working, node_modules not scanned
+End-of-week cleanup. Search truncation issue noted. EXCLUDE_DIRS confirmed working.
 
 ---
 
 ## May 6, 2026
 
-### What was done today
-- Updated SYSTEM_PROMPT with TIQ-specific codebase context
-- Hallucination noticeably reduced after adding "only reference code from context"
+System prompt updated with TIQ-specific context. Hallucination reduced.
 
 ---
 
 ## May 5, 2026
 
-### What was done today
-- First real test against actual TIQ codebase
-- Found and fixed: import path bug, hallucination in Q&A, search result overload
+First real test against TIQ codebase. Fixed import path bug, hallucination guard, search overload.
 
 ---
 
 ## May 2, 2026
 
-### What was done today
-- Built `config/settings.py` — centralized all configuration
-- `EXCLUDE_DIRS`, `MAX_FILE_SIZE`, API key from env only
-- Fixed bug in get_file_summary() counting .git objects as source files
+Built config/settings.py. Centralized all configuration.
 
 ---
 
 ## May 1, 2026
 
-### What was done today
-- First day of building: agent.py, tools.py, prompts.py
-- Four CLI modes: --review, --ask, --health-check, interactive
-- Deliberately left out write_file until approval gate is designed
+First day. Built agent.py, tools.py, prompts.py. Left out write_file intentionally.
 
 ---
 
-## April 28–30, 2026 — Research & Design
+## April 28–30, 2026
 
-- Anthropic tool use docs, message flow, token limits
-- gitpython, psycopg2 research
-- Decision: no auto-push, no delete, no merge without human
+Research: Anthropic tool use docs, gitpython, psycopg2. Decision: no auto-push, no delete without human.
 
 ---
 
-## April 25–27, 2026 — Research & Design
+## April 25–27, 2026
 
-- Mapped full tool list
-- Our unique advantage: the database — natural language against TIQ data
+Tool list design. Identified DB access as the unique differentiator.
 
 ---
 
-## April 23–24, 2026 — Architecture Planning
+## April 23–24, 2026
 
-- Designed v0.2 architecture — system-design.md written
-- Core decision: tool-use over text-dumping
+Architecture planning. Wrote system-design.md. Chose tool-use over text-dumping.
 
 ---
 
 ## April 22, 2026
 
-- Got project assignment
-- Set up GitHub repo
-- Built v0.1 foundation
+Project assigned. GitHub repo created. v0.1 foundation built.
