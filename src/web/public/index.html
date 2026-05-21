@@ -468,8 +468,8 @@
 <!-- Identity modal -->
 <div id="id-overlay">
   <div id="id-box">
-    <h3>👋 Kaun ho tum?</h3>
-    <p>Apna naam daalo — agent har action log karega.</p>
+    <h3>👋 Who are you?</h3>
+    <p>Enter your name — the agent will log every action under it.</p>
     <input id="id-input" type="text" placeholder="e.g. Shalini, Manu, Rahul" maxlength="40" autocomplete="off"/>
     <button id="id-submit">Start Session</button>
   </div>
@@ -669,6 +669,7 @@
 
 <script>
 const SESSION_ID = crypto.randomUUID();
+window.SESSION_ID = SESSION_ID;
 let busy      = false;
 let msgCount  = 0;
 let toolTotal = 0;
