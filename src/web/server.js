@@ -1,6 +1,9 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import session from 'express-session';
+import passport from 'passport';
+import { Strategy as GitHubStrategy } from 'passport-github2';
 import { runAgent, TOOL_COUNT } from '../agent.js';
 import { classify, getTools, TASK_LABELS } from '../dispatcher.js';
 import { clearLog } from '../session.js';
@@ -13,7 +16,83 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.use(express.json());
+app.use(session({
+  secret:            config.sessionSecret,
+  resave:            false,
+  saveUninitialized: false,
+  cookie:            { secure: false, maxAge: 8 * 60 * 60 * 1000 }, // 8-hour session
+}));
+app.use(passport.initialize());
+app.use(passport.session());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ---------------------------------------------------------------------------
+// Passport — GitHub OAuth strategy (only registered when credentials present)
+// ---------------------------------------------------------------------------
+const githubAuthEnabled = !!(config.githubClientId && config.githubClientSecret);
+
+if (githubAuthEnabled) {
+  passport.use(new GitHubStrategy(
+    {
+      clientID:     config.githubClientId,
+      clientSecret: config.githubClientSecret,
+      callbackURL:  `http://localhost:${config.webPort}/auth/github/callback`,
+      scope:        ['read:user'],
+    },
+    (_accessToken, _refreshToken, profile, done) => {
+      // Store minimal profile — no DB needed
+      done(null, {
+        login:     profile.username,
+        name:      profile.displayName || profile.username,
+        avatarUrl: profile.photos?.[0]?.value ?? null,
+        githubId:  profile.id,
+      });
+    },
+  ));
+
+  passport.serializeUser((user, done)   => done(null, user));
+  passport.deserializeUser((user, done) => done(null, user));
+}
+
+// ---------------------------------------------------------------------------
+// GET /auth/github  — start OAuth dance
+// ---------------------------------------------------------------------------
+app.get('/auth/github', (req, res, next) => {
+  if (!githubAuthEnabled) {
+    res.status(503).send('GitHub OAuth is not configured. Add GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET to .env');
+    return;
+  }
+  passport.authenticate('github')(req, res, next);
+});
+
+// ---------------------------------------------------------------------------
+// GET /auth/github/callback  — OAuth callback
+// ---------------------------------------------------------------------------
+app.get('/auth/github/callback',
+  passport.authenticate('github', { failureRedirect: '/?auth=failed' }),
+  (req, res) => {
+    // Redirect back to UI — client picks up ?auth=ok and reads /api/me
+    res.redirect('/?auth=ok');
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/me  — current GitHub user (or null if not logged in / no OAuth)
+// ---------------------------------------------------------------------------
+app.get('/api/me', (req, res) => {
+  if (req.user) {
+    res.json({ ok: true, user: req.user, authMode: 'github' });
+  } else {
+    res.json({ ok: false, user: null, authMode: githubAuthEnabled ? 'github' : 'name' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /auth/logout
+// ---------------------------------------------------------------------------
+app.get('/auth/logout', (req, res) => {
+  req.logout(() => res.redirect('/'));
+});
 
 // ---------------------------------------------------------------------------
 // Session store — { history, taskType, user, memory }
@@ -92,16 +171,19 @@ app.get('/api/status', (_req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/identify  — set the current user's name for this session
+// If GitHub OAuth is active, the authenticated GitHub login takes precedence.
 // ---------------------------------------------------------------------------
 app.post('/api/identify', (req, res) => {
   const { sessionId, user } = req.body ?? {};
   if (!sessionId || !user?.trim()) {
     res.status(400).json({ error: 'sessionId and user required' }); return;
   }
-  const session = getSession(sessionId);
-  session.user  = user.trim().slice(0, 40);
-  logEvent({ user: session.user, action: 'session_start', sessionId });
-  res.json({ ok: true, user: session.user });
+  const agentSession = getSession(sessionId);
+  // GitHub-authenticated identity always wins over a manually typed name
+  agentSession.user = req.user?.login ?? user.trim().slice(0, 40);
+  if (req.user) agentSession.github = req.user;
+  logEvent({ user: agentSession.user, action: 'session_start', sessionId, detail: { authMode: req.user ? 'github' : 'name' } });
+  res.json({ ok: true, user: agentSession.user, github: req.user ?? null });
 });
 
 // ---------------------------------------------------------------------------
@@ -166,6 +248,7 @@ app.get('/api/session/:id/memory', (req, res) => {
     ok:        true,
     sessionId: req.params.id,
     user:      session.user,
+    github:    session.github ?? null,
     taskType:  session.taskType,
     filesRead: Object.fromEntries(mem.filesRead),
     toolCalls: mem.toolCalls,

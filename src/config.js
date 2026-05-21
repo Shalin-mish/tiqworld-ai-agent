@@ -15,4 +15,9 @@ export const config = {
   // Auto-scan on server start. Set SCAN_INTERVAL_MINUTES=30 for repeat scans.
   // 0 = run once at startup only (default).
   scanIntervalMinutes:  parseInt(process.env.SCAN_INTERVAL_MINUTES, 10) || 0,
+  // GitHub OAuth — register an OAuth App at github.com/settings/developers
+  // Callback URL to set: http://localhost:<WEB_PORT>/auth/github/callback
+  githubClientId:     process.env.GITHUB_CLIENT_ID     ?? null,
+  githubClientSecret: process.env.GITHUB_CLIENT_SECRET ?? null,
+  sessionSecret:      process.env.SESSION_SECRET       ?? 'tiq-agent-dev-secret-change-me',
 };
