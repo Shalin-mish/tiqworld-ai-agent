@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TIQ Agent — Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0d0f18; --surface: #151822; --surface2: #1c1f2e;
+      --border:  #252840; --accent: #7c6af7;  --text: #dde0f0;
+      --text-dim:#8b90b0; --green: #34d399;   --red: #f87171;
+      --yellow:  #fbbf24; --radius: 8px;
+    }
+    body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+
+    header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 24px; height:52px; background:var(--surface);
+      border-bottom:1px solid var(--border); gap:12px;
+    }
+    .logo { font-size:15px; font-weight:700; color:var(--accent); }
+    .logo-sub { font-size:11px; color:var(--text-dim); margin-left:6px; }
+    .hright { display:flex; gap:10px; align-items:center; }
+    .btn { background:var(--surface2); border:1px solid var(--border); color:var(--text-dim);
+      padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px; text-decoration:none;
+      transition:border-color .15s, color .15s; }
+    .btn:hover { border-color:var(--accent); color:var(--accent); }
+    .btn-primary { background:var(--accent); border:none; color:#fff; font-weight:600; }
+    .btn-primary:hover { opacity:.85; }
+
+    .page { max-width:1100px; margin:0 auto; padding:28px 24px; }
+
+    /* Stat cards */
+    .stats-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin-bottom:28px; }
+    .stat-card {
+      background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+      padding:14px 16px;
+    }
+    .stat-label { font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; }
+    .stat-value { font-size:26px; font-weight:700; color:var(--text); margin-top:4px; }
+    .stat-value.red   { color:var(--red); }
+    .stat-value.yellow{ color:var(--yellow); }
+    .stat-value.green { color:var(--green); }
+
+    /* Sections */
+    .section { margin-bottom:32px; }
+    .section-header {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:12px;
+    }
+    .section-title { font-size:14px; font-weight:700; color:var(--text); }
+    .section-sub   { font-size:11px; color:var(--text-dim); }
+
+    /* Table */
+    .tbl-wrap { overflow-x:auto; border-radius:var(--radius); border:1px solid var(--border); }
+    table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    th { background:var(--surface2); color:var(--text-dim); font-weight:600;
+      padding:8px 12px; text-align:left; white-space:nowrap; }
+    td { padding:7px 12px; border-top:1px solid var(--border); color:var(--text); vertical-align:top; }
+    tr:hover td { background:var(--surface2); }
+    .mono { font-family:'Cascadia Code','Consolas',monospace; font-size:11.5px; }
+    .pill {
+      display:inline-block; padding:2px 7px; border-radius:99px;
+      font-size:10px; font-weight:600;
+    }
+    .pill-write  { background:#3b1111; color:var(--red); }
+    .pill-scan   { background:#1c1f2e; color:var(--accent); }
+    .pill-tool   { background:#0d3327; color:var(--green); }
+    .pill-query  { background:#1c1a10; color:var(--yellow); }
+    .pill-system { background:var(--surface2); color:var(--text-dim); }
+    .empty-row td { text-align:center; color:var(--text-dim); padding:20px; }
+
+    /* Scan summary */
+    .scan-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
+    .scan-item {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius); padding:12px 14px;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .scan-key { font-size:12px; color:var(--text-dim); }
+    .scan-val { font-size:18px; font-weight:700; }
+    .scan-val.bad { color:var(--red); }
+    .scan-val.warn{ color:var(--yellow); }
+    .scan-val.ok  { color:var(--green); }
+
+    .ts { font-size:11px; color:var(--text-dim); white-space:nowrap; }
+    .user-badge {
+      display:inline-block; background:var(--accent-dim,#2d2860); color:var(--accent);
+      padding:1px 7px; border-radius:99px; font-size:11px; font-weight:600;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="logo">TIQ Agent</span>
+    <span class="logo-sub">Admin Panel</span>
+  </div>
+  <div class="hright">
+    <span id="last-scan-label" style="font-size:11px;color:var(--text-dim);">Last scan: —</span>
+    <button class="btn btn-primary" id="refresh-btn">↺ Refresh</button>
+    <a href="/" class="btn">← Back to Agent</a>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- Stat Cards -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card"><div class="stat-label">Total Actions</div><div class="stat-value" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Critical TODOs</div><div class="stat-value red" id="s-todos">—</div></div>
+    <div class="stat-card"><div class="stat-label">Lint Errors</div><div class="stat-value red" id="s-lint">—</div></div>
+    <div class="stat-card"><div class="stat-label">Dead Code Files</div><div class="stat-value yellow" id="s-dead">—</div></div>
+    <div class="stat-card"><div class="stat-label">Uncommitted</div><div class="stat-value yellow" id="s-uncommitted">—</div></div>
+    <div class="stat-card"><div class="stat-label">Missing Env Vars</div><div class="stat-value yellow" id="s-env">—</div></div>
+    <div class="stat-card"><div class="stat-label">File Writes</div><div class="stat-value" id="s-writes">—</div></div>
+    <div class="stat-card"><div class="stat-label">Recent Commits</div><div class="stat-value green" id="s-commits">—</div></div>
+  </div>
+
+  <!-- Last Scan Summary -->
+  <div class="section" id="scan-section" style="display:none">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Last Full Scan</div>
+        <div class="section-sub" id="scan-time-detail">—</div>
+      </div>
+    </div>
+    <div class="scan-grid" id="scan-grid"></div>
+  </div>
+
+  <!-- Activity Log -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Activity Log</div>
+        <div class="section-sub">Har tool call, query, aur write yahan dikh ta hai</div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Time</th><th>User</th><th>Action</th><th>Detail</th>
+        </tr></thead>
+        <tbody id="activity-body">
+          <tr class="empty-row"><td colspan="4">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Write Archive -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Write Archive</div>
+        <div class="section-sub">Har file write ka before/after diff saved hai logs/writes/ me</div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Time</th><th>User</th><th>File</th><th>Reason</th>
+        </tr></thead>
+        <tbody id="writes-body">
+          <tr class="empty-row"><td colspan="4">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+function pillClass(action) {
+  if (action === 'write_file' || action.startsWith('tool:write')) return 'pill-write';
+  if (action.includes('scan') || action.includes('scan')) return 'pill-scan';
+  if (action.startsWith('tool:')) return 'pill-tool';
+  if (action === 'query') return 'pill-query';
+  return 'pill-system';
+}
+
+function renderActivity(entries) {
+  const tbody = document.getElementById('activity-body');
+  if (!entries.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No activity yet</td></tr>'; return;
+  }
+  tbody.innerHTML = entries.map(e => {
+    const detail = e.q ?? e.file ?? e.cmd ?? (e.input ? JSON.stringify(e.input).slice(0,80) : '') ?? '';
+    return `<tr>
+      <td class="ts mono">${fmtTime(e.ts)}</td>
+      <td><span class="user-badge">${escHtml(e.user ?? '?')}</span></td>
+      <td><span class="pill ${pillClass(e.action)}">${escHtml(e.action)}</span></td>
+      <td class="mono" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(detail)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderWrites(archives) {
+  const tbody = document.getElementById('writes-body');
+  if (!archives.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No writes archived yet</td></tr>'; return;
+  }
+  tbody.innerHTML = archives.map(a => `<tr>
+    <td class="ts mono">${escHtml(a.time.slice(0,19).replace('T',' '))}</td>
+    <td><span class="user-badge">${escHtml(a.user)}</span></td>
+    <td class="mono">${escHtml(a.file)}</td>
+    <td style="color:var(--text-dim);max-width:300px;">${escHtml(a.reason)}</td>
+  </tr>`).join('');
+}
+
+function renderScanSummary(summary, scannedAt, totalMs) {
+  if (!summary) return;
+  document.getElementById('scan-section').style.display = '';
+  const dur = totalMs ? `${(totalMs/1000).toFixed(1)}s` : '';
+  document.getElementById('scan-time-detail').textContent =
+    `Ran at ${fmtTime(scannedAt)} ${dur ? '· ' + dur : ''}`;
+
+  const items = [
+    { key: 'Critical TODOs',    val: summary.critical_todos,    cls: summary.critical_todos > 0 ? 'bad' : 'ok' },
+    { key: 'Warning TODOs',     val: summary.warning_todos,     cls: summary.warning_todos  > 0 ? 'warn': 'ok' },
+    { key: 'Lint Errors',       val: summary.lint_errors,       cls: summary.lint_errors    > 0 ? 'bad' : 'ok' },
+    { key: 'Lint Warnings',     val: summary.lint_warnings,     cls: summary.lint_warnings  > 0 ? 'warn': 'ok' },
+    { key: 'Dead Code Files',   val: summary.dead_code_files,   cls: summary.dead_code_files > 0 ? 'warn': 'ok' },
+    { key: 'Missing Env Vars',  val: summary.missing_env_vars,  cls: summary.missing_env_vars > 0 ? 'warn': 'ok' },
+    { key: 'Uncommitted Files', val: summary.uncommitted_files, cls: summary.uncommitted_files > 0 ? 'warn': 'ok' },
+    { key: 'Total Code Files',  val: summary.total_code_files,  cls: 'ok' },
+    { key: 'Recent Commits',    val: summary.recent_commits,    cls: 'ok' },
+  ];
+  document.getElementById('scan-grid').innerHTML = items.map(i =>
+    `<div class="scan-item"><span class="scan-key">${i.key}</span><span class="scan-val ${i.cls}">${i.val ?? '?'}</span></div>`
+  ).join('');
+
+  // Update header cards too
+  setText('s-todos',       summary.critical_todos);
+  setText('s-lint',        summary.lint_errors);
+  setText('s-dead',        summary.dead_code_files);
+  setText('s-uncommitted', summary.uncommitted_files);
+  setText('s-env',         summary.missing_env_vars);
+  setText('s-commits',     summary.recent_commits);
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val ?? '—';
+}
+
+async function load() {
+  const [actRes, writesRes, scanRes] = await Promise.all([
+    fetch('/api/activity?limit=150').then(r=>r.json()).catch(()=>({ entries:[], stats:{} })),
+    fetch('/api/writes').then(r=>r.json()).catch(()=>({ archives:[] })),
+    fetch('/api/last-scan').then(r=>r.json()).catch(()=>null),
+  ]);
+
+  renderActivity(actRes.entries ?? []);
+  renderWrites(writesRes.archives ?? []);
+
+  const stats = actRes.stats ?? {};
+  setText('s-total',  stats.total);
+  setText('s-writes', stats.byAction?.['write_file'] ?? 0);
+
+  if (scanRes?.ok) {
+    renderScanSummary(scanRes.result?.summary, scanRes.scannedAt, scanRes.result?.total_duration_ms);
+    const ago = scanRes.scannedAt
+      ? Math.round((Date.now() - new Date(scanRes.scannedAt)) / 60000)
+      : null;
+    document.getElementById('last-scan-label').textContent =
+      ago == null ? 'Last scan: —' : ago < 1 ? 'Last scan: just now' : `Last scan: ${ago}m ago`;
+  }
+}
+
+document.getElementById('refresh-btn').addEventListener('click', load);
+load();
+</script>
+</body>
+</html>

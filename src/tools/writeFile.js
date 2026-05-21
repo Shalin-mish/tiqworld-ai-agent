@@ -3,6 +3,8 @@ import path from 'path';
 import readline from 'readline';
 import { execSync } from 'child_process';
 import { config } from '../config.js';
+import { archiveWrite } from '../writeArchive.js';
+import { logEvent } from '../activityLog.js';
 
 export const writeFileDefinition = {
   name: 'write_file',
@@ -83,7 +85,9 @@ function gitCommit(fullPath, reason) {
   }
 }
 
-export async function writeFile({ file_path, new_content, reason }) {
+// _approvalFn: optional async (filePath, diff, reason, isNew) => 'yes'|'no'
+// Injected by web server; CLI falls back to readline.
+export async function writeFile({ file_path, new_content, reason, _user = 'unknown', _approvalFn = null }) {
   try {
     const fullPath = path.join(config.codebasePath, file_path);
     const isNewFile = !fs.existsSync(fullPath);
@@ -94,23 +98,28 @@ export async function writeFile({ file_path, new_content, reason }) {
     console.log(`   Reason: ${reason}`);
     console.log('─'.repeat(60));
 
+    let diffText = '';
     if (isNewFile) {
       console.log('📄 NEW FILE — content preview:');
-      console.log(
-        new_content.slice(0, 500) + (new_content.length > 500 ? '\n... (truncated)' : '')
-      );
+      console.log(new_content.slice(0, 500) + (new_content.length > 500 ? '\n... (truncated)' : ''));
+      diffText = new_content;
     } else {
-      const diff = showDiff(oldContent, new_content);
-      if (!diff) {
+      diffText = showDiff(oldContent, new_content);
+      if (!diffText) {
         return { status: 'skipped', reason: 'No changes detected — file already matches.' };
       }
       console.log('DIFF (- removed  + added):');
-      console.log(diff.slice(0, 1200) + (diff.length > 1200 ? '\n... (truncated)' : ''));
+      console.log(diffText.slice(0, 1200) + (diffText.length > 1200 ? '\n... (truncated)' : ''));
     }
 
     console.log('═'.repeat(60));
 
-    const answer = await askApproval('\n⚠️  Apply this change? (yes/no): ');
+    let answer;
+    if (_approvalFn) {
+      answer = await _approvalFn(file_path, diffText, reason, isNewFile, oldContent, new_content);
+    } else {
+      answer = await askApproval('\n⚠️  Apply this change? (yes/no): ');
+    }
 
     if (answer !== 'yes' && answer !== 'y') {
       return {
@@ -128,11 +137,16 @@ export async function writeFile({ file_path, new_content, reason }) {
     fs.mkdirSync(path.dirname(fullPath), { recursive: true });
     fs.writeFileSync(fullPath, new_content, 'utf-8');
 
+    // Archive the before/after diff and log the action
+    const archiveFile = archiveWrite({ user: _user, filePath: file_path, oldContent, newContent: new_content, reason });
+    logEvent({ user: _user, action: 'write_file', detail: { file: file_path, reason, archive: archiveFile } });
+
     return {
       status: 'success',
       file_path,
       is_new_file: isNewFile,
       backup,
+      archive: archiveFile,
       message: `File written successfully: ${file_path}`,
     };
   } catch (err) {

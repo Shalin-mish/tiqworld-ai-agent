@@ -11,5 +11,8 @@ export const config = {
   webPort:           parseInt(process.env.WEB_PORT, 10) || 3001,
   // Bedrock prompt caching — set ENABLE_PROMPT_CACHE=true in .env to activate.
   // Caches the system prompt across turns; reduces token cost ~60% on long sessions.
-  enablePromptCache: process.env.ENABLE_PROMPT_CACHE === 'true',
+  enablePromptCache:    process.env.ENABLE_PROMPT_CACHE === 'true',
+  // Auto-scan on server start. Set SCAN_INTERVAL_MINUTES=30 for repeat scans.
+  // 0 = run once at startup only (default).
+  scanIntervalMinutes:  parseInt(process.env.SCAN_INTERVAL_MINUTES, 10) || 0,
 };

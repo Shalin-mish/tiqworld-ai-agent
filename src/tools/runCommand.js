@@ -42,7 +42,7 @@ export const runCommandDefinition = {
   },
 };
 
-export function runCommand({ command, directory = '' }) {
+export async function runCommand({ command, directory = '', _commandApprovalFn = null }) {
   if (!isAllowed(command)) {
     return {
       error: `Command not allowed: "${command}"`,
@@ -59,6 +59,14 @@ export function runCommand({ command, directory = '' }) {
       ],
       suggestion: 'Only whitelisted commands can run for safety reasons',
     };
+  }
+
+  // Web mode: ask for approval before running any command
+  if (_commandApprovalFn) {
+    const answer = await _commandApprovalFn(command, directory);
+    if (answer !== 'yes' && answer !== 'y') {
+      return { status: 'rejected', command, message: 'User rejected the command. Nothing was run.' };
+    }
   }
 
   try {
