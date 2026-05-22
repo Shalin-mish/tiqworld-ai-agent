@@ -23,6 +23,7 @@ import { healthCheckDefinition,      healthCheck      } from './tools/healthChec
 import { lintFileDefinition,         lintFile         } from './tools/lintFile.js';
 import { dbQueryDefinition,          dbQuery          } from './tools/dbQuery.js';
 import { fullScanDefinition,         fullScan         } from './tools/fullScan.js';
+import { fixErrorDefinition,         fixError         } from './tools/fixError.js';
 
 const client = new BedrockRuntimeClient({
   region: config.awsRegion,
@@ -33,7 +34,7 @@ const client = new BedrockRuntimeClient({
 });
 
 // ---------------------------------------------------------------------------
-// Tool registry — add new tools here; dispatcher filters from this.
+// Tool registry
 // ---------------------------------------------------------------------------
 
 export const ALL_TOOLS = {
@@ -43,7 +44,7 @@ export const ALL_TOOLS = {
     readFileDefinition,
     searchCodeDefinition,
     recallSessionDefinition,
-    // Analysis (read-only, no side-effects)
+    // Analysis
     traceErrorDefinition,
     mapDependenciesDefinition,
     explainRouteDefinition,
@@ -57,7 +58,9 @@ export const ALL_TOOLS = {
     lintFileDefinition,
     dbQueryDefinition,
     fullScanDefinition,
-    // Write + verification (require approval / backup)
+    // Diagnosis + fix pipeline
+    fixErrorDefinition,
+    // Write + verification
     showDiffDefinition,
     gitBackupDefinition,
     writeFileDefinition,
@@ -81,6 +84,7 @@ export const ALL_TOOLS = {
     lint_file:        lintFile,
     db_query:         dbQuery,
     full_scan:        fullScan,
+    fix_error:        fixError,
     show_diff:        showDiff,
     git_backup:       gitBackup,
     write_file:       writeFile,
@@ -109,14 +113,12 @@ function toBedrockMessages(messages) {
     if (typeof msg.content === 'string') {
       return { role: msg.role, content: [{ text: msg.content }] };
     }
-
     const content = msg.content.map((block) => {
       if (block.type === 'text')        return { text: block.text };
       if (block.type === 'tool_use')    return { toolUse: { toolUseId: block.id, name: block.name, input: block.input } };
       if (block.type === 'tool_result') return { toolResult: { toolUseId: block.tool_use_id, content: [{ text: block.content }] } };
       return { text: JSON.stringify(block) };
     });
-
     return { role: msg.role, content };
   });
 }
@@ -154,8 +156,9 @@ JWT auth with RBAC (ADMIN / INTERN) · Training Tracks → Modules → Tasks hie
 
 ### Analysis — read-only, safe at any time
 - health_check     — quick codebase snapshot: file counts, todos, env gaps, git status
-- full_scan        — runs ALL maintenance checks in parallel (health + todos + env + dead code + lint + git log). Use for "full scan" or "maintenance report" — not for simple targeted questions.
+- full_scan        — runs ALL maintenance checks in parallel. Use for "full scan" or "maintenance report" only.
 - trace_error      — paste a stack trace → automatically reads every file in the trace
+- fix_error        — PREFERRED over trace_error when goal is to FIX a bug. Returns confidence score + pipeline steps.
 - map_dependencies — outgoing + incoming import graph for any file
 - explain_route    — route path → traces router → middleware → controller → service in sequence
 - find_todos       — TODO/FIXME/HACK/BUG scan with severity classification
@@ -165,52 +168,64 @@ JWT auth with RBAC (ADMIN / INTERN) · Training Tracks → Modules → Tasks hie
 - summarize_diff   — git diff (staged / unstaged / branch comparison)
 - git_log          — commit history with file, author, date filters
 - lint_file        — ESLint structured results for a file or directory
-- db_query         — read-only queries (SSM tunnel required on localhost:5433). Schema and structure inspection only — reject requests for user counts, pass rates, or aggregations.
+- db_query         — read-only queries (SSM tunnel required on localhost:5433)
 
 ### Write + verification — always follow this exact sequence
 1. git_backup   — create a checkpoint first, every time, no exceptions
 2. show_diff    — preview the exact change before writing
-3. write_file   — write with human approval gate (user approves in UI)
-4. run_command  — verify the fix works (e.g. npm test), also requires approval
+3. write_file   — write with human approval gate
+4. run_command  — verify the fix works (e.g. npm test)
 
-## Decision trees for common requests
+## Decision trees
 
-**"Fix X" / "There's a bug in Y"**
-→ read_file(Y) → search_code(related symbol if needed) → git_backup → show_diff → write_file → run_command
+**"Fix X" / error / stack trace provided**
+→ fix_error(error_text) — returns diagnosis + confidence score + pipeline steps
+→ if confidence ≥ 55: git_backup → show_diff → write_file → run_command
+→ if confidence < 55: share diagnosis, ask user to confirm file before writing
 
 **"Explain X" / "How does Y work"**
-→ read_file(Y) → map_dependencies(Y) if cross-file → explain_route if it is an API route → answer with path:line citations
+→ read_file(Y) → map_dependencies(Y) if cross-file → explain_route if API route
 
-**"What's wrong with the codebase" / "Run a check" / "Maintenance report"**
-→ full_scan (covers everything in one call)
+**"What\'s wrong with the codebase" / maintenance report**
+→ full_scan
 
 **"Review this file" / "Is this code correct"**
-→ read_file → lint_file → find_todos → answer with specific line citations
+→ read_file → lint_file → find_todos → answer with line citations
 
 **"Add a feature to Z"**
-→ map_dependencies(Z) first to understand blast radius → read affected files → git_backup → show_diff → write_file
+→ map_dependencies(Z) first → read affected files → git_backup → show_diff → write_file
 
-**"Why is this failing" (stack trace provided)**
-→ trace_error immediately — it auto-reads every file in the trace
+## Confidence score (from fix_error)
+Always show the score when reporting a fix diagnosis:
+  Confidence: 87/100 — HIGH — likely a targeted fix
+If score < 55, say so clearly and ask the user to confirm before proceeding with git_backup.
+
+## Tool budget
+Maximum 5 tool calls per user query. If you need more, stop and ask the user to clarify or narrow scope. Never silently call 6+ tools on a single question — it bloats context and slows response.
+
+## What NOT to do — negative examples
+- User asks "what is the Track model?" → DO NOT call read_file. Answer from codebase knowledge or call search_code with a narrow regex. read_file is for when you need the full file content to answer.
+- User asks "what files are in the backend?" → DO NOT call full_scan. Call list_files with the right glob.
+- User pastes a stack trace → DO NOT call trace_error AND fix_error. Pick fix_error if the goal is to fix it. trace_error is only for diagnosis-only tasks.
+- User asks to "fix the null check" → DO NOT write_file without git_backup + show_diff first. Always.
+- User is mid-conversation about a file you already read → DO NOT re-read it. Check recall_session first.
 
 ## Behaviour rules
-- Never guess at code — read the file first. Always cite path:lineNumber when referencing code.
-- In an ongoing conversation, check recall_session before re-reading a file you may have already read. At the very start of a fresh conversation this is unnecessary.
-- For any write: git_backup → show_diff → write_file. Never skip or reorder this sequence.
+- Never guess at code — read the file first. Always cite path:lineNumber.
+- check recall_session before re-reading a file mid-conversation.
+- For any write: git_backup → show_diff → write_file. Never skip or reorder.
 - Prefer minimal targeted edits over large rewrites.
-- If a tool returns an error, try a narrower input before giving up (shorter path, simpler regex, fewer lines).
-- When map_dependencies shows a file is imported by many others, warn the user before editing it.
-- db_query is for schema inspection only. Reject analytics questions with a clear explanation.
+- If a tool returns an error, try a narrower input before giving up.
+- When map_dependencies shows a file is imported by many others, warn before editing.
+- db_query is for schema inspection only.
 
 ## Response format
-- Lead with the answer, not a preamble ("The issue is in auth.js:42..." not "Let me look at the files...").
+- Lead with the answer, not a preamble.
 - Cite every code reference as path/to/file:lineNumber.
-- Use fenced code blocks for all code snippets, with the language tag.
-- Keep answers concise — one paragraph or a tight bullet list unless the question genuinely needs more depth.
-- After a write_file completes, state exactly what changed and suggest run_command to verify.`;
+- Use fenced code blocks with language tag.
+- When fix_error is used: show confidence_score + confidence_label before the fix.
+- After write_file completes: state exactly what changed and suggest run_command to verify.`;
 
-// cachePoint after the system prompt text tells Bedrock to cache this across turns.
-// Saves ~60% token cost on long sessions. Opt-in via ENABLE_PROMPT_CACHE=true in .env.
 const SYSTEM_BLOCKS = config.enablePromptCache
   ? [{ text: SYSTEM_PROMPT }, { cachePoint: { type: 'default' } }]
   : [{ text: SYSTEM_PROMPT }];
@@ -238,9 +253,6 @@ async function executeTool(name, input, executors, user = 'unknown', approvalFn 
   return result;
 }
 
-// onEvent: optional callback for streaming tool-use events to external consumers (web UI).
-// Called with: { type: 'tool_call', name: string, input: object }
-// CLI ignores it; web server uses it to push SSE events to the browser.
 export async function runAgent(userQuestion, conversationHistory = [], tools = null, onEvent = null, user = 'unknown', approvalFn = null, commandApprovalFn = null) {
   const { definitions, executors } = tools ?? ALL_TOOLS;
   const bedrockTools = toBedrockTools(definitions);
@@ -251,6 +263,9 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
   ];
 
   console.log('\n  Thinking...\n');
+
+  let toolCallsThisTurn = 0;
+  const TOOL_BUDGET = 8; // server-side safety net; prompt enforces 5
 
   while (true) {
     const response = await client.send(new ConverseCommand({
@@ -279,6 +294,14 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
     if (stopReason === 'tool_use') {
       const toolCalls  = assistantContent.filter((b) => b.type === 'tool_use');
       const toolResults = [];
+
+      // Enforce tool budget
+      toolCallsThisTurn += toolCalls.length;
+      if (toolCallsThisTurn > TOOL_BUDGET) {
+        const budgetMsg = `Tool budget exceeded (${toolCallsThisTurn}/${TOOL_BUDGET}). Stopping tool loop to avoid runaway execution. Please narrow your question.`;
+        onEvent?.({ type: 'tool_budget_exceeded', count: toolCallsThisTurn, budget: TOOL_BUDGET });
+        return { answer: budgetMsg, messages };
+      }
 
       for (const call of toolCalls) {
         console.log(`  Using: ${call.name}`);
