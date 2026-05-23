@@ -1,6 +1,6 @@
 {
   "name": "tiq-ai-agent",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Claude-powered AI agent for TIQ World codebase maintenance",
   "type": "module",
   "main": "src/index.js",
@@ -15,6 +15,7 @@
     "@aws-sdk/credential-providers":    "^3.1045.0",
     "dotenv":                           "^16.4.5",
     "express":                          "^4.19.2",
+    "node-cron":                        "^3.0.3",
     "pg":                               "^8.13.0"
   }
 }
