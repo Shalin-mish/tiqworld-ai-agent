@@ -137,15 +137,15 @@ app.get('/auth/logout', (req, res) => {
 // ---------------------------------------------------------------------------
 app.use('/', createRouter({ githubAuthEnabled }));
 
-// GET /admin
+// GET /admin — redirect to inline admin tab
 app.get('/admin', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  res.redirect('/?tab=admin');
 });
 
 // ---------------------------------------------------------------------------
 app.listen(config.webPort, () => {
   console.log(`\nTIQ Agent Web UI   → http://localhost:${config.webPort}`);
-  console.log(`TIQ Agent Admin    → http://localhost:${config.webPort}/admin`);
+  console.log(`TIQ Agent Admin    → http://localhost:${config.webPort}/?tab=admin`);
   console.log(`Tool count: ${TOOL_COUNT} | Model: ${config.model}`);
   startScheduler(config.scanIntervalMinutes);
 });

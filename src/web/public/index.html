@@ -677,6 +677,166 @@
       background: none; border: none; color: var(--text-dim); font-size: 11px;
       cursor: pointer; text-decoration: underline;
     }
+
+    /* ── NOTIFICATION BELL ───────────────────────────────────────── */
+    #notif-btn {
+      position: relative;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-dim); width: 32px; height: 32px; border-radius: 6px;
+      cursor: pointer; font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .15s, color .15s; flex-shrink: 0;
+    }
+    #notif-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #notif-badge {
+      position: absolute; top: -4px; right: -4px;
+      background: var(--red); color: #fff;
+      font-size: 9px; font-weight: 700;
+      width: 16px; height: 16px; border-radius: 50%;
+      display: none; align-items: center; justify-content: center;
+    }
+    #notif-badge.visible { display: flex; }
+
+    /* ── NOTIFICATION PANEL ─────────────────────────────────────── */
+    #notif-panel {
+      display: none; position: fixed;
+      top: var(--header-h); right: 16px;
+      width: 340px; max-height: 420px;
+      background: var(--surface); border: 1px solid var(--border-light);
+      border-radius: 10px; z-index: 300;
+      box-shadow: 0 16px 48px rgba(0,0,0,.55);
+      flex-direction: column;
+    }
+    #notif-panel.open { display: flex; }
+    .notif-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .notif-header h4 { font-size: 12px; font-weight: 700; }
+    .notif-mark-btn {
+      background: var(--surface3); border: 1px solid var(--border-light);
+      color: var(--text-dim); font-size: 10px; padding: 2px 7px;
+      border-radius: 4px; cursor: pointer;
+    }
+    .notif-mark-btn:hover { color: var(--text); }
+    .notif-list { overflow-y: auto; flex: 1; }
+    .notif-list::-webkit-scrollbar { width: 3px; }
+    .notif-list::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
+    .notif-item {
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      display: flex; gap: 8px; align-items: flex-start;
+    }
+    .notif-item:last-child { border-bottom: none; }
+    .notif-item.unread { background: rgba(240,146,71,.05); }
+    .notif-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+    .notif-body { flex: 1; min-width: 0; }
+    .notif-title { font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+    .notif-msg   { font-size: 10px; color: var(--text-dim); line-height: 1.5; }
+    .notif-ts    { font-size: 9px; color: var(--text-dim); margin-top: 2px; }
+    .notif-empty { padding: 20px; text-align: center; font-size: 11px; color: var(--text-dim); }
+
+    /* ── ADMIN TAB ───────────────────────────────────────────────── */
+    #tab-admin {
+      overflow-y: auto;
+      padding: 10px;
+    }
+    #tab-admin::-webkit-scrollbar { width: 3px; }
+    #tab-admin::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
+
+    .admin-tab-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px; gap: 6px; flex-wrap: wrap;
+    }
+    .admin-maint-btns { display: flex; gap: 5px; width: 100%; }
+    .admin-maint-btns button {
+      flex: 1; padding: 6px 4px; border-radius: 5px;
+      border: none; font-size: 11px; font-weight: 700;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .admin-maint-btns button:hover { opacity: .85; }
+    .admin-maint-btns button:disabled { opacity: .4; cursor: not-allowed; }
+    .admin-btn-deep  { background: var(--accent); color: #fff; }
+    .admin-btn-light { background: var(--surface3); color: var(--text); border: 1px solid var(--border) !important; }
+
+    .admin-refresh-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; color: var(--text-dim); margin-bottom: 8px;
+    }
+    .admin-toggle {
+      width: 28px; height: 16px; background: var(--surface2);
+      border: 1px solid var(--border-light); border-radius: 99px;
+      cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0;
+    }
+    .admin-toggle.on { background: var(--accent); border-color: var(--accent); }
+    .admin-toggle::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 10px; height: 10px; border-radius: 50%; background: #fff;
+      transition: transform .2s;
+    }
+    .admin-toggle.on::after { transform: translateX(12px); }
+
+    /* stat mini-grid */
+    .admin-stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 5px; margin-bottom: 10px;
+    }
+    .admin-stat {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 5px; padding: 6px 8px;
+    }
+    .admin-stat-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }
+    .admin-stat-value { font-size: 17px; font-weight: 700; margin-top: 2px; line-height: 1; }
+    .admin-stat-value.red    { color: var(--red); }
+    .admin-stat-value.yellow { color: var(--yellow); }
+    .admin-stat-value.green  { color: var(--green); }
+
+    /* cron mini-cards */
+    .admin-cron-row { display: flex; gap: 5px; margin-bottom: 10px; }
+    .admin-cron-card {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 5px; padding: 6px 8px;
+    }
+    .admin-cron-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }
+    .admin-cron-val   { font-size: 11px; font-weight: 700; font-family: monospace; color: var(--accent); margin-top: 2px; }
+    .admin-cron-next  { font-size: 9px; color: var(--green); margin-top: 2px; }
+
+    /* admin section label */
+    .admin-section-label {
+      font-size: 9px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--text-dim);
+      margin-bottom: 4px; margin-top: 8px;
+    }
+
+    /* admin tables */
+    .admin-tbl-wrap { overflow-x: hidden; border: 1px solid var(--border); border-radius: 5px; margin-bottom: 8px; }
+    .admin-tbl-wrap table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    .admin-tbl-wrap th {
+      background: var(--surface2); color: var(--text-dim); font-weight: 600;
+      padding: 5px 6px; text-align: left; white-space: nowrap; font-size: 9px;
+    }
+    .admin-tbl-wrap td {
+      padding: 4px 6px; border-top: 1px solid var(--border);
+      vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      max-width: 0;
+    }
+    .admin-tbl-wrap tr:hover td { background: var(--surface2); }
+    .admin-tbl-wrap .empty-row td { text-align: center; color: var(--text-dim); padding: 12px; white-space: normal; max-width: none; }
+    .admin-pill {
+      display: inline-block; padding: 1px 5px; border-radius: 99px;
+      font-size: 9px; font-weight: 600; white-space: nowrap;
+    }
+    .admin-pill-write   { background: var(--red-dim);    color: var(--red); }
+    .admin-pill-scan    { background: var(--accent-dim);  color: var(--accent); }
+    .admin-pill-tool    { background: var(--green-dim);   color: var(--green); }
+    .admin-pill-query   { background: var(--yellow-dim);  color: var(--yellow); }
+    .admin-pill-system  { background: var(--surface3);    color: var(--text-dim); }
+    .admin-pill-night   { background: var(--blue-dim);    color: var(--blue); }
+    .admin-pill-light   { background: var(--green-dim);   color: var(--green); }
+    .admin-user-badge {
+      display: inline-block; background: var(--accent-dim); color: var(--accent);
+      padding: 1px 5px; border-radius: 99px; font-size: 9px; font-weight: 600;
+    }
+    .admin-ts { font-size: 9px; color: var(--text-dim); white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -737,9 +897,21 @@
     <span class="maint-dot"></span>
     <span id="hdr-maint-label">Maintenance</span>
   </button>
+  <button id="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
+    🔔
+    <span id="notif-badge"></span>
+  </button>
   <button id="header-user-btn">👤 Identify</button>
-  <a href="/admin" target="_blank" style="font-size:12px;color:var(--text-dim);text-decoration:none;padding:4px 8px;border-radius:5px;border:1px solid var(--border);white-space:nowrap">↗ Admin</a>
 </header>
+
+<!-- Notification panel -->
+<div id="notif-panel">
+  <div class="notif-header">
+    <h4>Notifications</h4>
+    <button class="notif-mark-btn" onclick="readAllNotifs()">Mark all read</button>
+  </div>
+  <div class="notif-list" id="notif-list"><div class="notif-empty">Loading…</div></div>
+</div>
 
 <!-- AGENT PROGRESS STRIP -->
 <div class="progress-strip idle" id="progress-strip">
@@ -833,6 +1005,7 @@
       <div class="sidebar-tab" onclick="switchTab('writes',this)">Writes</div>
       <div class="sidebar-tab" onclick="switchTab('tools',this)">Tools</div>
       <div class="sidebar-tab" onclick="switchTab('maintenance',this)">⚡ Maint</div>
+      <div class="sidebar-tab" onclick="switchTab('admin',this)">📊 Admin</div>
     </div>
     <div class="sidebar-tab-panel active" id="tab-approvals">
       <div id="approval-list"><div class="empty-state">No pending approvals</div></div>
@@ -850,6 +1023,68 @@
       <div class="sidebar-label" style="margin-top:8px">Live Progress</div>
       <div class="maint-log" id="sidebar-maint-log"><div class="empty-state">Not started yet</div></div>
     </div>
+
+    <!-- ADMIN TAB -->
+    <div class="sidebar-tab-panel" id="tab-admin" style="padding:10px;overflow-y:auto;">
+
+      <!-- Action buttons -->
+      <div class="admin-maint-btns" style="margin-bottom:6px;">
+        <button class="admin-btn-deep"  id="admin-btn-deep"  onclick="triggerMaintenance('deep')">&#9654; Deep Maintenance</button>
+        <button class="admin-btn-light" id="admin-btn-light" onclick="triggerMaintenance('light')">Light Scan</button>
+      </div>
+
+      <!-- Auto-refresh toggle -->
+      <div class="admin-refresh-row">
+        <div class="admin-toggle" id="admin-auto-toggle" onclick="toggleAdminAutoRefresh()"></div>
+        <span>Auto-refresh (60s)</span>
+      </div>
+
+      <!-- Stat cards mini-grid -->
+      <div class="admin-stats-grid">
+        <div class="admin-stat"><div class="admin-stat-label">Total Actions</div><div class="admin-stat-value" id="as-total">—</div></div>
+        <div class="admin-stat"><div class="admin-stat-label">Critical TODOs</div><div class="admin-stat-value red" id="as-todos">—</div></div>
+        <div class="admin-stat"><div class="admin-stat-label">Lint Errors</div><div class="admin-stat-value red" id="as-lint">—</div></div>
+        <div class="admin-stat"><div class="admin-stat-label">Dead Code</div><div class="admin-stat-value yellow" id="as-dead">—</div></div>
+        <div class="admin-stat"><div class="admin-stat-label">Uncommitted</div><div class="admin-stat-value yellow" id="as-uncommitted">—</div></div>
+        <div class="admin-stat"><div class="admin-stat-label">Missing Env</div><div class="admin-stat-value yellow" id="as-env">—</div></div>
+        <div class="admin-stat"><div class="admin-stat-label">File Writes</div><div class="admin-stat-value" id="as-writes">—</div></div>
+        <div class="admin-stat"><div class="admin-stat-label">Recent Commits</div><div class="admin-stat-value green" id="as-commits">—</div></div>
+      </div>
+
+      <!-- Cron schedule -->
+      <div class="admin-section-label">Cron Schedule</div>
+      <div class="admin-cron-row">
+        <div class="admin-cron-card">
+          <div class="admin-cron-label">Night Deep</div>
+          <div class="admin-cron-val" id="admin-cron-night">0 2 * * *</div>
+          <div class="admin-cron-next" id="admin-cron-night-next"></div>
+        </div>
+        <div class="admin-cron-card">
+          <div class="admin-cron-label">Day Light</div>
+          <div class="admin-cron-val" id="admin-cron-day">0 */2 * * *</div>
+          <div class="admin-cron-next" id="admin-cron-day-next"></div>
+        </div>
+      </div>
+
+      <!-- Maintenance Reports -->
+      <div class="admin-section-label">Maintenance Reports (last 5)</div>
+      <div class="admin-tbl-wrap">
+        <table>
+          <thead><tr><th>Time</th><th>Mode</th><th>Dur</th><th>Fixed</th><th>TODOs</th><th>Lint</th></tr></thead>
+          <tbody id="admin-reports-body"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="admin-section-label">Activity Log (last 20)</div>
+      <div class="admin-tbl-wrap">
+        <table>
+          <thead><tr><th style="width:70px">Time</th><th style="width:50px">User</th><th>Action</th><th>Detail</th></tr></thead>
+          <tbody id="admin-activity-body"><tr class="empty-row"><td colspan="4">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+    </div><!-- /tab-admin -->
   </aside>
 </div>
 
@@ -988,6 +1223,28 @@ async function init() {
   // poll maintenance status
   pollMaintStatus();
   setInterval(pollMaintStatus, 15000);
+
+  // initial notification badge
+  fetch('/api/notifications?limit=1').then(r => r.json()).then(d => {
+    const badge = document.getElementById('notif-badge');
+    const count = d.unread ?? 0;
+    badge.textContent = count > 0 ? count : '';
+    badge.classList.toggle('visible', count > 0);
+  }).catch(() => {});
+
+  // restore admin auto-refresh toggle state
+  if (localStorage.getItem('admin-auto-refresh') === '1') {
+    const toggle = document.getElementById('admin-auto-toggle');
+    if (toggle) toggle.classList.add('on');
+    adminAutoRefreshTimer = setInterval(loadAdminTab, 60000);
+  }
+
+  // check ?tab= URL param and switch to that tab
+  const tabParam = new URLSearchParams(location.search).get('tab');
+  if (tabParam) {
+    const validTabs = ['approvals','writes','tools','maintenance','admin'];
+    if (validTabs.includes(tabParam)) switchTab(tabParam);
+  }
 }
 
 // ── maintenance status polling ────────────────────────────────────────────
@@ -1394,9 +1651,10 @@ function switchTab(name, el) {
   document.getElementById('tab-' + name).classList.add('active');
   if (el) el.classList.add('active');
   else {
-    const idx = ['approvals','writes','tools','maintenance'].indexOf(name);
+    const idx = ['approvals','writes','tools','maintenance','admin'].indexOf(name);
     document.querySelectorAll('.sidebar-tab')[idx]?.classList.add('active');
   }
+  if (name === 'admin') loadAdminTab();
 }
 
 function updateSidebarToolCall(name, input) {
@@ -1472,7 +1730,7 @@ const PALETTE_ITEMS = [
   { icon:'🗄', name:'DB Query',           desc:'Inspect schema (SSM tunnel)',    action: () => { closePalette(); document.getElementById('input').value='List all tables in the database'; sendMessage(); } },
   { icon:'📜', name:'Git Log',            desc:'Recent commits',                 action: () => { closePalette(); document.getElementById('input').value='Show last 10 git commits'; sendMessage(); } },
   { icon:'🗑', name:'Clear Session',      desc:'Reset conversation + memory',    action: () => { closePalette(); clearSession(); } },
-  { icon:'↗',    name:'Open Admin',         desc:'Admin panel in new tab',         action: () => { closePalette(); window.open('/admin','_blank'); } },
+  { icon:'📊', name:'Open Admin',         desc:'Admin tab in right sidebar',     action: () => { closePalette(); switchTab('admin'); } },
 ];
 
 let paletteIdx = 0;
@@ -1624,6 +1882,207 @@ function renderMarkdown(text) {
   out = out.replace(/<p>\s*<\/p>/g, '');
   return out;
 }
+
+// ── notification bell ────────────────────────────────────────────────────────────
+function toggleNotifPanel() {
+  const p = document.getElementById('notif-panel');
+  p.classList.toggle('open');
+  if (p.classList.contains('open')) loadAdminNotifications();
+}
+
+async function loadAdminNotifications() {
+  try {
+    const res = await fetch('/api/notifications?limit=30').then(r => r.json());
+    const badge = document.getElementById('notif-badge');
+    const count = res.unread ?? 0;
+    badge.textContent = count > 0 ? count : '';
+    badge.classList.toggle('visible', count > 0);
+    const list = document.getElementById('notif-list');
+    const notifs = res.notifications ?? [];
+    if (!notifs.length) { list.innerHTML = '<div class="notif-empty">No notifications yet</div>'; return; }
+    const icons = { success:'✅', warning:'⚠️', error:'❌', info:'ℹ️' };
+    list.innerHTML = notifs.map(n => `
+      <div class="notif-item${n.read ? '' : ' unread'}">
+        <span class="notif-icon">${icons[n.type] ?? '🤖'}</span>
+        <div class="notif-body">
+          <div class="notif-title">${escHtml(n.title)}</div>
+          <div class="notif-msg">${escHtml(n.body)}</div>
+          <div class="notif-ts">${fmtTs(n.at)}</div>
+        </div>
+      </div>`).join('');
+  } catch (_) {}
+}
+
+async function readAllNotifs() {
+  await fetch('/api/notifications/read-all', { method: 'POST' }).catch(() => {});
+  document.getElementById('notif-badge').classList.remove('visible');
+  document.getElementById('notif-badge').textContent = '';
+  loadAdminNotifications();
+}
+
+// Close notification panel when clicking outside
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('notif-panel');
+  const btn   = document.getElementById('notif-btn');
+  if (panel && panel.classList.contains('open') &&
+      !panel.contains(e.target) && !btn.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+});
+
+// ── admin tab ─────────────────────────────────────────────────────────────────────
+let adminAutoRefreshTimer = null;
+
+function toggleAdminAutoRefresh() {
+  const toggle = document.getElementById('admin-auto-toggle');
+  const on = !toggle.classList.contains('on');
+  toggle.classList.toggle('on', on);
+  localStorage.setItem('admin-auto-refresh', on ? '1' : '0');
+  if (on) {
+    adminAutoRefreshTimer = setInterval(loadAdminTab, 60000);
+  } else {
+    clearInterval(adminAutoRefreshTimer);
+    adminAutoRefreshTimer = null;
+  }
+}
+
+async function loadAdminTab() {
+  try {
+    const [actRes, scanRes, reportsRes] = await Promise.all([
+      fetch('/api/activity?limit=20').then(r => r.json()).catch(() => ({ entries: [], stats: {} })),
+      fetch('/api/last-scan').then(r => r.json()).catch(() => null),
+      fetch('/api/maintenance/reports').then(r => r.json()).catch(() => ({ reports: [] })),
+    ]);
+
+    renderAdminReports(reportsRes.reports ?? []);
+    renderAdminActivity(actRes.entries ?? []);
+
+    const stats = actRes.stats ?? {};
+    const setAdminStat = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val ?? '—';
+    };
+    setAdminStat('as-total',  stats.total);
+    setAdminStat('as-writes', stats.byAction?.['write_file'] ?? 0);
+
+    if (scanRes?.ok && scanRes.result?.summary) {
+      const s = scanRes.result.summary;
+      setAdminStat('as-todos',       s.critical_todos);
+      setAdminStat('as-lint',        s.lint_errors);
+      setAdminStat('as-dead',        s.dead_code_files);
+      setAdminStat('as-uncommitted', s.uncommitted_files);
+      setAdminStat('as-env',         s.missing_env_vars);
+      setAdminStat('as-commits',     s.recent_commits);
+    }
+
+    refreshAdminCountdowns();
+    loadAdminNotifications();
+  } catch (_) {}
+}
+
+function renderAdminReports(reports) {
+  const tbody = document.getElementById('admin-reports-body');
+  if (!tbody) return;
+  const rows = reports.slice(0, 5);
+  if (!rows.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No reports yet</td></tr>';
+    return;
+  }
+  function adminFmtTime(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString([], { month:'2-digit', day:'2-digit' }) + ' ' +
+           d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  }
+  tbody.innerHTML = rows.map(r => {
+    if (r.error) return `<tr><td colspan="6" style="color:var(--red);font-size:9px;">${escHtml(r.file)}: parse error</td></tr>`;
+    const modeClass = r.mode === 'night' ? 'admin-pill-night' : 'admin-pill-light';
+    return `<tr>
+      <td class="admin-ts">${adminFmtTime(r.started_at)}</td>
+      <td><span class="admin-pill ${modeClass}">${escHtml(r.mode ?? '—')}</span></td>
+      <td class="admin-ts">${escHtml(String(r.duration_sec ?? '—'))}s</td>
+      <td style="color:var(--green)">${r.fixes_applied ?? 0}</td>
+      <td style="color:${(r.critical_todos ?? 0) > 0 ? 'var(--red)' : 'var(--text-dim)'}">${r.critical_todos ?? 0}</td>
+      <td style="color:${(r.lint_errors ?? 0) > 0 ? 'var(--red)' : 'var(--text-dim)'}">${r.lint_errors ?? 0}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAdminActivity(entries) {
+  const tbody = document.getElementById('admin-activity-body');
+  if (!tbody) return;
+  const rows = entries.slice(0, 20);
+  if (!rows.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No activity yet</td></tr>';
+    return;
+  }
+  function adminPillClass(action) {
+    if (action.includes('write')) return 'admin-pill-write';
+    if (action.includes('scan') || action.includes('maintenance')) return 'admin-pill-scan';
+    if (action.startsWith('tool:')) return 'admin-pill-tool';
+    if (action === 'query') return 'admin-pill-query';
+    return 'admin-pill-system';
+  }
+  function adminFmtTs(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  }
+  tbody.innerHTML = rows.map(e => {
+    const detail = (e.q ?? e.file ?? e.cmd ?? (e.input ? JSON.stringify(e.input).slice(0, 60) : '') ?? '').slice(0, 50);
+    return `<tr>
+      <td class="admin-ts">${adminFmtTs(e.ts)}</td>
+      <td><span class="admin-user-badge">${escHtml(e.user ?? '?')}</span></td>
+      <td><span class="admin-pill ${adminPillClass(e.action)}">${escHtml(e.action)}</span></td>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px;font-size:9px;color:var(--text-dim)">${escHtml(detail)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function refreshAdminCountdowns() {
+  function nextRunFromCron(cronStr) {
+    const parts = (cronStr || '').trim().split(/\s+/);
+    if (parts.length !== 5) return null;
+    const [min, hour] = parts;
+    const now = new Date();
+    const nowIST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    if (!isNaN(hour) && hour !== '*') {
+      const next = new Date(nowIST);
+      next.setHours(parseInt(hour), parseInt(min) || 0, 0, 0);
+      if (next <= nowIST) next.setDate(next.getDate() + 1);
+      return fmtCountdownDiff(next - nowIST);
+    } else if (hour.startsWith('*/')) {
+      const interval = parseInt(hour.slice(2));
+      const h = nowIST.getHours();
+      const nextH = Math.ceil((h + 1) / interval) * interval;
+      const next = new Date(nowIST);
+      next.setHours(nextH % 24, 0, 0, 0);
+      if (nextH >= 24) next.setDate(next.getDate() + 1);
+      return fmtCountdownDiff(next - nowIST);
+    }
+    return null;
+  }
+  function fmtCountdownDiff(ms) {
+    if (ms <= 0) return 'now';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
+  }
+  const nightEl = document.getElementById('admin-cron-night');
+  const dayEl   = document.getElementById('admin-cron-day');
+  if (nightEl) {
+    const n = nextRunFromCron(nightEl.textContent);
+    const nightNext = document.getElementById('admin-cron-night-next');
+    if (nightNext && n) nightNext.textContent = 'Next: ' + n;
+  }
+  if (dayEl) {
+    const d = nextRunFromCron(dayEl.textContent);
+    const dayNext = document.getElementById('admin-cron-day-next');
+    if (dayNext && d) dayNext.textContent = 'Next: ' + d;
+  }
+}
+
+// Refresh admin countdowns every minute
+setInterval(refreshAdminCountdowns, 60000);
 
 // ── boot ───────────────────────────────────────────────────────────────────────────
 init();
