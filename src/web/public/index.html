@@ -31,7 +31,7 @@
       --user-bg:      #1a1840;
       --radius:       10px;
       --left-w:       228px;
-      --right-w:      264px;
+      --right-w:      272px;
       --header-h:     52px;
       --progress-h:   36px;
     }
@@ -47,7 +47,7 @@
       overflow: hidden;
     }
 
-    /* ── HEADER ────────────────────────────────────────── */
+    /* ── HEADER ──────────────────────────────────────────────── */
     .header {
       height: var(--header-h);
       background: var(--surface);
@@ -55,7 +55,7 @@
       display: flex;
       align-items: center;
       padding: 0 16px;
-      gap: 12px;
+      gap: 10px;
       flex-shrink: 0;
       z-index: 10;
     }
@@ -66,44 +66,63 @@
       font-weight: 700;
       font-size: 15px;
       letter-spacing: -.3px;
+      white-space: nowrap;
     }
-    .header-logo .dot { color: var(--accent); font-size: 20px; line-height: 1; }
+    .header-logo .dot {
+      color: var(--accent);
+      font-size: 18px;
+      animation: pulse-dot 3s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity: 1; } 50% { opacity: .4; }
+    }
     .header-spacer { flex: 1; }
     .header-badge {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 20px;
-      background: var(--surface3);
-      color: var(--text-dim);
-      border: 1px solid var(--border-light);
+      font-size: 11px; padding: 3px 8px; border-radius: 20px;
+      background: var(--surface3); color: var(--text-dim);
+      border: 1px solid var(--border-light); white-space: nowrap;
     }
     .header-badge.model { color: var(--accent); border-color: var(--accent-dim); }
+
+    /* maintenance banner in header */
+    #hdr-maint-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-dim); padding: 4px 10px;
+      border-radius: 6px; cursor: pointer; font-size: 11px;
+      transition: border-color .15s, color .15s; white-space: nowrap;
+    }
+    #hdr-maint-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #hdr-maint-btn .maint-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-dim); flex-shrink: 0;
+    }
+    #hdr-maint-btn.running .maint-dot {
+      background: var(--accent);
+      animation: blink .8s ease-in-out infinite;
+    }
+    #hdr-maint-btn.done .maint-dot { background: var(--green); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
     #header-user-btn {
-      background: var(--accent-dim);
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      padding: 4px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 600;
+      background: var(--accent-dim); border: 1px solid var(--accent);
+      color: var(--accent); padding: 4px 12px; border-radius: 6px;
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      white-space: nowrap;
     }
     #header-user-btn:hover { background: var(--accent); color: #fff; }
 
-    /* ── AGENT PROGRESS STRIP ──────────────────────────── */
+    /* ── AGENT PROGRESS STRIP ────────────────────────────────── */
     .progress-strip {
       height: var(--progress-h);
       background: var(--surface2);
       border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      padding: 0 16px;
-      gap: 10px;
-      flex-shrink: 0;
-      overflow: hidden;
-      transition: opacity .2s;
+      display: flex; align-items: center;
+      padding: 0 16px; gap: 10px;
+      flex-shrink: 0; overflow: hidden;
+      transition: height .2s, opacity .2s;
     }
-    .progress-strip.idle { opacity: 0; pointer-events: none; }
+    .progress-strip.idle   { height: 0; opacity: 0; pointer-events: none; }
     .progress-strip.active { opacity: 1; }
     .progress-spinner {
       width: 14px; height: 14px;
@@ -115,195 +134,154 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .progress-steps {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      overflow: hidden;
-      flex: 1;
+      display: flex; gap: 6px; align-items: center;
+      overflow: hidden; flex: 1;
     }
     .progress-step {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      color: var(--text-dim);
-      white-space: nowrap;
+      display: flex; align-items: center; gap: 4px;
+      font-size: 12px; color: var(--text-dim); white-space: nowrap;
     }
-    .progress-step.done { color: var(--green); }
+    .progress-step.done   { color: var(--green); }
     .progress-step.active { color: var(--accent); font-weight: 600; }
     .progress-step .step-icon { font-size: 10px; }
     .progress-step:not(:last-child)::after {
-      content: '›';
-      color: var(--border-light);
-      margin-left: 4px;
+      content: '›'; color: var(--border-light); margin-left: 4px;
     }
     .progress-task-type {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 20px;
-      font-weight: 600;
-      flex-shrink: 0;
+      font-size: 11px; padding: 2px 8px; border-radius: 20px;
+      font-weight: 600; flex-shrink: 0;
     }
     .task-query       { background: var(--blue-dim);   color: var(--blue); }
-    .task-review      { background: var(--yellow-dim);  color: var(--yellow); }
-    .task-maintenance { background: var(--red-dim);     color: var(--red); }
-    .task-feature     { background: var(--green-dim);   color: var(--green); }
+    .task-review      { background: var(--yellow-dim); color: var(--yellow); }
+    .task-maintenance { background: var(--red-dim);    color: var(--red); }
+    .task-feature     { background: var(--green-dim);  color: var(--green); }
 
-    /* ── BODY LAYOUT ────────────────────────────────────── */
-    .body {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
+    /* ── BODY LAYOUT ─────────────────────────────────────────── */
+    .body { display: flex; flex: 1; overflow: hidden; }
 
-    /* ── LEFT SIDEBAR ───────────────────────────────────── */
+    /* ── LEFT SIDEBAR ────────────────────────────────────────── */
     .sidebar-left {
       width: var(--left-w);
       background: var(--surface);
       border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-      overflow: hidden;
+      display: flex; flex-direction: column;
+      flex-shrink: 0; overflow: hidden;
+      transition: width .2s;
     }
-    .sidebar-section {
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
-    }
+    .sidebar-left.collapsed { width: 0; }
+    .sidebar-section { padding: 12px; border-bottom: 1px solid var(--border); }
     .sidebar-label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .8px;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 8px;
+      font-size: 10px; font-weight: 700; letter-spacing: .8px;
+      text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;
     }
     .sidebar-btn {
-      width: 100%;
-      text-align: left;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 7px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 7px;
+      width: 100%; text-align: left;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text); padding: 7px 10px; border-radius: 6px;
+      cursor: pointer; font-size: 12px; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 7px;
       transition: background .15s, border-color .15s;
     }
     .sidebar-btn:hover { background: var(--surface2); border-color: var(--border-light); }
     .sidebar-btn.danger:hover { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+    .sidebar-btn.accent-btn {
+      border-color: var(--accent-dim); color: var(--accent); background: var(--accent-dim);
+    }
+    .sidebar-btn.accent-btn:hover { background: var(--accent); color: #fff; }
     .sidebar-btn .btn-icon { font-size: 13px; }
     .sidebar-scroll { flex: 1; overflow-y: auto; padding: 12px; }
+    .sidebar-scroll::-webkit-scrollbar { width: 3px; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
     .session-stat {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      margin-bottom: 6px;
-      color: var(--text-dim);
+      display: flex; justify-content: space-between;
+      font-size: 12px; margin-bottom: 6px; color: var(--text-dim);
     }
     .session-stat span:last-child { color: var(--text); font-weight: 600; }
     .memory-item {
-      font-size: 11px;
-      color: var(--text-dim);
-      padding: 4px 6px;
-      border-radius: 4px;
-      background: var(--surface2);
-      margin-bottom: 3px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
+      font-size: 11px; color: var(--text-dim);
+      padding: 4px 6px; border-radius: 4px;
+      background: var(--surface2); margin-bottom: 3px;
+      display: flex; align-items: center; gap: 5px;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    }
+    .memory-item span:first-child {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
     }
     .memory-item .mi-count {
-      background: var(--accent-dim);
-      color: var(--accent);
-      border-radius: 10px;
-      font-size: 10px;
-      padding: 1px 5px;
-      flex-shrink: 0;
+      background: var(--accent-dim); color: var(--accent);
+      border-radius: 10px; font-size: 10px; padding: 1px 5px; flex-shrink: 0;
     }
 
-    /* ── CHAT AREA ──────────────────────────────────────── */
-    .chat-area {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-width: 0;
-    }
+    /* ── CHAT AREA ───────────────────────────────────────────── */
+    .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
     .chat-messages {
-      flex: 1;
-      overflow-y: auto;
+      flex: 1; overflow-y: auto;
       padding: 20px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+      display: flex; flex-direction: column; gap: 16px;
     }
     .chat-messages::-webkit-scrollbar { width: 5px; }
     .chat-messages::-webkit-scrollbar-track { background: transparent; }
     .chat-messages::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
 
     /* messages */
-    .msg { display: flex; flex-direction: column; max-width: 820px; }
-    .msg.user { align-self: flex-end; align-items: flex-end; }
+    .msg { display: flex; flex-direction: column; max-width: 840px; animation: fadeUp .2s ease; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    .msg.user  { align-self: flex-end;  align-items: flex-end; }
     .msg.agent { align-self: flex-start; align-items: flex-start; }
     .msg-label {
-      font-size: 11px;
-      color: var(--text-dim);
+      font-size: 11px; color: var(--text-dim);
       margin-bottom: 5px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .msg-ts { cursor: default; }
+    .msg-ts:hover::after {
+      content: attr(data-full);
+      font-size: 10px; color: var(--text-dim);
+      margin-left: 6px;
     }
     .msg-bubble {
-      padding: 12px 16px;
-      border-radius: var(--radius);
-      line-height: 1.65;
-      font-size: 13.5px;
+      padding: 12px 16px; border-radius: var(--radius);
+      line-height: 1.65; font-size: 13.5px;
     }
     .msg.user .msg-bubble {
-      background: var(--user-bg);
-      border: 1px solid #2a2760;
+      background: var(--user-bg); border: 1px solid #2a2760;
       border-bottom-right-radius: 3px;
     }
     .msg.agent .msg-bubble {
-      background: var(--surface2);
-      border: 1px solid var(--border);
+      background: var(--surface2); border: 1px solid var(--border);
       border-bottom-left-radius: 3px;
+    }
+
+    /* thinking animation */
+    .thinking-dots { display: flex; gap: 5px; padding: 4px 0; align-items: center; }
+    .thinking-dots span {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent-dim); display: block;
+      animation: dot-bounce .9s ease-in-out infinite;
+    }
+    .thinking-dots span:nth-child(2) { animation-delay: .15s; }
+    .thinking-dots span:nth-child(3) { animation-delay: .30s; }
+    @keyframes dot-bounce {
+      0%,80%,100% { background: var(--accent-dim); transform: scale(.8); }
+      40%         { background: var(--accent);     transform: scale(1.2); }
     }
 
     /* confidence badge */
     .confidence-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      padding: 3px 9px;
-      border-radius: 20px;
-      font-weight: 600;
-      margin-bottom: 8px;
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; padding: 3px 9px; border-radius: 20px;
+      font-weight: 600; margin-bottom: 8px;
     }
-    .conf-high   { background: var(--green-dim); color: var(--green); }
+    .conf-high   { background: var(--green-dim);  color: var(--green); }
     .conf-medium { background: var(--yellow-dim); color: var(--yellow); }
-    .conf-low    { background: var(--red-dim); color: var(--red); }
+    .conf-low    { background: var(--red-dim);    color: var(--red); }
 
-    /* tool cards in the message stream */
+    /* tool cards */
     .tool-card {
-      background: var(--surface3);
-      border: 1px solid var(--border-light);
-      border-radius: 7px;
-      padding: 8px 12px;
-      margin: 6px 0;
-      font-size: 12px;
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
+      background: var(--surface3); border: 1px solid var(--border-light);
+      border-radius: 7px; padding: 8px 12px;
+      margin: 6px 0; font-size: 12px;
+      display: flex; align-items: flex-start; gap: 8px;
     }
     .tool-card .tc-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
     .tool-card .tc-body { flex: 1; min-width: 0; }
@@ -315,186 +293,156 @@
     .tool-card.done    { border-color: var(--border); }
     .tool-card .tc-spinner {
       width: 12px; height: 12px;
-      border: 2px solid var(--accent-dim);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
-      flex-shrink: 0;
-      margin-top: 2px;
+      border: 2px solid var(--accent-dim); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .7s linear infinite;
+      flex-shrink: 0; margin-top: 2px;
     }
 
-    /* markdown inside bubbles */
+    /* markdown */
     .msg-bubble pre {
-      background: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px;
-      overflow-x: auto;
-      margin: 8px 0;
-      font-size: 12.5px;
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 6px; overflow-x: auto;
+      margin: 8px 0; font-size: 12.5px;
+      position: relative;
     }
+    .msg-bubble pre code {
+      display: block; padding: 12px;
+      font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+      line-height: 1.6;
+    }
+    /* copy button on code blocks */
+    .copy-btn {
+      position: absolute; top: 6px; right: 8px;
+      background: var(--surface3); border: 1px solid var(--border-light);
+      color: var(--text-dim); font-size: 10px; padding: 3px 8px;
+      border-radius: 4px; cursor: pointer;
+      transition: background .15s, color .15s;
+      opacity: 0;
+    }
+    .msg-bubble pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: var(--accent-dim); color: var(--accent); }
+    .copy-btn.copied { color: var(--green); }
     .msg-bubble code {
-      background: var(--code-bg);
-      padding: 1px 5px;
-      border-radius: 4px;
+      background: var(--code-bg); padding: 1px 5px; border-radius: 4px;
       font-size: 12.5px;
-      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
     }
     .msg-bubble pre code { background: transparent; padding: 0; }
-    .msg-bubble p { margin-bottom: 8px; }
+    .msg-bubble p  { margin-bottom: 8px; }
     .msg-bubble p:last-child { margin-bottom: 0; }
     .msg-bubble ul, .msg-bubble ol { padding-left: 20px; margin-bottom: 8px; }
     .msg-bubble li { margin-bottom: 3px; }
     .msg-bubble strong { color: var(--text); }
     .msg-bubble a { color: var(--accent); }
+    .msg-bubble h2 { font-size: 15px; margin: 12px 0 5px; }
+    .msg-bubble h3 { font-size: 14px; margin: 10px 0 4px; }
+    .msg-bubble h4 { font-size: 13px; margin: 8px 0 3px; }
     .file-cite {
-      color: var(--accent);
-      font-size: 12px;
-      font-family: monospace;
-      background: var(--accent-dim);
-      padding: 1px 5px;
-      border-radius: 3px;
+      color: var(--accent); font-size: 12px; font-family: monospace;
+      background: var(--accent-dim); padding: 1px 5px; border-radius: 3px;
     }
+    .msg-bubble table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px; }
+    .msg-bubble th { background: var(--surface3); padding: 6px 10px; text-align: left; border: 1px solid var(--border); }
+    .msg-bubble td { padding: 5px 10px; border: 1px solid var(--border); }
+    .msg-bubble tr:nth-child(even) td { background: var(--surface3); }
 
-    /* ── INPUT AREA ─────────────────────────────────────── */
+    /* ── INPUT AREA ──────────────────────────────────────────── */
     .input-wrap {
       padding: 12px 24px 16px;
       border-top: 1px solid var(--border);
       background: var(--surface);
     }
-    .input-row {
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-    }
+    .input-row { display: flex; gap: 8px; align-items: flex-end; }
+    .input-box-wrap { flex: 1; position: relative; }
     .input-box {
-      flex: 1;
-      background: var(--surface2);
-      border: 1px solid var(--border-light);
-      color: var(--text);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 13.5px;
-      font-family: inherit;
-      resize: none;
-      line-height: 1.5;
-      min-height: 44px;
-      max-height: 180px;
+      width: 100%;
+      background: var(--surface2); border: 1px solid var(--border-light);
+      color: var(--text); border-radius: 8px;
+      padding: 10px 40px 10px 14px;
+      font-size: 13.5px; font-family: inherit;
+      resize: none; line-height: 1.5;
+      min-height: 44px; max-height: 180px;
       outline: none;
       transition: border-color .15s, box-shadow .15s;
     }
-    .input-box:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px var(--accent-glow);
-    }
+    .input-box:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
     .input-box::placeholder { color: var(--text-dim); }
+    /* clear X button inside input */
+    #input-clear {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: transparent; border: none; color: var(--text-dim);
+      cursor: pointer; font-size: 14px; padding: 2px;
+      display: none;
+    }
+    #input-clear:hover { color: var(--text); }
     .send-btn {
-      background: var(--accent);
-      border: none;
-      color: #fff;
-      width: 44px;
-      height: 44px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: var(--accent); border: none; color: #fff;
+      width: 44px; height: 44px; border-radius: 8px;
+      cursor: pointer; font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
       transition: background .15s, transform .1s;
     }
-    .send-btn:hover { background: #6a58e8; }
+    .send-btn:hover  { background: #6a58e8; }
     .send-btn:active { transform: scale(.95); }
     .send-btn:disabled { background: var(--accent-dim); cursor: not-allowed; }
-    .input-hint {
-      font-size: 11px;
-      color: var(--text-dim);
+    .input-footer {
+      font-size: 11px; color: var(--text-dim);
       margin-top: 6px;
-      display: flex;
-      gap: 12px;
+      display: flex; gap: 12px; justify-content: space-between; align-items: center;
     }
-    .input-hint kbd {
-      background: var(--surface3);
-      border: 1px solid var(--border-light);
-      border-radius: 3px;
-      padding: 1px 5px;
-      font-size: 10px;
-      font-family: inherit;
+    .input-hints { display: flex; gap: 12px; }
+    .input-footer kbd {
+      background: var(--surface3); border: 1px solid var(--border-light);
+      border-radius: 3px; padding: 1px 5px;
+      font-size: 10px; font-family: inherit;
     }
+    #char-count { font-variant-numeric: tabular-nums; }
 
-    /* ── RIGHT SIDEBAR ──────────────────────────────────── */
+    /* ── RIGHT SIDEBAR ───────────────────────────────────────── */
     .sidebar-right {
       width: var(--right-w);
       background: var(--surface);
       border-left: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-      overflow: hidden;
+      display: flex; flex-direction: column;
+      flex-shrink: 0; overflow: hidden;
     }
-    .sidebar-tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
+    .sidebar-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .sidebar-tab {
-      flex: 1;
-      padding: 10px 4px;
-      font-size: 11px;
-      font-weight: 600;
-      text-align: center;
-      cursor: pointer;
-      color: var(--text-dim);
+      flex: 1; padding: 10px 4px;
+      font-size: 10.5px; font-weight: 600; text-align: center;
+      cursor: pointer; color: var(--text-dim);
       border-bottom: 2px solid transparent;
       transition: color .15s, border-color .15s;
+      white-space: nowrap;
     }
     .sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
     .sidebar-tab-panel { display: none; flex: 1; overflow-y: auto; padding: 12px; }
+    .sidebar-tab-panel::-webkit-scrollbar { width: 3px; }
+    .sidebar-tab-panel::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
     .sidebar-tab-panel.active { display: block; }
     .approval-card {
-      background: var(--surface2);
-      border: 1px solid var(--yellow);
-      border-radius: 7px;
-      padding: 10px;
-      margin-bottom: 8px;
+      background: var(--surface2); border: 1px solid var(--yellow);
+      border-radius: 7px; padding: 10px; margin-bottom: 8px;
     }
     .approval-card .ac-file {
-      font-size: 11px;
-      font-family: monospace;
-      color: var(--yellow);
-      margin-bottom: 4px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-size: 11px; font-family: monospace; color: var(--yellow);
+      margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .approval-card .ac-reason {
-      font-size: 11px;
-      color: var(--text-dim);
-      margin-bottom: 8px;
-    }
+    .approval-card .ac-reason { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; }
     .approval-btns { display: flex; gap: 6px; }
     .approval-btns button {
-      flex: 1;
-      padding: 5px;
-      border-radius: 5px;
-      border: none;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
+      flex: 1; padding: 5px; border-radius: 5px;
+      border: none; font-size: 12px; font-weight: 600; cursor: pointer;
     }
     .btn-approve { background: var(--green-dim); color: var(--green); }
     .btn-approve:hover { background: var(--green); color: #000; }
     .btn-deny    { background: var(--red-dim); color: var(--red); }
-    .btn-deny:hover    { background: var(--red); color: #fff; }
+    .btn-deny:hover { background: var(--red); color: #fff; }
     .write-item {
-      font-size: 11px;
-      padding: 6px 8px;
-      border-radius: 5px;
-      background: var(--surface2);
-      margin-bottom: 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
+      font-size: 11px; padding: 6px 8px; border-radius: 5px;
+      background: var(--surface2); margin-bottom: 4px;
+      display: flex; flex-direction: column; gap: 2px;
     }
     .write-item .wi-file { color: var(--text); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .write-item .wi-meta { color: var(--text-dim); display: flex; gap: 6px; }
@@ -504,44 +452,59 @@
     .wi-status.pending  { background: var(--yellow-dim); color: var(--yellow); }
     .empty-state { color: var(--text-dim); font-size: 12px; text-align: center; padding: 24px 0; }
 
-    /* ── COMMAND PALETTE ────────────────────────────────── */
+    /* maintenance tab in right sidebar */
+    #tab-maintenance .maint-log {
+      font-family: 'Cascadia Code',Consolas,monospace; font-size: 11px;
+      line-height: 1.7;
+    }
+    #tab-maintenance .maint-log .log-step { color: var(--accent); font-weight: 700; margin-right: 5px; }
+    #tab-maintenance .maint-log .log-done { color: var(--green); }
+    #tab-maintenance .maint-log .log-err  { color: var(--red); }
+    #tab-maintenance .maint-log .log-ts   { color: var(--text-dim); font-size: 10px; margin-left: 6px; }
+    .maint-trigger-btn {
+      width: 100%; padding: 8px; border-radius: 6px;
+      border: none; font-size: 12px; font-weight: 700;
+      cursor: pointer; margin-bottom: 8px;
+      transition: opacity .15s;
+    }
+    .maint-trigger-btn.deep  { background: var(--accent); color: #fff; }
+    .maint-trigger-btn.light { background: var(--surface3); color: var(--text); border: 1px solid var(--border); }
+    .maint-trigger-btn:hover { opacity: .85; }
+    .maint-trigger-btn:disabled { opacity: .4; cursor: not-allowed; }
+    #maint-sidebar-status {
+      font-size: 11px; font-weight: 700;
+      padding: 3px 8px; border-radius: 99px;
+      display: inline-block; margin-bottom: 10px;
+      background: var(--surface2); color: var(--text-dim);
+    }
+    #maint-sidebar-status.running { background: var(--accent-dim); color: var(--accent); }
+    #maint-sidebar-status.done    { background: var(--green-dim);  color: var(--green); }
+    #maint-sidebar-status.error   { background: var(--red-dim);    color: var(--red); }
+
+    /* ── COMMAND PALETTE ─────────────────────────────────────── */
     .palette-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,.6);
-      z-index: 100;
-      display: none;
-      align-items: flex-start;
-      justify-content: center;
+      z-index: 100; display: none;
+      align-items: flex-start; justify-content: center;
       padding-top: 80px;
     }
     .palette-overlay.open { display: flex; }
     .palette-box {
-      background: var(--surface);
-      border: 1px solid var(--border-light);
-      border-radius: 12px;
-      width: 520px;
-      max-width: 90vw;
-      box-shadow: 0 24px 60px rgba(0,0,0,.6);
-      overflow: hidden;
+      background: var(--surface); border: 1px solid var(--border-light);
+      border-radius: 12px; width: 520px; max-width: 90vw;
+      box-shadow: 0 24px 60px rgba(0,0,0,.6); overflow: hidden;
     }
     .palette-input {
-      width: 100%;
-      background: transparent;
-      border: none;
+      width: 100%; background: transparent; border: none;
       border-bottom: 1px solid var(--border);
-      color: var(--text);
-      font-size: 15px;
-      font-family: inherit;
-      padding: 14px 18px;
-      outline: none;
+      color: var(--text); font-size: 15px; font-family: inherit;
+      padding: 14px 18px; outline: none;
     }
     .palette-results { max-height: 320px; overflow-y: auto; }
     .palette-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 18px;
-      cursor: pointer;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 18px; cursor: pointer;
       border-bottom: 1px solid var(--border);
       transition: background .1s;
     }
@@ -551,165 +514,110 @@
     .palette-item .pi-name { font-size: 13px; font-weight: 600; }
     .palette-item .pi-desc { font-size: 11px; color: var(--text-dim); }
     .palette-item .pi-key {
-      font-size: 11px;
-      background: var(--surface3);
-      border: 1px solid var(--border-light);
-      padding: 2px 6px;
-      border-radius: 4px;
-      color: var(--text-dim);
+      font-size: 11px; background: var(--surface3);
+      border: 1px solid var(--border-light); padding: 2px 6px;
+      border-radius: 4px; color: var(--text-dim);
     }
     .palette-section-label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .8px;
-      text-transform: uppercase;
-      color: var(--text-dim);
+      font-size: 10px; font-weight: 700; letter-spacing: .8px;
+      text-transform: uppercase; color: var(--text-dim);
       padding: 8px 18px 4px;
     }
 
-    /* ── SPLIT DIFF MODAL ───────────────────────────────── */
+    /* ── SPLIT DIFF MODAL ────────────────────────────────────── */
     .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,.7);
-      z-index: 200;
-      display: none;
-      align-items: center;
-      justify-content: center;
+      position: fixed; inset: 0; background: rgba(0,0,0,.7);
+      z-index: 200; display: none;
+      align-items: center; justify-content: center;
     }
     .modal-overlay.open { display: flex; }
     .modal-box {
-      background: var(--surface);
-      border: 1px solid var(--border-light);
-      border-radius: 12px;
-      width: 92vw;
-      max-width: 1100px;
-      max-height: 88vh;
-      display: flex;
-      flex-direction: column;
+      background: var(--surface); border: 1px solid var(--border-light);
+      border-radius: 12px; width: 92vw; max-width: 1100px;
+      max-height: 88vh; display: flex; flex-direction: column;
       box-shadow: 0 32px 80px rgba(0,0,0,.7);
     }
     .modal-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
     .modal-header h3 { flex: 1; font-size: 14px; font-weight: 700; }
     .modal-header .mh-file {
-      font-family: monospace;
-      font-size: 12px;
-      color: var(--yellow);
-      background: var(--yellow-dim);
-      padding: 2px 8px;
-      border-radius: 4px;
+      font-family: monospace; font-size: 12px; color: var(--yellow);
+      background: var(--yellow-dim); padding: 2px 8px; border-radius: 4px;
     }
     .modal-close {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      font-size: 20px;
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 4px;
+      background: transparent; border: none; color: var(--text-dim);
+      font-size: 20px; cursor: pointer; padding: 2px 6px; border-radius: 4px;
     }
     .modal-close:hover { background: var(--surface2); color: var(--text); }
     .modal-reason {
-      padding: 10px 18px;
-      font-size: 12px;
-      color: var(--text-dim);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+      padding: 10px 18px; font-size: 12px; color: var(--text-dim);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
     .diff-split {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      flex: 1;
-      overflow: hidden;
+      display: grid; grid-template-columns: 1fr 1fr;
+      flex: 1; overflow: hidden;
     }
     .diff-pane {
-      overflow-y: auto;
-      padding: 12px;
-      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-      font-size: 12px;
-      line-height: 1.7;
+      overflow-y: auto; padding: 12px;
+      font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+      font-size: 12px; line-height: 1.7;
     }
     .diff-pane:first-child { border-right: 1px solid var(--border); }
     .diff-pane-label {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      margin-bottom: 8px;
-      padding: 3px 8px;
-      border-radius: 4px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .8px; margin-bottom: 8px;
+      padding: 3px 8px; border-radius: 4px;
     }
-    .diff-pane-label.before { background: var(--red-dim); color: var(--red); }
+    .diff-pane-label.before { background: var(--red-dim);   color: var(--red); }
     .diff-pane-label.after  { background: var(--green-dim); color: var(--green); }
     .diff-line { white-space: pre-wrap; padding: 0 6px; border-radius: 2px; }
     .diff-line.removed { background: rgba(248,113,113,.1); color: var(--red); }
     .diff-line.added   { background: rgba(52,211,153,.1);  color: var(--green); }
     .diff-line.context { color: var(--text-dim); }
     .modal-actions {
-      display: flex;
-      gap: 10px;
-      padding: 14px 18px;
-      border-top: 1px solid var(--border);
-      justify-content: flex-end;
-      flex-shrink: 0;
+      display: flex; gap: 10px; padding: 14px 18px;
+      border-top: 1px solid var(--border); justify-content: flex-end; flex-shrink: 0;
     }
     .modal-actions button {
-      padding: 8px 22px;
-      border-radius: 7px;
-      border: none;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
+      padding: 8px 22px; border-radius: 7px; border: none;
+      font-size: 13px; font-weight: 700; cursor: pointer;
     }
     .modal-actions .ma-approve { background: var(--green); color: #000; }
     .modal-actions .ma-approve:hover { background: #2cb882; }
     .modal-actions .ma-deny    { background: var(--surface3); color: var(--text); border: 1px solid var(--border-light); }
     .modal-actions .ma-deny:hover { background: var(--red-dim); color: var(--red); }
 
-    /* ── WELCOME ────────────────────────────────────────── */
+    /* ── WELCOME ─────────────────────────────────────────────── */
     .welcome {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      flex: 1;
-      gap: 12px;
-      color: var(--text-dim);
-      text-align: center;
-      padding: 40px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      flex: 1; gap: 16px; color: var(--text-dim);
+      text-align: center; padding: 40px;
     }
-    .welcome h2 { font-size: 22px; color: var(--text); margin-bottom: 4px; }
-    .welcome p  { font-size: 13px; max-width: 480px; }
+    .welcome-logo {
+      font-size: 48px; line-height: 1;
+      animation: float 4s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-8px); }
+    }
+    .welcome h2 { font-size: 22px; color: var(--text); margin-bottom: 2px; }
+    .welcome .welcome-sub { font-size: 13px; max-width: 460px; line-height: 1.6; }
     .welcome-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-      margin-top: 8px;
+      display: flex; flex-wrap: wrap; gap: 8px;
+      justify-content: center; margin-top: 4px;
     }
     .welcome-chip {
-      background: var(--surface2);
-      border: 1px solid var(--border-light);
-      border-radius: 20px;
-      padding: 6px 14px;
-      font-size: 12px;
-      cursor: pointer;
-      color: var(--text-dim);
-      transition: border-color .15s, color .15s;
+      background: var(--surface2); border: 1px solid var(--border-light);
+      border-radius: 20px; padding: 6px 14px; font-size: 12px;
+      cursor: pointer; color: var(--text-dim);
+      transition: border-color .15s, color .15s, background .15s;
     }
-    .welcome-chip:hover { border-color: var(--accent); color: var(--accent); }
-
-    /* ── MISC ───────────────────────────────────────────── */
-    .scrollbar-hidden::-webkit-scrollbar { display: none; }
-    .text-accent { color: var(--accent); }
-    .text-dim    { color: var(--text-dim); }
-    .mono        { font-family: monospace; }
+    .welcome-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .welcome-divider { font-size: 11px; color: var(--border-light); }
   </style>
 </head>
 <body>
@@ -723,9 +631,12 @@
   <div class="header-spacer"></div>
   <span class="header-badge model" id="hdr-model">claude-sonnet</span>
   <span class="header-badge" id="hdr-tools">— tools</span>
-  <span class="header-badge" id="hdr-session" style="font-family:monospace;font-size:10px">…</span>
+  <button id="hdr-maint-btn" onclick="quickMaintenance()" title="Ctrl+M">
+    <span class="maint-dot"></span>
+    <span id="hdr-maint-label">Maintenance</span>
+  </button>
   <button id="header-user-btn">👤 Identify</button>
-  <a href="/admin" style="font-size:12px;color:var(--text-dim);text-decoration:none;padding:4px 8px;border-radius:5px;border:1px solid var(--border);">Admin ↗</a>
+  <a href="/admin" target="_blank" style="font-size:12px;color:var(--text-dim);text-decoration:none;padding:4px 8px;border-radius:5px;border:1px solid var(--border);white-space:nowrap">↗ Admin</a>
 </header>
 
 <!-- AGENT PROGRESS STRIP -->
@@ -739,22 +650,26 @@
 <div class="body">
 
   <!-- LEFT SIDEBAR -->
-  <aside class="sidebar-left">
+  <aside class="sidebar-left" id="sidebar-left">
     <div class="sidebar-section">
-      <div class="sidebar-label">Session</div>
+      <div class="sidebar-label">Quick Actions</div>
+      <button class="sidebar-btn accent-btn" onclick="quickMaintenance()">
+        <span class="btn-icon">⚡</span> Start Maintenance
+        <span style="margin-left:auto;font-size:10px;opacity:.7">Ctrl+M</span>
+      </button>
       <button class="sidebar-btn" onclick="triggerScan()">
         <span class="btn-icon">🔍</span> Full Scan
-      </button>
-      <button class="sidebar-btn" onclick="clearSession()">
-        <span class="btn-icon">🗑</span> Clear Session
       </button>
       <button class="sidebar-btn" onclick="openPalette()">
         <span class="btn-icon">⌘</span> Command Palette
         <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">Ctrl+K</span>
       </button>
+      <button class="sidebar-btn danger" onclick="clearSession()">
+        <span class="btn-icon">🗑</span> Clear Session
+      </button>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-label">Stats</div>
+      <div class="sidebar-label">Session Stats</div>
       <div class="session-stat"><span>Files read</span><span id="stat-files">0</span></div>
       <div class="session-stat"><span>Tool calls</span><span id="stat-tools">0</span></div>
       <div class="session-stat"><span>Writes</span><span id="stat-writes">0</span></div>
@@ -770,8 +685,11 @@
   <main class="chat-area">
     <div class="chat-messages" id="chat-messages">
       <div class="welcome" id="welcome">
-        <h2>TIQ World AI Agent</h2>
-        <p>Ask anything about the codebase. I'll read files, trace errors, review code, and suggest fixes — with your approval before any change.</p>
+        <div class="welcome-logo">◆</div>
+        <div>
+          <h2>TIQ World AI Agent</h2>
+          <p class="welcome-sub">Ask anything about the codebase. I’ll read files, trace errors, review code, and suggest fixes — with your approval before any change.</p>
+        </div>
         <div class="welcome-chips">
           <span class="welcome-chip" onclick="chip(this)">Run full scan</span>
           <span class="welcome-chip" onclick="chip(this)">Explain route /api/auth/login</span>
@@ -779,20 +697,29 @@
           <span class="welcome-chip" onclick="chip(this)">Check env usage</span>
           <span class="welcome-chip" onclick="chip(this)">Detect dead code</span>
           <span class="welcome-chip" onclick="chip(this)">Health check</span>
+          <span class="welcome-chip" onclick="chip(this)">Show last 10 commits</span>
+          <span class="welcome-chip" onclick="chip(this)">List all database tables</span>
         </div>
+        <div class="welcome-divider">or type below ↓</div>
       </div>
     </div>
     <div class="input-wrap">
       <div class="input-row">
-        <textarea id="input" class="input-box" rows="1"
-          placeholder="Ask about the codebase… (Shift+Enter for newline)"></textarea>
+        <div class="input-box-wrap">
+          <textarea id="input" class="input-box" rows="1"
+            placeholder="Ask about the codebase… (Shift+Enter for newline)"></textarea>
+          <button id="input-clear" onclick="clearInput()">✕</button>
+        </div>
         <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send (Enter)">➤</button>
       </div>
-      <div class="input-hint">
-        <span><kbd>Enter</kbd> send</span>
-        <span><kbd>Shift+Enter</kbd> newline</span>
-        <span><kbd>↑</kbd><kbd>↓</kbd> history</span>
-        <span><kbd>Ctrl+K</kbd> palette</span>
+      <div class="input-footer">
+        <div class="input-hints">
+          <span><kbd>Enter</kbd> send</span>
+          <span><kbd>Shift+Enter</kbd> newline</span>
+          <span><kbd>↑</kbd><kbd>↓</kbd> history</span>
+          <span><kbd>Ctrl+K</kbd> palette</span>
+        </div>
+        <span id="char-count" style="color:var(--border-light)"></span>
       </div>
     </div>
   </main>
@@ -803,6 +730,7 @@
       <div class="sidebar-tab active" onclick="switchTab('approvals',this)">Approvals</div>
       <div class="sidebar-tab" onclick="switchTab('writes',this)">Writes</div>
       <div class="sidebar-tab" onclick="switchTab('tools',this)">Tools</div>
+      <div class="sidebar-tab" onclick="switchTab('maintenance',this)">⚡ Maint</div>
     </div>
     <div class="sidebar-tab-panel active" id="tab-approvals">
       <div id="approval-list"><div class="empty-state">No pending approvals</div></div>
@@ -812,6 +740,13 @@
     </div>
     <div class="sidebar-tab-panel" id="tab-tools">
       <div id="tool-call-list"><div class="empty-state">No tool calls yet</div></div>
+    </div>
+    <div class="sidebar-tab-panel" id="tab-maintenance">
+      <span id="maint-sidebar-status">Idle</span>
+      <button class="maint-trigger-btn deep"  id="btn-maint-deep-side"  onclick="triggerMaintenance('deep')">&#9654; Deep Maintenance</button>
+      <button class="maint-trigger-btn light" id="btn-maint-light-side" onclick="triggerMaintenance('light')">Light Scan</button>
+      <div class="sidebar-label" style="margin-top:8px">Live Progress</div>
+      <div class="maint-log" id="sidebar-maint-log"><div class="empty-state">Not started yet</div></div>
     </div>
   </aside>
 </div>
@@ -858,48 +793,130 @@ let sending     = false;
 let eventSource = null;
 let taskType    = null;
 
-// history navigation
 const inputHistory = [];
 let historyIdx = -1;
 
-// approval queue
-let pendingApprovalId  = null;
-let currentApprovalFn  = null;
-
-// progress strip steps
-const progressSteps = []; // [{name,status}]
+let pendingApprovalId = null;
+const progressSteps = [];
 let progressActive  = false;
 
-// ── init ─────────────────────────────────────────────────────────────────────
+let maintEventSource = null;
+
+// ── init ──────────────────────────────────────────────────────────────────────
 async function init() {
   const res = await fetch('/api/status').then(r => r.json()).catch(() => ({}));
   if (res.tool_count) document.getElementById('hdr-tools').textContent = res.tool_count + ' tools';
-  if (res.model)      document.getElementById('hdr-model').textContent = res.model.split('/').pop().slice(0,20);
-  document.getElementById('hdr-session').textContent = sessionId;
+  if (res.model)      document.getElementById('hdr-model').textContent = res.model.split('/').pop().slice(0,22);
 
-  // try saved user
   const saved = localStorage.getItem('tiq-user');
   if (saved) { userName = saved; identifyUser(saved, true); }
+
+  // poll maintenance status
+  pollMaintStatus();
+  setInterval(pollMaintStatus, 15000);
 }
 
 async function identifyUser(name, silent = false) {
   await fetch('/api/identify', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ sessionId, user: name }),
   });
-  if (!silent) {
-    document.getElementById('header-user-btn').textContent = '👤 ' + name;
-    localStorage.setItem('tiq-user', name);
-  } else {
-    document.getElementById('header-user-btn').textContent = '👤 ' + name;
-  }
+  document.getElementById('header-user-btn').textContent = '👤 ' + name;
+  if (!silent) localStorage.setItem('tiq-user', name);
 }
 
 document.getElementById('header-user-btn').onclick = async () => {
   const name = prompt('Your name:', userName);
   if (name?.trim()) { userName = name.trim(); await identifyUser(userName); }
 };
+
+// ── maintenance status polling ────────────────────────────────────────────
+async function pollMaintStatus() {
+  try {
+    const data = await fetch('/api/maintenance/status').then(r => r.json());
+    const state = data.state ?? 'idle';
+    // header button
+    const btn = document.getElementById('hdr-maint-btn');
+    btn.className = state;
+    const labels = { idle:'Maintenance', running:'Running…', done:'Done ✓', error:'Error ⚠' };
+    document.getElementById('hdr-maint-label').textContent = labels[state] ?? 'Maintenance';
+    // sidebar
+    const badge = document.getElementById('maint-sidebar-status');
+    badge.className = state;
+    badge.textContent = labels[state] ?? state;
+
+    if (state === 'running' && !maintEventSource) {
+      startMaintStream();
+    } else if (state === 'done' && data.progress?.length) {
+      const log = document.getElementById('sidebar-maint-log');
+      log.innerHTML = '';
+      data.progress.forEach(p => appendMaintLog(p.step, p.msg, p.at));
+    }
+  } catch (_) {}
+}
+
+function startMaintStream() {
+  if (maintEventSource) { maintEventSource.close(); }
+  const log = document.getElementById('sidebar-maint-log');
+  log.innerHTML = '';
+  maintEventSource = new EventSource('/api/maintenance/stream');
+  maintEventSource.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'maintenance_progress') {
+        appendMaintLog(data.step, data.msg, data.at);
+      } else if (data.type === 'maintenance_status') {
+        const badge = document.getElementById('maint-sidebar-status');
+        badge.className = data.state;
+        const labels = { idle:'Idle', running:'Running…', done:'Done ✓', error:'Error' };
+        badge.textContent = labels[data.state] ?? data.state;
+        if (data.state === 'done' || data.state === 'idle') {
+          maintEventSource.close();
+          maintEventSource = null;
+        }
+      }
+    } catch (_) {}
+  };
+  maintEventSource.onerror = () => { maintEventSource?.close(); maintEventSource = null; };
+}
+
+function appendMaintLog(step, msg, at) {
+  const log = document.getElementById('sidebar-maint-log');
+  if (log.querySelector('.empty-state')) log.innerHTML = '';
+  const isDone = step === 'done';
+  const isErr  = step === 'error';
+  const div = document.createElement('div');
+  div.innerHTML =
+    `<span class="log-step ${isDone?'log-done':isErr?'log-err':''}">[${ escHtml(step)}]</span>` +
+    `${ escHtml(msg)}<span class="log-ts">${fmtTs(at)}</span>`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function triggerMaintenance(mode) {
+  const btnDeep  = document.getElementById('btn-maint-deep-side');
+  const btnLight = document.getElementById('btn-maint-light-side');
+  btnDeep.disabled = btnLight.disabled = true;
+  try {
+    await fetch('/api/maintenance/trigger', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ mode, sessionId }),
+    });
+    startMaintStream();
+    // switch to maintenance tab
+    const tabs = document.querySelectorAll('.sidebar-tab');
+    switchTab('maintenance', tabs[3]);
+  } finally {
+    btnDeep.disabled = btnLight.disabled = false;
+  }
+}
+
+function quickMaintenance() {
+  // switch to maint tab + trigger
+  const tabs = document.querySelectorAll('.sidebar-tab');
+  switchTab('maintenance', tabs[3]);
+  triggerMaintenance('deep');
+}
 
 // ── progress strip ───────────────────────────────────────────────────────────
 const TOOL_ICONS = {
@@ -932,41 +949,42 @@ function addProgressStep(name) {
   const steps = document.getElementById('progress-steps');
   const el    = document.createElement('span');
   el.className = 'progress-step active';
-  el.id = 'ps-' + name + '-' + Date.now();
   el.innerHTML = `<span class="step-icon">${icon}</span>${name.replace(/_/g,' ')}`;
-  // mark all previous as done
   steps.querySelectorAll('.progress-step').forEach(s => s.className = 'progress-step done');
   steps.appendChild(el);
-  // scroll to end
   steps.scrollLeft = steps.scrollWidth;
-  return el;
 }
 
-// ── send message ─────────────────────────────────────────────────────────────
+// ── send message ──────────────────────────────────────────────────────────────
 function sendMessage() {
   const input = document.getElementById('input');
   const text  = input.value.trim();
   if (!text || sending) return;
 
   document.getElementById('welcome')?.remove();
-
   inputHistory.unshift(text);
   historyIdx = -1;
 
   appendMsg('user', text);
   input.value = '';
   input.style.height = 'auto';
+  document.getElementById('input-clear').style.display = 'none';
+  document.getElementById('char-count').textContent = '';
   setSending(true);
 
   const agentDiv = appendMsg('agent', '');
   const bubble   = agentDiv.querySelector('.msg-bubble');
 
+  // thinking animation
+  const thinkEl = document.createElement('div');
+  thinkEl.className = 'thinking-dots';
+  thinkEl.innerHTML = '<span></span><span></span><span></span>';
+  bubble.appendChild(thinkEl);
+
   if (eventSource) { eventSource.close(); }
 
   const url = `/api/chat?q=${encodeURIComponent(text)}&sessionId=${encodeURIComponent(sessionId)}`;
   eventSource = new EventSource(url);
-
-  let pendingApprovalCard = null;
 
   eventSource.onmessage = (e) => {
     const data = JSON.parse(e.data);
@@ -976,6 +994,7 @@ function sendMessage() {
       taskType = data.raw;
       startProgress(data.label, 'task-' + data.raw);
       document.getElementById('stat-task').textContent = data.label;
+      thinkEl.remove();
     }
 
     if (data.type === 'tool_call') {
@@ -989,6 +1008,7 @@ function sendMessage() {
     }
 
     if (data.type === 'tool_budget_exceeded') {
+      thinkEl.remove();
       const warn = document.createElement('div');
       warn.style.cssText = 'color:var(--yellow);font-size:12px;margin:6px 0;';
       warn.textContent = '⚠ Tool budget reached — please narrow your question.';
@@ -996,8 +1016,10 @@ function sendMessage() {
     }
 
     if (data.type === 'answer') {
+      thinkEl.remove();
       const md = document.createElement('div');
       md.innerHTML = renderMarkdown(data.text);
+      addCopyButtons(md);
       bubble.appendChild(md);
       highlightConfidence(bubble, data.text);
     }
@@ -1009,7 +1031,6 @@ function sendMessage() {
       const list = document.getElementById('approval-list');
       list.innerHTML = '';
       list.appendChild(card);
-      // show split diff modal
       openDiffModal(data);
     }
 
@@ -1023,6 +1044,7 @@ function sendMessage() {
     }
 
     if (data.type === 'error') {
+      thinkEl.remove();
       const err = document.createElement('div');
       err.style.cssText = 'color:var(--red);font-size:12px;margin-top:6px;';
       err.textContent = '⚠ ' + data.message;
@@ -1036,11 +1058,29 @@ function sendMessage() {
   eventSource.onerror = () => { done(); };
 
   function done() {
+    thinkEl.remove();
     if (eventSource) { eventSource.close(); eventSource = null; }
     setSending(false);
     stopProgress();
     refreshMemory();
   }
+}
+
+// ── copy buttons on code blocks ─────────────────────────────────────────────
+function addCopyButtons(container) {
+  container.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = 'Copy';
+    btn.onclick = async () => {
+      const code = pre.querySelector('code')?.textContent ?? pre.textContent;
+      await navigator.clipboard.writeText(code).catch(() => {});
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    };
+    pre.appendChild(btn);
+  });
 }
 
 // ── tool cards inside bubble ──────────────────────────────────────────────────
@@ -1073,7 +1113,8 @@ function finalizeToolCard(name, result) {
   const isErr = result?.error;
   const summary = isErr
     ? result.error
-    : (result?.total ?? result?.file_path ?? result?.message ?? result?.confidence_score != null ? `confidence: ${result.confidence_score}/100` : 'ok');
+    : (result?.total ?? result?.file_path ?? result?.message
+      ?? (result?.confidence_score != null ? `confidence: ${result.confidence_score}/100` : 'ok'));
   card.querySelector('.tc-spinner')?.remove();
   const tick = document.createElement('div');
   tick.style.cssText = 'font-size:14px;margin-top:1px;flex-shrink:0;';
@@ -1086,19 +1127,19 @@ function finalizeToolCard(name, result) {
   delete activeToolCards[name];
 }
 
-// ── confidence badge auto-detection ─────────────────────────────────────────
+// ── confidence badge ───────────────────────────────────────────────────────────────
 function highlightConfidence(bubble, text) {
   const m = text.match(/Confidence:\s*(\d+)\/100\s*[—-]\s*(HIGH|MEDIUM|LOW)/i);
   if (!m) return;
   const score = parseInt(m[1]);
   const level = m[2].toUpperCase();
   const badge = document.createElement('div');
-  badge.className = 'confidence-badge ' + (level === 'HIGH' ? 'conf-high' : level === 'MEDIUM' ? 'conf-medium' : 'conf-low');
+  badge.className = 'confidence-badge ' + (level==='HIGH'?'conf-high':level==='MEDIUM'?'conf-medium':'conf-low');
   badge.innerHTML = `⬡ ${score}/100 &nbsp;${level}`;
   bubble.prepend(badge);
 }
 
-// ── split diff modal ──────────────────────────────────────────────────────────
+// ── split diff modal ──────────────────────────────────────────────────────────────
 let currentDiffApprovalId = null;
 
 function openDiffModal(data) {
@@ -1108,28 +1149,24 @@ function openDiffModal(data) {
 
   const raw = data.diff ?? '';
   const lines = raw.split('\n');
-
-  const beforeLines = [];
-  const afterLines  = [];
+  const beforeLines = [], afterLines = [];
 
   for (const line of lines) {
     if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('@@')) continue;
     if (line.startsWith('-')) {
-      beforeLines.push({ type: 'removed', text: line.slice(1) });
+      beforeLines.push({ type:'removed', text:line.slice(1) });
     } else if (line.startsWith('+')) {
-      afterLines.push({ type: 'added', text: line.slice(1) });
+      afterLines.push({  type:'added',   text:line.slice(1) });
     } else {
-      beforeLines.push({ type: 'context', text: line.slice(1) });
-      afterLines.push({  type: 'context', text: line.slice(1) });
+      beforeLines.push({ type:'context', text:line.slice(1) });
+      afterLines.push({  type:'context', text:line.slice(1) });
     }
   }
 
   document.getElementById('diff-before').innerHTML = beforeLines.map(l =>
-    `<div class="diff-line ${l.type}">${escHtml(l.text)}</div>`
-  ).join('');
+    `<div class="diff-line ${l.type}">${escHtml(l.text)}</div>`).join('');
   document.getElementById('diff-after').innerHTML = afterLines.map(l =>
-    `<div class="diff-line ${l.type}">${escHtml(l.text)}</div>`
-  ).join('');
+    `<div class="diff-line ${l.type}">${escHtml(l.text)}</div>`).join('');
 
   document.getElementById('diff-modal').className = 'modal-overlay open';
 }
@@ -1143,18 +1180,18 @@ async function resolveApproval(approved) {
   if (!id) return;
   closeDiffModal();
   await fetch('/api/approve', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ approvalId: id, decision: approved ? 'approve' : 'deny', sessionId }),
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ approvalId:id, decision: approved?'approve':'deny', sessionId }),
   });
-  // update sidebar card
-  const list = document.getElementById('approval-list');
-  list.innerHTML = '<div class="empty-state">Resolved</div>';
-  addWriteItem(document.getElementById('diff-file').textContent, approved ? 'approved' : 'denied', document.getElementById('diff-reason').textContent);
+  document.getElementById('approval-list').innerHTML = '<div class="empty-state">Resolved</div>';
+  addWriteItem(
+    document.getElementById('diff-file').textContent,
+    approved ? 'approved' : 'denied',
+    document.getElementById('diff-reason').textContent,
+  );
   refreshMemory();
 }
 
-// command approval (simpler — no diff)
 function buildCommandApprovalCard(data) {
   const card = document.createElement('div');
   card.className = 'approval-card';
@@ -1170,9 +1207,8 @@ function buildCommandApprovalCard(data) {
 
 async function resolveCommandApproval(id, approved) {
   await fetch('/api/approve', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ approvalId: id, decision: approved ? 'approve' : 'deny', sessionId }),
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ approvalId:id, decision: approved?'approve':'deny', sessionId }),
   });
   document.getElementById('approval-list').innerHTML = '<div class="empty-state">Resolved</div>';
 }
@@ -1190,13 +1226,16 @@ function buildApprovalCard(data) {
   return card;
 }
 
-// ── right sidebar ─────────────────────────────────────────────────────────────
+// ── right sidebar ───────────────────────────────────────────────────────────────────
 function switchTab(name, el) {
   document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.sidebar-tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  else document.querySelectorAll('.sidebar-tab')[['approvals','writes','tools'].indexOf(name)]?.classList.add('active');
+  else {
+    const idx = ['approvals','writes','tools','maintenance'].indexOf(name);
+    document.querySelectorAll('.sidebar-tab')[idx]?.classList.add('active');
+  }
 }
 
 function updateSidebarToolCall(name, input) {
@@ -1224,7 +1263,7 @@ function addWriteItem(file, status, reason) {
   list.prepend(item);
 }
 
-// ── memory sidebar ────────────────────────────────────────────────────────────
+// ── memory sidebar ──────────────────────────────────────────────────────────────────
 async function refreshMemory() {
   try {
     const res = await fetch(`/api/session/${sessionId}/memory`).then(r => r.json());
@@ -1233,19 +1272,17 @@ async function refreshMemory() {
     document.getElementById('stat-files').textContent  = summary.files_read  ?? 0;
     document.getElementById('stat-tools').textContent  = summary.tool_calls  ?? 0;
     document.getElementById('stat-writes').textContent = summary.writes_total ?? 0;
-
     const list = document.getElementById('memory-list');
     const entries = Object.entries(filesRead ?? {});
     if (!entries.length) { list.innerHTML = '<div class="empty-state">Nothing read yet</div>'; return; }
     list.innerHTML = entries
-      .sort((a,b) => b[1]-a[1])
-      .slice(0,20)
-      .map(([p,c]) => `<div class="memory-item"><span style="overflow:hidden;text-overflow:ellipsis">${escHtml(p.split('/').pop())}</span><span class="mi-count">${c}</span></div>`)
+      .sort((a,b) => b[1]-a[1]).slice(0,20)
+      .map(([p,c]) => `<div class="memory-item"><span>${escHtml(p.split('/').pop())}</span><span class="mi-count">${c}</span></div>`)
       .join('');
-  } catch { /* network error, ignore */ }
+  } catch { /* ignore */ }
 }
 
-// ── scan / clear ──────────────────────────────────────────────────────────────
+// ── scan / clear ────────────────────────────────────────────────────────────────────
 async function triggerScan() {
   if (sending) return;
   document.getElementById('input').value = 'Run a full maintenance scan';
@@ -1263,17 +1300,18 @@ async function clearSession() {
   taskType = null;
 }
 
-// ── command palette ───────────────────────────────────────────────────────────
+// ── command palette ──────────────────────────────────────────────────────────────────
 const PALETTE_ITEMS = [
-  { icon:'🔍', name:'Full Scan',         desc:'Run all maintenance checks',       action: () => { closePalette(); document.getElementById('input').value='Run a full maintenance scan'; sendMessage(); } },
-  { icon:'💊', name:'Health Check',      desc:'Quick codebase snapshot',          action: () => { closePalette(); document.getElementById('input').value='Run health check'; sendMessage(); } },
-  { icon:'📌', name:'Find TODOs',        desc:'Scan for TODO/FIXME/BUG',          action: () => { closePalette(); document.getElementById('input').value='Find all TODOs'; sendMessage(); } },
-  { icon:'👻', name:'Detect Dead Code',  desc:'Files with zero importers',        action: () => { closePalette(); document.getElementById('input').value='Detect dead code'; sendMessage(); } },
-  { icon:'🔑', name:'Check Env Usage',   desc:'Env var gaps vs .env.example',     action: () => { closePalette(); document.getElementById('input').value='Check env usage'; sendMessage(); } },
-  { icon:'🗄', name:'DB Query',          desc:'Inspect schema (SSM tunnel)',      action: () => { closePalette(); document.getElementById('input').value='List all tables in the database'; sendMessage(); } },
-  { icon:'📜', name:'Git Log',           desc:'Recent commits',                   action: () => { closePalette(); document.getElementById('input').value='Show last 10 git commits'; sendMessage(); } },
-  { icon:'🗑', name:'Clear Session',     desc:'Reset conversation + memory',      action: () => { closePalette(); clearSession(); } },
-  { icon:'↗', name:'Open Admin',        desc:'Admin panel in new tab',           action: () => { closePalette(); window.open('/admin','_blank'); } },
+  { icon:'🔍', name:'Full Scan',          desc:'Run all maintenance checks',     action: () => { closePalette(); document.getElementById('input').value='Run a full maintenance scan'; sendMessage(); } },
+  { icon:'💊', name:'Health Check',       desc:'Quick codebase snapshot',        action: () => { closePalette(); document.getElementById('input').value='Run health check'; sendMessage(); } },
+  { icon:'⚡',    name:'Start Maintenance', desc:'Trigger deep maintenance now',   action: () => { closePalette(); quickMaintenance(); } },
+  { icon:'📌', name:'Find TODOs',         desc:'Scan for TODO/FIXME/BUG',        action: () => { closePalette(); document.getElementById('input').value='Find all TODOs'; sendMessage(); } },
+  { icon:'👻', name:'Detect Dead Code',   desc:'Files with zero importers',      action: () => { closePalette(); document.getElementById('input').value='Detect dead code'; sendMessage(); } },
+  { icon:'🔑', name:'Check Env Usage',    desc:'Env var gaps vs .env.example',   action: () => { closePalette(); document.getElementById('input').value='Check env usage'; sendMessage(); } },
+  { icon:'🗄', name:'DB Query',           desc:'Inspect schema (SSM tunnel)',    action: () => { closePalette(); document.getElementById('input').value='List all tables in the database'; sendMessage(); } },
+  { icon:'📜', name:'Git Log',            desc:'Recent commits',                 action: () => { closePalette(); document.getElementById('input').value='Show last 10 git commits'; sendMessage(); } },
+  { icon:'🗑', name:'Clear Session',      desc:'Reset conversation + memory',    action: () => { closePalette(); clearSession(); } },
+  { icon:'↗',    name:'Open Admin',         desc:'Admin panel in new tab',         action: () => { closePalette(); window.open('/admin','_blank'); } },
 ];
 
 let paletteIdx = 0;
@@ -1284,26 +1322,22 @@ function openPalette() {
   renderPalette(PALETTE_ITEMS);
   setTimeout(() => document.getElementById('palette-input').focus(), 50);
 }
-
 function closePalette() {
   document.getElementById('palette-overlay').classList.remove('open');
 }
-
 function closePaletteIfOutside(e) {
   if (e.target.id === 'palette-overlay') closePalette();
 }
-
 function filterPalette() {
   const q = document.getElementById('palette-input').value.toLowerCase();
   const filtered = q ? PALETTE_ITEMS.filter(i => i.name.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q)) : PALETTE_ITEMS;
   renderPalette(filtered);
 }
-
 function renderPalette(items) {
   paletteIdx = 0;
   const r = document.getElementById('palette-results');
   r.innerHTML = items.map((item,i) =>
-    `<div class="palette-item${i===0?' selected':''}" onclick="items_ref[${i}].action()" data-idx="${i}">
+    `<div class="palette-item${i===0?' selected':''}" onclick="window.items_ref[${i}].action()" data-idx="${i}">
       <span class="pi-icon">${item.icon}</span>
       <div class="pi-body">
         <div class="pi-name">${escHtml(item.name)}</div>
@@ -1311,95 +1345,71 @@ function renderPalette(items) {
       </div>
     </div>`
   ).join('');
-  // store ref for click handlers
   window.items_ref = items;
 }
-
 function paletteKey(e) {
   const items = document.querySelectorAll('.palette-item');
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    paletteIdx = Math.min(paletteIdx + 1, items.length - 1);
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    paletteIdx = Math.max(paletteIdx - 1, 0);
-  } else if (e.key === 'Enter') {
-    e.preventDefault();
-    if (window.items_ref?.[paletteIdx]) { window.items_ref[paletteIdx].action(); }
-    return;
-  } else if (e.key === 'Escape') {
-    closePalette(); return;
-  }
+  if (e.key === 'ArrowDown') { e.preventDefault(); paletteIdx = Math.min(paletteIdx+1, items.length-1); }
+  else if (e.key === 'ArrowUp')  { e.preventDefault(); paletteIdx = Math.max(paletteIdx-1, 0); }
+  else if (e.key === 'Enter')    { e.preventDefault(); window.items_ref?.[paletteIdx]?.action(); return; }
+  else if (e.key === 'Escape')   { closePalette(); return; }
   items.forEach((el,i) => el.classList.toggle('selected', i === paletteIdx));
 }
 
-// ── keyboard shortcuts ────────────────────────────────────────────────────────
+// ── keyboard shortcuts ──────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-  // Ctrl+K — palette
-  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-    e.preventDefault();
-    document.getElementById('palette-overlay').classList.contains('open') ? closePalette() : openPalette();
-    return;
-  }
-  // Ctrl+/ — toggle memory sidebar
-  if ((e.ctrlKey || e.metaKey) && e.key === '/') {
-    e.preventDefault();
-    const left = document.querySelector('.sidebar-left');
-    left.style.display = left.style.display === 'none' ? '' : 'none';
-    return;
-  }
-  // Escape — close modals
-  if (e.key === 'Escape') {
-    closePalette();
-    closeDiffModal();
-    return;
-  }
-  // ↑ / ↓ history when input focused and empty (or at edges)
+  if ((e.ctrlKey||e.metaKey) && e.key==='k') { e.preventDefault(); document.getElementById('palette-overlay').classList.contains('open') ? closePalette() : openPalette(); return; }
+  if ((e.ctrlKey||e.metaKey) && e.key==='m') { e.preventDefault(); quickMaintenance(); return; }
+  if ((e.ctrlKey||e.metaKey) && e.key==='/') { e.preventDefault(); document.getElementById('sidebar-left').classList.toggle('collapsed'); return; }
+  if (e.key==='Escape') { closePalette(); closeDiffModal(); return; }
   const inp = document.getElementById('input');
   if (document.activeElement === inp) {
-    if (e.key === 'ArrowUp' && inputHistory.length) {
-      e.preventDefault();
-      historyIdx = Math.min(historyIdx + 1, inputHistory.length - 1);
-      inp.value = inputHistory[historyIdx] ?? '';
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      historyIdx = Math.max(historyIdx - 1, -1);
-      inp.value = historyIdx < 0 ? '' : (inputHistory[historyIdx] ?? '');
-    }
+    if (e.key==='ArrowUp' && inputHistory.length) { e.preventDefault(); historyIdx = Math.min(historyIdx+1, inputHistory.length-1); inp.value = inputHistory[historyIdx]??''; }
+    else if (e.key==='ArrowDown') { e.preventDefault(); historyIdx = Math.max(historyIdx-1,-1); inp.value = historyIdx<0?'':(inputHistory[historyIdx]??''); }
   }
 });
 
-// ── input auto-resize + Enter to send ────────────────────────────────────────
+// ── input helpers ───────────────────────────────────────────────────────────────────
 const inputEl = document.getElementById('input');
-inputEl.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-});
+inputEl.addEventListener('keydown', (e) => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
 inputEl.addEventListener('input', () => {
   inputEl.style.height = 'auto';
   inputEl.style.height = Math.min(inputEl.scrollHeight, 180) + 'px';
+  const len = inputEl.value.length;
+  document.getElementById('char-count').textContent = len > 80 ? len + ' chars' : '';
+  document.getElementById('input-clear').style.display = len > 0 ? 'block' : 'none';
 });
 
-// ── welcome chips ─────────────────────────────────────────────────────────────
+function clearInput() {
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+  document.getElementById('input-clear').style.display = 'none';
+  document.getElementById('char-count').textContent = '';
+  inputEl.focus();
+}
+
 function chip(el) {
   document.getElementById('input').value = el.textContent;
   sendMessage();
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// ── helpers ─────────────────────────────────────────────────────────────────────────
 function setSending(v) {
   sending = v;
   document.getElementById('send-btn').disabled = v;
-  document.getElementById('input').disabled = v;
+  inputEl.disabled = v;
 }
 
 function appendMsg(role, text) {
   const wrap = document.getElementById('chat-messages');
   const div  = document.createElement('div');
   div.className = 'msg ' + role;
-  const ts = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  const now  = new Date();
+  const ts   = now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  const full = now.toLocaleString();
   div.innerHTML = `
-    <div class="msg-label">${role === 'user' ? '👤 You' : '◆ Agent'} <span class="text-dim">${ts}</span></div>
-    <div class="msg-bubble">${role === 'user' ? escHtml(text) : ''}</div>`;
+    <div class="msg-label">${role==='user'?'👤 You':'◆ Agent'} <span class="msg-ts text-dim" data-full="${escHtml(full)}">${ts}</span></div>
+    <div class="msg-bubble">${role==='user'?escHtml(text):''}</div>`;
   wrap.appendChild(div);
   scrollBottom();
   return div;
@@ -1410,43 +1420,51 @@ function scrollBottom() {
   wrap.scrollTop = wrap.scrollHeight;
 }
 
+function fmtTs(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
 function escHtml(s) {
-  return String(s ?? '')
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
+  return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function renderMarkdown(text) {
   // fenced code blocks
-  let out = text.replace(/```([\w]*)?\n([\s\S]*?)```/g, (_, lang, code) =>
+  let out = text.replace(/```([\w]*)?
+([\s\S]*?)```/g, (_, lang, code) =>
     `<pre><code class="lang-${lang||''}">${escHtml(code.trimEnd())}</code></pre>`);
-  // inline code
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // bold
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  // file citations like path/to/file.js:42
-  out = out.replace(/([\w./\-]+\.(?:js|jsx|ts|tsx|mjs|py|json))(?::(\d+))?/g,
-    (_, f, l) => `<span class="file-cite">${escHtml(f)}${l ? ':'+l : ''}</span>`);
+  // file citations
+  out = out.replace(/([\w./-]+\.(?:js|jsx|ts|tsx|mjs|py|json))(?::(\d+))?/g,
+    (_, f, l) => `<span class="file-cite">${escHtml(f)}${l?':'+l:''}</span>`);
   // headers
-  out = out.replace(/^### (.+)$/gm, '<h4 style="margin:10px 0 4px;font-size:13px;">$1</h4>');
-  out = out.replace(/^## (.+)$/gm,  '<h3 style="margin:12px 0 5px;font-size:14px;">$1</h3>');
-  out = out.replace(/^# (.+)$/gm,   '<h2 style="margin:14px 0 6px;font-size:16px;">$1</h2>');
+  out = out.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+  out = out.replace(/^## (.+)$/gm,  '<h3>$1</h3>');
+  out = out.replace(/^# (.+)$/gm,   '<h2>$1</h2>');
+  // tables (basic)
+  out = out.replace(/^\|(.+)\|$/gm, (row) => {
+    const cells = row.split('|').filter((_,i,a)=>i>0&&i<a.length-1);
+    return '<tr>' + cells.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>';
+  });
+  out = out.replace(/(<tr>.*<\/tr>\n?)+/g, s => `<table>${s}</table>`);
+  out = out.replace(/<tr>(<td>-+<\/td>)+<\/tr>/g, '');  // remove separator rows
+  // first row becomes header
+  out = out.replace(/<table><tr>(.*?)<\/tr>/, (_, cells) =>
+    `<table><tr>${cells.replace(/<td>/g,'<th>').replace(/<\/td>/g,'</th>')}</tr>`);
   // bullets
   out = out.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
   out = out.replace(/(<li>.*<\/li>\n?)+/g, s => `<ul>${s}</ul>`);
-  // numbered list
   out = out.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
-  // paragraphs (double newline)
+  // paragraphs
   out = out.replace(/\n\n/g, '</p><p>');
   out = '<p>' + out + '</p>';
-  // clean up empty <p></p>
   out = out.replace(/<p>\s*<\/p>/g, '');
   return out;
 }
 
-// ── boot ──────────────────────────────────────────────────────────────────────
+// ── boot ───────────────────────────────────────────────────────────────────────────
 init();
 </script>
 </body>
