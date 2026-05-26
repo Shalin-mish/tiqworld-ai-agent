@@ -12,6 +12,7 @@ import {
 import { logEvent, readLog, logStats } from '../activityLog.js';
 import { listArchives } from '../writeArchive.js';
 import { listReports } from '../tools/maintenanceReport.js';
+import { getNotifications, markAllRead, unreadCount } from '../notifications.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -20,7 +21,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------------
-// Maintenance SSE broadcast — push live progress to all subscribed clients
+// Maintenance SSE broadcast
 // ---------------------------------------------------------------------------
 const maintenanceClients = new Set();
 
@@ -31,46 +32,49 @@ setBroadcastFn((entry) => {
   }
 });
 
-// GET /api/maintenance/stream  — SSE for live maintenance progress
 app.get('/api/maintenance/stream', (req, res) => {
   res.setHeader('Content-Type',  'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection',    'keep-alive');
   res.flushHeaders();
   maintenanceClients.add(res);
-  // Send current status immediately on connect
   res.write(`data: ${JSON.stringify({ type: 'maintenance_status', ...getMaintenanceStatus() })}\n\n`);
   req.on('close', () => maintenanceClients.delete(res));
 });
 
-// GET /api/maintenance/status  — poll current state
 app.get('/api/maintenance/status', (_req, res) => {
   res.json({ ok: true, ...getMaintenanceStatus() });
 });
 
-// POST /api/maintenance/trigger  — fire maintenance in background (non-blocking)
 app.post('/api/maintenance/trigger', (req, res) => {
   const mode    = req.body?.mode ?? 'deep';
   const current = getMaintenanceStatus();
   if (current.state === 'running') {
-    res.json({ ok: false, message: 'Maintenance already running', status: current });
-    return;
+    res.json({ ok: false, message: 'Maintenance already running', status: current }); return;
   }
   const sessionId = req.body?.sessionId ?? 'system';
   const user      = sessions.get(sessionId)?.user ?? 'admin';
   logEvent({ user, action: `maintenance_trigger_${mode}`, sessionId });
-  // Fire and forget — response returns immediately
   triggerScan(mode).catch(err => console.error('[Maintenance trigger error]', err.message));
   res.json({ ok: true, message: `${mode} maintenance started`, mode });
 });
 
-// GET /api/maintenance/reports  — list past maintenance report files
 app.get('/api/maintenance/reports', (_req, res) => {
-  try {
-    res.json({ ok: true, reports: listReports(50) });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
+  try { res.json({ ok: true, reports: listReports(50) }); }
+  catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+});
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+app.get('/api/notifications', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit ?? '50', 10), 200);
+  res.json({ ok: true, notifications: getNotifications(limit), unread: unreadCount() });
+});
+
+app.post('/api/notifications/read-all', (_req, res) => {
+  markAllRead();
+  res.json({ ok: true });
 });
 
 // ---------------------------------------------------------------------------
@@ -111,7 +115,7 @@ const pendingApprovals = new Map();
 
 function makeApprovalFn(sessionId, send) {
   const session = getSession(sessionId);
-  return (filePath, diff, reason, isNew, oldContent, newContent) =>
+  return (filePath, diff, reason, isNew) =>
     new Promise((resolve) => {
       const id = crypto.randomUUID();
       pendingApprovals.set(id, { resolve, filePath, diff, reason, isNew });
@@ -130,42 +134,36 @@ function makeCommandApprovalFn(sessionId, send) {
 }
 
 // ---------------------------------------------------------------------------
-// Status
+// API routes
 // ---------------------------------------------------------------------------
 app.get('/api/status', (_req, res) => {
   const { scannedAt, result } = getLastScan();
   res.json({
     ok:           true,
     tool_count:   TOOL_COUNT,
-    version:      '0.8.0',
+    version:      '0.9.0',
     model:        config.model,
     last_scan:    scannedAt ?? null,
     scan_summary: result?.summary ?? null,
+    unread_notifications: unreadCount(),
   });
 });
 
 app.post('/api/identify', (req, res) => {
   const { sessionId, user } = req.body ?? {};
-  if (!sessionId || !user?.trim()) {
-    res.status(400).json({ error: 'sessionId and user required' }); return;
-  }
+  if (!sessionId || !user?.trim()) { res.status(400).json({ error: 'sessionId and user required' }); return; }
   const session = getSession(sessionId);
   session.user  = user.trim().slice(0, 40);
   logEvent({ user: session.user, action: 'session_start', sessionId });
   res.json({ ok: true, user: session.user });
 });
 
-// Legacy scan endpoint (kept for backward compat)
 app.post('/api/scan', async (req, res) => {
   const sessionId = req.body?.sessionId ?? 'system';
   const user      = getSession(sessionId).user ?? 'unknown';
   logEvent({ user, action: 'manual_scan', sessionId });
-  try {
-    const result = await triggerScan();
-    res.json({ ok: true, result });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
+  try { res.json({ ok: true, result: await triggerScan() }); }
+  catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
 app.get('/api/last-scan', (_req, res) => {
@@ -197,13 +195,10 @@ app.get('/api/session/:id/memory', (req, res) => {
   if (!session) { res.json({ ok: false, message: 'Session not found' }); return; }
   const mem = session.memory;
   res.json({
-    ok:        true,
-    sessionId: req.params.id,
-    user:      session.user,
-    taskType:  session.taskType,
+    ok: true, sessionId: req.params.id,
+    user: session.user, taskType: session.taskType,
     filesRead: Object.fromEntries(mem.filesRead),
-    toolCalls: mem.toolCalls,
-    writes:    mem.writes,
+    toolCalls: mem.toolCalls, writes: mem.writes,
     summary: {
       files_read:      mem.filesRead.size,
       tool_calls:      mem.toolCalls.length,
@@ -216,13 +211,9 @@ app.get('/api/session/:id/memory', (req, res) => {
 
 app.post('/api/approve', (req, res) => {
   const { approvalId, decision, sessionId } = req.body ?? {};
-  if (!approvalId || !decision) {
-    res.status(400).json({ error: 'approvalId and decision required' }); return;
-  }
+  if (!approvalId || !decision) { res.status(400).json({ error: 'approvalId and decision required' }); return; }
   const pending = pendingApprovals.get(approvalId);
-  if (!pending) {
-    res.status(404).json({ error: 'Approval request not found or already resolved' }); return;
-  }
+  if (!pending) { res.status(404).json({ error: 'Approval not found or already resolved' }); return; }
   pendingApprovals.delete(approvalId);
   const approved = decision === 'approve';
   pending.resolve(approved ? 'yes' : 'no');
@@ -262,15 +253,13 @@ app.get('/api/chat', async (req, res) => {
     send('task_type', { label: TASK_LABELS[session.taskType], raw: session.taskType });
   }
 
-  const tools = getTools(session.taskType);
+  const tools             = getTools(session.taskType);
   const approvalFn        = makeApprovalFn(sessionId, send);
   const commandApprovalFn = makeCommandApprovalFn(sessionId, send);
 
   try {
     const { answer, messages } = await runAgent(
-      question,
-      session.history,
-      tools,
+      question, session.history, tools,
       (event) => {
         if (event.type === 'tool_call') {
           send('tool_call', { name: event.name, input: event.input });
@@ -280,11 +269,8 @@ app.get('/api/chat', async (req, res) => {
           send('tool_result', { name: event.name, result: event.result });
         }
       },
-      user,
-      approvalFn,
-      commandApprovalFn,
+      user, approvalFn, commandApprovalFn,
     );
-
     session.history = messages.slice(-20);
     send('answer', { text: answer });
   } catch (err) {

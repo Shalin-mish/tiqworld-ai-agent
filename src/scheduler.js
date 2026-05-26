@@ -8,6 +8,7 @@ import { runAgent, ALL_TOOLS }   from './agent.js';
 import { acquireLock, releaseAllLocks } from './tools/fileLock.js';
 import { saveMaintenanceReport, formatReportSummary } from './tools/maintenanceReport.js';
 import { config } from './config.js';
+import { notify } from './notifications.js';
 
 let _nightTask     = null;
 let _dayTask       = null;
@@ -15,19 +16,18 @@ let lastScanResult = null;
 let lastScanTime   = null;
 
 // ---------------------------------------------------------------------------
-// Live status — lets admin UI poll or receive SSE updates
+// Live status
 // ---------------------------------------------------------------------------
 const _status = {
-  state:       'idle',   // idle | running | done | error
-  mode:        null,     // 'deep' | 'light'
-  startedAt:   null,
-  finishedAt:  null,
-  progress:    [],       // [{step, msg, at}]
-  lastReport:  null,
-  error:       null,
+  state:      'idle',
+  mode:       null,
+  startedAt:  null,
+  finishedAt: null,
+  progress:   [],
+  lastReport: null,
+  error:      null,
 };
 
-// Optional SSE broadcast hook — set by server.js
 let _broadcastFn = null;
 export function setBroadcastFn(fn) { _broadcastFn = fn; }
 
@@ -38,13 +38,8 @@ function pushProgress(step, msg) {
   console.log(`[Maintenance] ${step}: ${msg}`);
 }
 
-export function getMaintenanceStatus() {
-  return { ..._status };
-}
-
-export function getLastScan() {
-  return { result: lastScanResult, scannedAt: lastScanTime };
-}
+export function getMaintenanceStatus() { return { ..._status }; }
+export function getLastScan() { return { result: lastScanResult, scannedAt: lastScanTime }; }
 
 // ---------------------------------------------------------------------------
 // Safety gates
@@ -54,7 +49,6 @@ const HIGH_RISK_PATTERNS = [
   '/routes/', '/models/', '/middleware/',
   'auth', 'config.js', 'index.js', 'server.js', 'app.js',
 ];
-
 function isHighRisk(filePath) {
   return HIGH_RISK_PATTERNS.some(p => filePath.toLowerCase().includes(p));
 }
@@ -113,9 +107,8 @@ async function runNightMaintenance() {
   const t0       = Date.now();
   const writeLog = [];
 
-  pushProgress('start', `Night maintenance started`);
+  pushProgress('start', 'Night maintenance started');
 
-  // Step 1 — Full scan
   pushProgress('scan', 'Running full scan...');
   let scan;
   try {
@@ -123,18 +116,16 @@ async function runNightMaintenance() {
     lastScanResult = scan;
     lastScanTime   = new Date().toISOString();
     const s = scan.summary;
-    pushProgress('scan', `Scan done — ${s.critical_todos} critical TODOs, ${s.lint_errors} lint errors, ${s.dead_code_files} dead files, ${s.uncommitted_files} uncommitted`);
+    pushProgress('scan', `Scan done — ${s.critical_todos} critical TODOs, ${s.lint_errors} lint errors, ${s.dead_code_files} dead files`);
   } catch (err) {
     scan = { error: err.message, summary: {} };
     pushProgress('scan', `Scan failed: ${err.message}`);
   }
 
-  // Step 2 — Run tests
   pushProgress('tests', 'Running test suite...');
   const tests = await runTests();
   pushProgress('tests', `Tests: ${tests.passed ? 'PASS' : 'FAIL'}`);
 
-  // Step 3 — Auto-fix safe issues
   const issueCount = (scan?.summary?.lint_errors ?? 0) + (scan?.summary?.critical_todos ?? 0);
   if (config.autoFixEnabled && issueCount > 0) {
     pushProgress('fix', `Auto-fixing ${issueCount} issue(s)...`);
@@ -143,14 +134,14 @@ async function runNightMaintenance() {
         `AUTONOMOUS MAINTENANCE MODE — proceed without human confirmation.\n\n` +
         `Codebase scan summary:\n${JSON.stringify(scan?.summary ?? {}, null, 2)}\n\n` +
         `Task: Fix all SAFE issues only (lint errors, missing null checks, unused variables, console.log cleanup).\n\n` +
-        `MANDATORY RULES — never break these:\n` +
-        `1. SKIP any file that contains in its path: routes/, models/, middleware/, auth, config.js, index.js, server.js, app.js\n` +
-        `2. Only apply a fix if fix_error returns confidence >= ${config.autoFixMinConfidence}\n` +
-        `3. Always follow the exact sequence: git_backup → show_diff → write_file → run_command\n` +
-        `4. Fix one file at a time — never batch multiple files in a single write_file call\n` +
-        `5. Run npm test after each fix to confirm nothing broke\n` +
-        `6. If a fix causes a test failure, do NOT proceed with more fixes\n\n` +
-        `Feature additions, schema changes, and route changes are STRICTLY OFF-LIMITS.`,
+        `MANDATORY RULES:\n` +
+        `1. SKIP any file containing: routes/, models/, middleware/, auth, config.js, index.js, server.js, app.js\n` +
+        `2. Only apply fix if fix_error confidence >= ${config.autoFixMinConfidence}\n` +
+        `3. Sequence: git_backup → show_diff → write_file → run_command\n` +
+        `4. Fix one file at a time\n` +
+        `5. Run npm test after each fix\n` +
+        `6. Stop if a fix causes test failure\n\n` +
+        `Feature additions, schema changes, route changes are STRICTLY OFF-LIMITS.`,
         [],
         ALL_TOOLS,
         null,
@@ -163,7 +154,7 @@ async function runNightMaintenance() {
       _status.error = err.message;
     }
   } else if (!config.autoFixEnabled) {
-    pushProgress('fix', 'Auto-fix disabled (AUTO_FIX_ENABLED=false). Scan-only mode.');
+    pushProgress('fix', 'Auto-fix disabled. Scan-only mode.');
   } else {
     pushProgress('fix', 'No issues found. Codebase is clean.');
   }
@@ -176,11 +167,26 @@ async function runNightMaintenance() {
 
   const report = { mode: 'night', started_at: _status.startedAt, duration_sec, scan, tests, fixes };
   const reportPath = saveMaintenanceReport(report);
-  pushProgress('done', `Report saved: ${reportPath}. Applied: ${fixes.applied.length} fix(es), Skipped: ${fixes.skipped.length}.`);
+  pushProgress('done', `Report saved: ${reportPath}. Applied: ${fixes.applied.length}, Skipped: ${fixes.skipped.length}.`);
 
   _status.state      = 'done';
   _status.finishedAt = new Date().toISOString();
   _status.lastReport = report;
+
+  // — Send notification —
+  const s = scan?.summary ?? {};
+  const hasIssues = (s.critical_todos ?? 0) > 0 || (s.lint_errors ?? 0) > 0 || !tests.passed;
+  if (_status.error) {
+    notify('error', 'Night Maintenance Failed',
+      `Error: ${_status.error}\nDuration: ${duration_sec}s`);
+  } else if (hasIssues) {
+    notify('warning', 'Night Maintenance Done — Issues Found',
+      `${fixes.applied.length} fixed, ${fixes.skipped.length} need attention.\n` +
+      `TODOs: ${s.critical_todos ?? 0}, Lint errors: ${s.lint_errors ?? 0}, Tests: ${tests.passed ? 'PASS' : 'FAIL'}`);
+  } else {
+    notify('success', 'Night Maintenance Complete ✔',
+      `Codebase is clean. ${fixes.applied.length} auto-fix(es) applied. Duration: ${duration_sec}s`);
+  }
 
   console.log(`\n${formatReportSummary(report)}`);
   releaseAllLocks('maintenance-scheduler');
@@ -188,12 +194,12 @@ async function runNightMaintenance() {
 }
 
 // ---------------------------------------------------------------------------
-// Day: light scan — no fixes, just visibility
+// Day: light scan
 // ---------------------------------------------------------------------------
 
 async function runDayScan() {
-  _status.state    = 'running';
-  _status.mode     = 'light';
+  _status.state     = 'running';
+  _status.mode      = 'light';
   _status.startedAt = new Date().toISOString();
   _status.progress  = [];
   _status.error     = null;
@@ -208,15 +214,14 @@ async function runDayScan() {
     ]);
     lastScanResult = { lint, todos, health };
     lastScanTime   = new Date().toISOString();
-    const errors    = lint?.total_errors                     ?? 0;
-    const criticals = todos?.by_severity?.critical?.length  ?? 0;
+    const errors    = lint?.total_errors ?? 0;
+    const criticals = todos?.by_severity?.critical?.length ?? 0;
     const elapsed   = ((Date.now() - t0) / 1000).toFixed(1);
     pushProgress('done', `Day scan done in ${elapsed}s — ${errors} lint errors, ${criticals} critical TODOs`);
   } catch (err) {
     pushProgress('error', `Day scan failed: ${err.message}`);
     _status.error = err.message;
   }
-
   _status.state      = 'done';
   _status.finishedAt = new Date().toISOString();
 }
@@ -229,35 +234,29 @@ export function startScheduler(intervalMinutes = 0) {
   if (intervalMinutes > 0) {
     runNightMaintenance();
     setInterval(runNightMaintenance, intervalMinutes * 60 * 1000);
-    console.log(`[Scheduler] Interval mode: deep maintenance every ${intervalMinutes} min`);
+    console.log(`[Scheduler] Interval mode: every ${intervalMinutes} min`);
     return;
   }
-
   const nightCron = config.nightMaintenanceCron;
   const dayCron   = config.dayLightScanCron;
-
   if (nightCron && cron.validate(nightCron)) {
     _nightTask = cron.schedule(nightCron, runNightMaintenance, { timezone: 'Asia/Kolkata' });
-    console.log(`[Scheduler] Night deep maintenance : ${nightCron} IST`);
+    console.log(`[Scheduler] Night maintenance : ${nightCron} IST`);
   } else {
-    console.warn(`[Scheduler] Invalid NIGHT_MAINTENANCE_CRON: "${nightCron}" — night maintenance disabled`);
+    console.warn(`[Scheduler] Invalid NIGHT_MAINTENANCE_CRON: "${nightCron}"`);
   }
-
   if (dayCron && cron.validate(dayCron)) {
     _dayTask = cron.schedule(dayCron, runDayScan, { timezone: 'Asia/Kolkata' });
-    console.log(`[Scheduler] Day light scan         : ${dayCron} IST`);
+    console.log(`[Scheduler] Day light scan    : ${dayCron} IST`);
   } else {
-    console.warn(`[Scheduler] Invalid DAY_LIGHT_SCAN_CRON: "${dayCron}" — day scans disabled`);
+    console.warn(`[Scheduler] Invalid DAY_LIGHT_SCAN_CRON: "${dayCron}"`);
   }
-
   runDayScan();
 }
 
 export function stopScheduler() {
-  _nightTask?.stop();
-  _dayTask?.stop();
-  _nightTask = null;
-  _dayTask   = null;
+  _nightTask?.stop(); _dayTask?.stop();
+  _nightTask = null;  _dayTask = null;
   console.log('[Scheduler] Stopped.');
 }
 
