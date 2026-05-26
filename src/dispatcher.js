@@ -5,10 +5,10 @@ import { ALL_TOOLS } from './agent.js';
 // ---------------------------------------------------------------------------
 
 const PATTERNS = [
-  { type: 'review',      re: /\b(review|audit|check quality|inspect|analyze|code smell|security check|find todos|dead code|env usage|schema gap|health|full.?scan|maintenance scan|scan)\b/i },
-  { type: 'maintenance', re: /\b(fix|bug|revert|update dependency|refactor|clean up|rename|remove|delete|patch|migrate|deprecat)\b/i },
+  { type: 'review',      re: /\b(review|audit|check quality|inspect|analyze|code smell|security|secret|leaked|find todos|dead code|env usage|schema gap|health|full.?scan|maintenance scan|scan|outdated|dependencies)\b/i },
+  { type: 'maintenance', re: /\b(fix|bug|revert|update dependency|refactor|clean up|rename|remove|delete|patch|migrate|deprecat|error|exception|crash|trace|stack trace)\b/i },
   { type: 'feature',     re: /\b(add|create|build|implement|new route|new component|new endpoint|new page|new feature|scaffold)\b/i },
-  { type: 'query',       re: /\b(why|explain|what does|how does|describe|what is|where is|show me|walk me|tell me|trace|map|route|diff|todo|log|lint|query|select)\b/i },
+  { type: 'query',       re: /\b(why|explain|what does|how does|describe|what is|where is|show me|walk me|tell me|map|route|diff|todo|log|lint|query|select)\b/i },
 ];
 
 export function classify(input) {
@@ -19,9 +19,7 @@ export function classify(input) {
 }
 
 // ---------------------------------------------------------------------------
-// Tool scopes — allowlist-based, all filtered from ALL_TOOLS registry.
-// Adding a new tool: (1) add to ALL_TOOLS in agent.js, (2) add name to the
-// correct Set below. No other changes needed.
+// Tool scopes
 // ---------------------------------------------------------------------------
 
 const READ_ONLY = new Set([
@@ -29,10 +27,10 @@ const READ_ONLY = new Set([
   'trace_error', 'map_dependencies', 'explain_route',
   'find_todos', 'check_env_usage', 'detect_dead_code', 'schema_to_api',
   'summarize_diff', 'git_log', 'health_check', 'lint_file', 'db_query',
-  'full_scan',
+  'full_scan', 'secret_scanner', 'dep_updater',
 ]);
 
-const REVIEW_EXTRA = new Set([...READ_ONLY, 'show_diff']);
+const REVIEW_EXTRA = new Set([...READ_ONLY, 'show_diff', 'fix_error']);
 
 const WRITE = new Set([...REVIEW_EXTRA, 'git_backup', 'write_file', 'run_command']);
 

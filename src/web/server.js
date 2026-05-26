@@ -5,9 +5,15 @@ import session from 'express-session';
 import passport from 'passport';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import { config } from '../config.js';
-import { startScheduler } from '../scheduler.js';
+import {
+  startScheduler, triggerScan,
+  getMaintenanceStatus, setBroadcastFn,
+} from '../scheduler.js';
 import { TOOL_COUNT } from '../agent.js';
-import { createRouter } from './router.js';
+import { logEvent } from '../activityLog.js';
+import { listReports } from '../tools/maintenanceReport.js';
+import { getNotifications, markAllRead, unreadCount } from '../notifications.js';
+import { createRouter, sessions } from './router.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -22,6 +28,63 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ---------------------------------------------------------------------------
+// Maintenance SSE broadcast
+// ---------------------------------------------------------------------------
+const maintenanceClients = new Set();
+
+setBroadcastFn((entry) => {
+  const data = `data: ${JSON.stringify({ type: 'maintenance_progress', ...entry })}\n\n`;
+  for (const res of maintenanceClients) {
+    try { res.write(data); } catch (_) { maintenanceClients.delete(res); }
+  }
+});
+
+app.get('/api/maintenance/stream', (req, res) => {
+  res.setHeader('Content-Type',  'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection',    'keep-alive');
+  res.flushHeaders();
+  maintenanceClients.add(res);
+  res.write(`data: ${JSON.stringify({ type: 'maintenance_status', ...getMaintenanceStatus() })}\n\n`);
+  req.on('close', () => maintenanceClients.delete(res));
+});
+
+app.get('/api/maintenance/status', (_req, res) => {
+  res.json({ ok: true, ...getMaintenanceStatus() });
+});
+
+app.post('/api/maintenance/trigger', (req, res) => {
+  const mode    = req.body?.mode ?? 'deep';
+  const current = getMaintenanceStatus();
+  if (current.state === 'running') {
+    res.json({ ok: false, message: 'Maintenance already running', status: current }); return;
+  }
+  const sessionId = req.body?.sessionId ?? 'system';
+  const user      = sessions.get(sessionId)?.user ?? 'admin';
+  logEvent({ user, action: `maintenance_trigger_${mode}`, sessionId });
+  triggerScan(mode).catch(err => console.error('[Maintenance trigger error]', err.message));
+  res.json({ ok: true, message: `${mode} maintenance started`, mode });
+});
+
+app.get('/api/maintenance/reports', (_req, res) => {
+  try { res.json({ ok: true, reports: listReports(50) }); }
+  catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+});
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+app.get('/api/notifications', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit ?? '50', 10), 200);
+  res.json({ ok: true, notifications: getNotifications(limit), unread: unreadCount() });
+});
+
+app.post('/api/notifications/read-all', (_req, res) => {
+  markAllRead();
+  res.json({ ok: true });
+});
 
 // ---------------------------------------------------------------------------
 // GitHub OAuth (optional — only active when credentials are in .env)

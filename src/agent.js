@@ -23,6 +23,9 @@ import { healthCheckDefinition,      healthCheck      } from './tools/healthChec
 import { lintFileDefinition,         lintFile         } from './tools/lintFile.js';
 import { dbQueryDefinition,          dbQuery          } from './tools/dbQuery.js';
 import { fullScanDefinition,         fullScan         } from './tools/fullScan.js';
+import { fixErrorDefinition,         fixError         } from './tools/fixError.js';
+import { secretScannerDefinition,    secretScanner    } from './tools/secretScanner.js';
+import { depUpdaterDefinition,       depUpdater       } from './tools/depUpdater.js';
 
 const client = new BedrockRuntimeClient({
   region: config.awsRegion,
@@ -33,17 +36,17 @@ const client = new BedrockRuntimeClient({
 });
 
 // ---------------------------------------------------------------------------
-// Tool registry — add new tools here; dispatcher filters from this.
+// Tool registry — 26 tools
 // ---------------------------------------------------------------------------
 
 export const ALL_TOOLS = {
   definitions: [
-    // Read-only exploration
+    // Exploration
     listFilesDefinition,
     readFileDefinition,
     searchCodeDefinition,
     recallSessionDefinition,
-    // Analysis (read-only, no side-effects)
+    // Analysis
     traceErrorDefinition,
     mapDependenciesDefinition,
     explainRouteDefinition,
@@ -57,7 +60,12 @@ export const ALL_TOOLS = {
     lintFileDefinition,
     dbQueryDefinition,
     fullScanDefinition,
-    // Write + verification (require approval / backup)
+    // Security + deps
+    secretScannerDefinition,
+    depUpdaterDefinition,
+    // Fix pipeline
+    fixErrorDefinition,
+    // Write + verification
     showDiffDefinition,
     gitBackupDefinition,
     writeFileDefinition,
@@ -81,6 +89,9 @@ export const ALL_TOOLS = {
     lint_file:        lintFile,
     db_query:         dbQuery,
     full_scan:        fullScan,
+    secret_scanner:   secretScanner,
+    dep_updater:      depUpdater,
+    fix_error:        fixError,
     show_diff:        showDiff,
     git_backup:       gitBackup,
     write_file:       writeFile,
@@ -109,14 +120,12 @@ function toBedrockMessages(messages) {
     if (typeof msg.content === 'string') {
       return { role: msg.role, content: [{ text: msg.content }] };
     }
-
     const content = msg.content.map((block) => {
       if (block.type === 'text')        return { text: block.text };
       if (block.type === 'tool_use')    return { toolUse: { toolUseId: block.id, name: block.name, input: block.input } };
       if (block.type === 'tool_result') return { toolResult: { toolUseId: block.tool_use_id, content: [{ text: block.content }] } };
       return { text: JSON.stringify(block) };
     });
-
     return { role: msg.role, content };
   });
 }
@@ -144,46 +153,81 @@ const SYSTEM_PROMPT = `You are an expert AI developer embedded in the TIQ World 
 ## Features already built
 JWT auth with RBAC (ADMIN / INTERN) · Training Tracks → Modules → Tasks hierarchy · Intern submissions (GitHub URL + notes) · AI roadmap generation · AI assessment (score 1-5, feedback) · Certificate issuance
 
-## Tools available (21 total)
+## Tool groups
+
 ### Exploration
 - list_files       — directory tree by glob pattern
-- read_file        — file contents (auto-reads imports, depth 2 — check recall_session first)
+- read_file        — file contents with auto-import resolution (depth 2)
 - search_code      — regex keyword search across entire codebase
-- recall_session   — everything read/changed this session; always check this before re-reading
+- recall_session   — files read + changes made this session
 
-### Analysis (read-only, safe anytime)
-- health_check     — full codebase snapshot: file counts, todos, env gaps, git status
-- trace_error      — paste a stack trace → agent reads every file in the trace automatically
+### Analysis — read-only, safe at any time
+- health_check     — quick codebase snapshot
+- full_scan        — runs ALL maintenance checks in parallel
+- trace_error      — paste a stack trace → reads every file in the trace
+- fix_error        — PREFERRED for fixing bugs. Returns confidence score + pipeline steps.
 - map_dependencies — outgoing + incoming import graph for any file
-- explain_route    — route path → traces router → middleware → controller → service in sequence
+- explain_route    — route path → traces router → middleware → controller → service
 - find_todos       — TODO/FIXME/HACK/BUG scan with severity classification
 - check_env_usage  — .env.example vs process.env calls diff
-- detect_dead_code — files with zero importers across the whole codebase
+- detect_dead_code — files with zero importers
 - schema_to_api    — CRUD completeness check for any Mongoose model
 - summarize_diff   — git diff (staged / unstaged / branch comparison)
-- git_log          — commit history with file, author, date filters
-- lint_file        — ESLint structured results for a file or directory
-- db_query         — read-only SQL (SSM tunnel required on localhost:5433). For schema/migration checks only — NOT for analytics (user counts, pass rates, etc.)
-- full_scan        — orchestrates ALL maintenance checks in parallel: health + todos + env + dead code + lint + git log. Use for "full scan" or "maintenance report" requests.
+- git_log          — commit history with filters
+- lint_file        — ESLint structured results
+- db_query         — read-only queries (SSM tunnel required)
+- secret_scanner   — scan for accidentally committed API keys, tokens, passwords
+- dep_updater      — check outdated npm packages, categorise by risk (patch/minor/major)
 
-### Write + verification (always follow this exact sequence)
-1. git_backup   — create a checkpoint first, always
-2. show_diff    — preview the change before writing
-3. write_file   — write with human approval gate (user must approve in UI)
-4. run_command  — verify fix works (npm test), also requires approval in web UI
+### Write + verification — always follow this exact sequence
+1. git_backup   — checkpoint first, every time
+2. show_diff    — preview the change
+3. write_file   — write with human approval gate
+4. run_command  — verify (e.g. npm test)
+
+## Decision trees
+
+**"Fix X" / error / stack trace**
+→ fix_error(error_text) → if confidence ≥ 55: git_backup → show_diff → write_file → run_command
+
+**"Any secrets leaked?" / security audit**
+→ secret_scanner → report findings with file:line citations
+
+**"Check dependencies" / "any outdated packages"**
+→ dep_updater → show by risk, give safe_update_command for patches
+
+**"Explain X" / "How does Y work"**
+→ read_file(Y) → map_dependencies(Y) if cross-file
+
+**"What’s wrong" / maintenance report**
+→ full_scan
+
+## Confidence score (from fix_error)
+Always show: Confidence: 87/100 — HIGH — likely a targeted fix
+If < 55, ask user to confirm before git_backup.
+
+## Tool budget
+Maximum 5 tool calls per user query. If you need more, stop and ask the user to narrow scope.
+
+## What NOT to do
+- User asks "what is the Track model?" → DO NOT call read_file. Use search_code or answer from knowledge.
+- User asks "full scan" → DO NOT call individual tools. Call full_scan once.
+- User pastes a stack trace → Pick fix_error OR trace_error. Never both.
+- write_file without git_backup + show_diff first → NEVER.
+- Re-read a file mid-conversation → Check recall_session first.
 
 ## Behaviour rules
-- Always check recall_session before re-reading a file you may have already read.
-- Always run git_backup before any write_file call.
-- Always run show_diff immediately before write_file so the user sees what changes.
-- Never guess at code — read the file first, cite path + line number.
-- When asked to "fix" something: read_file → search_code → show_diff → write_file sequence.
-- When asked to "explain" something: read relevant files, trace imports, cite line numbers.
-- db_query: dev/schema tasks only. Reject analytics questions (counts, rates, aggregates).
-- For write operations, be conservative — prefer minimal targeted changes over large rewrites.`;
+- Never guess at code — read the file first. Always cite path:lineNumber.
+- For any write: git_backup → show_diff → write_file. Never skip.
+- Prefer minimal targeted edits over large rewrites.
+- db_query is for schema inspection only.
 
-// cachePoint after the system prompt text tells Bedrock to cache this across turns.
-// Saves ~60% token cost on long sessions. Opt-in via ENABLE_PROMPT_CACHE=true in .env.
+## Response format
+- Lead with the answer.
+- Cite every code reference as path/to/file:lineNumber.
+- Use fenced code blocks with language tag.
+- After write_file: state exactly what changed, suggest run_command to verify.`;
+
 const SYSTEM_BLOCKS = config.enablePromptCache
   ? [{ text: SYSTEM_PROMPT }, { cachePoint: { type: 'default' } }]
   : [{ text: SYSTEM_PROMPT }];
@@ -206,14 +250,11 @@ async function executeTool(name, input, executors, user = 'unknown', approvalFn 
   const result  = await fn({ ...input, ...extra });
   const summary = result?.error
     ? `error: ${result.error}`
-    : result?.file_path ?? result?.keyword ?? result?.total ?? result?.message ?? 'ok';
+    : result?.total ?? result?.file_path ?? result?.message ?? result?.summary ?? 'ok';
   recordToolCall(name, input, String(summary));
   return result;
 }
 
-// onEvent: optional callback for streaming tool-use events to external consumers (web UI).
-// Called with: { type: 'tool_call', name: string, input: object }
-// CLI ignores it; web server uses it to push SSE events to the browser.
 export async function runAgent(userQuestion, conversationHistory = [], tools = null, onEvent = null, user = 'unknown', approvalFn = null, commandApprovalFn = null) {
   const { definitions, executors } = tools ?? ALL_TOOLS;
   const bedrockTools = toBedrockTools(definitions);
@@ -224,6 +265,9 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
   ];
 
   console.log('\n  Thinking...\n');
+
+  let toolCallsThisTurn = 0;
+  const TOOL_BUDGET = 8;
 
   while (true) {
     const response = await client.send(new ConverseCommand({
@@ -250,8 +294,15 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
     }
 
     if (stopReason === 'tool_use') {
-      const toolCalls  = assistantContent.filter((b) => b.type === 'tool_use');
+      const toolCalls   = assistantContent.filter((b) => b.type === 'tool_use');
       const toolResults = [];
+
+      toolCallsThisTurn += toolCalls.length;
+      if (toolCallsThisTurn > TOOL_BUDGET) {
+        const budgetMsg = `Tool budget exceeded (${toolCallsThisTurn}/${TOOL_BUDGET}). Stopping to avoid runaway execution. Please narrow your question.`;
+        onEvent?.({ type: 'tool_budget_exceeded', count: toolCallsThisTurn, budget: TOOL_BUDGET });
+        return { answer: budgetMsg, messages };
+      }
 
       for (const call of toolCalls) {
         console.log(`  Using: ${call.name}`);
@@ -259,9 +310,7 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
           const args = Object.entries(call.input).map(([k, v]) => `${k}="${v}"`).join(', ');
           console.log(`    ${args}`);
         }
-
         onEvent?.({ type: 'tool_call', name: call.name, input: call.input });
-
         const result = await executeTool(call.name, call.input, executors, user, approvalFn, commandApprovalFn);
         onEvent?.({ type: 'tool_result', name: call.name, result });
         toolResults.push({
@@ -270,7 +319,6 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
           content:     JSON.stringify(result),
         });
       }
-
       messages.push({ role: 'user', content: toolResults });
     }
   }

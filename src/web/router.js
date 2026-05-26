@@ -6,6 +6,7 @@ import { config } from '../config.js';
 import { getLastScan, triggerScan } from '../scheduler.js';
 import { logEvent, readLog, logStats } from '../activityLog.js';
 import { listArchives } from '../writeArchive.js';
+import { unreadCount } from '../notifications.js';
 
 // ---------------------------------------------------------------------------
 // Agent session store — { history, taskType, user, github, memory }
@@ -75,12 +76,13 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
   router.get('/api/status', (_req, res) => {
     const { scannedAt, result } = getLastScan();
     res.json({
-      ok:           true,
-      tool_count:   TOOL_COUNT,
-      version:      '0.6.0',
-      model:        config.model,
-      last_scan:    scannedAt ?? null,
-      scan_summary: result?.summary ?? null,
+      ok:                   true,
+      tool_count:           TOOL_COUNT,
+      version:              '0.9.0',
+      model:                config.model,
+      last_scan:            scannedAt ?? null,
+      scan_summary:         result?.summary ?? null,
+      unread_notifications: unreadCount(),
     });
   });
 
