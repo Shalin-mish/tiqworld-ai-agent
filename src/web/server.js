@@ -5,9 +5,13 @@ import { runAgent, TOOL_COUNT } from '../agent.js';
 import { classify, getTools, TASK_LABELS } from '../dispatcher.js';
 import { clearLog } from '../session.js';
 import { config } from '../config.js';
-import { startScheduler, getLastScan, triggerScan } from '../scheduler.js';
+import {
+  startScheduler, getLastScan, triggerScan,
+  getMaintenanceStatus, setBroadcastFn,
+} from '../scheduler.js';
 import { logEvent, readLog, logStats } from '../activityLog.js';
 import { listArchives } from '../writeArchive.js';
+import { listReports } from '../tools/maintenanceReport.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -16,8 +20,61 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------------
-// Session store — { history, taskType, user, memory }
-// memory = { filesRead: Map<path,count>, toolCalls: [], writes: [] }
+// Maintenance SSE broadcast — push live progress to all subscribed clients
+// ---------------------------------------------------------------------------
+const maintenanceClients = new Set();
+
+setBroadcastFn((entry) => {
+  const data = `data: ${JSON.stringify({ type: 'maintenance_progress', ...entry })}\n\n`;
+  for (const res of maintenanceClients) {
+    try { res.write(data); } catch (_) { maintenanceClients.delete(res); }
+  }
+});
+
+// GET /api/maintenance/stream  — SSE for live maintenance progress
+app.get('/api/maintenance/stream', (req, res) => {
+  res.setHeader('Content-Type',  'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection',    'keep-alive');
+  res.flushHeaders();
+  maintenanceClients.add(res);
+  // Send current status immediately on connect
+  res.write(`data: ${JSON.stringify({ type: 'maintenance_status', ...getMaintenanceStatus() })}\n\n`);
+  req.on('close', () => maintenanceClients.delete(res));
+});
+
+// GET /api/maintenance/status  — poll current state
+app.get('/api/maintenance/status', (_req, res) => {
+  res.json({ ok: true, ...getMaintenanceStatus() });
+});
+
+// POST /api/maintenance/trigger  — fire maintenance in background (non-blocking)
+app.post('/api/maintenance/trigger', (req, res) => {
+  const mode    = req.body?.mode ?? 'deep';
+  const current = getMaintenanceStatus();
+  if (current.state === 'running') {
+    res.json({ ok: false, message: 'Maintenance already running', status: current });
+    return;
+  }
+  const sessionId = req.body?.sessionId ?? 'system';
+  const user      = sessions.get(sessionId)?.user ?? 'admin';
+  logEvent({ user, action: `maintenance_trigger_${mode}`, sessionId });
+  // Fire and forget — response returns immediately
+  triggerScan(mode).catch(err => console.error('[Maintenance trigger error]', err.message));
+  res.json({ ok: true, message: `${mode} maintenance started`, mode });
+});
+
+// GET /api/maintenance/reports  — list past maintenance report files
+app.get('/api/maintenance/reports', (_req, res) => {
+  try {
+    res.json({ ok: true, reports: listReports(50) });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Session store
 // ---------------------------------------------------------------------------
 const sessions = new Map();
 
@@ -28,9 +85,9 @@ function getSession(id) {
       taskType: null,
       user:     'unknown',
       memory: {
-        filesRead: new Map(), // path → call count
-        toolCalls: [],        // { name, inputSummary, at }
-        writes:    [],        // { path, status, reason, at }
+        filesRead: new Map(),
+        toolCalls: [],
+        writes:    [],
       },
     });
   }
@@ -41,8 +98,6 @@ function recordSessionTool(session, name, input) {
   const mem = session.memory;
   const inputSummary = input ? Object.values(input)[0] ?? '' : '';
   mem.toolCalls.push({ name, inputSummary: String(inputSummary).slice(0, 80), at: new Date().toISOString() });
-
-  // Track file paths for read/write/lint tools
   if (['read_file','write_file','show_diff','lint_file'].includes(name) && input?.file_path) {
     const p = input.file_path;
     mem.filesRead.set(p, (mem.filesRead.get(p) ?? 0) + 1);
@@ -50,7 +105,7 @@ function recordSessionTool(session, name, input) {
 }
 
 // ---------------------------------------------------------------------------
-// Approval queue — write_file + run_command both pause here until resolved
+// Approval queue
 // ---------------------------------------------------------------------------
 const pendingApprovals = new Map();
 
@@ -60,7 +115,6 @@ function makeApprovalFn(sessionId, send) {
     new Promise((resolve) => {
       const id = crypto.randomUUID();
       pendingApprovals.set(id, { resolve, filePath, diff, reason, isNew });
-      // Track as pending write in session memory
       session.memory.writes.push({ path: filePath, status: 'pending', reason, at: new Date().toISOString(), approvalId: id });
       send('approval_needed', { approvalId: id, filePath, diff, reason, isNew });
     });
@@ -76,23 +130,20 @@ function makeCommandApprovalFn(sessionId, send) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/status
+// Status
 // ---------------------------------------------------------------------------
 app.get('/api/status', (_req, res) => {
   const { scannedAt, result } = getLastScan();
   res.json({
     ok:           true,
     tool_count:   TOOL_COUNT,
-    version:      '0.6.0',
+    version:      '0.8.0',
     model:        config.model,
     last_scan:    scannedAt ?? null,
     scan_summary: result?.summary ?? null,
   });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/identify  — set the current user's name for this session
-// ---------------------------------------------------------------------------
 app.post('/api/identify', (req, res) => {
   const { sessionId, user } = req.body ?? {};
   if (!sessionId || !user?.trim()) {
@@ -104,9 +155,7 @@ app.post('/api/identify', (req, res) => {
   res.json({ ok: true, user: session.user });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/scan  — trigger manual full scan
-// ---------------------------------------------------------------------------
+// Legacy scan endpoint (kept for backward compat)
 app.post('/api/scan', async (req, res) => {
   const sessionId = req.body?.sessionId ?? 'system';
   const user      = getSession(sessionId).user ?? 'unknown';
@@ -119,18 +168,12 @@ app.post('/api/scan', async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/last-scan
-// ---------------------------------------------------------------------------
 app.get('/api/last-scan', (_req, res) => {
   const { result, scannedAt } = getLastScan();
   if (!result) { res.json({ ok: false, message: 'No scan run yet' }); return; }
   res.json({ ok: true, scannedAt, result });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/clear
-// ---------------------------------------------------------------------------
 app.post('/api/clear', (req, res) => {
   const id   = req.body.sessionId ?? 'default';
   const user = getSession(id).user ?? 'unknown';
@@ -140,24 +183,15 @@ app.post('/api/clear', (req, res) => {
   res.json({ ok: true, sessionId: id });
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/activity  — last N activity log entries
-// ---------------------------------------------------------------------------
 app.get('/api/activity', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit ?? '100', 10), 500);
   res.json({ ok: true, entries: readLog(limit), stats: logStats() });
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/writes  — list write archives
-// ---------------------------------------------------------------------------
 app.get('/api/writes', (_req, res) => {
   res.json({ ok: true, archives: listArchives(100) });
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/session/:id/memory  — what this session has read/changed
-// ---------------------------------------------------------------------------
 app.get('/api/session/:id/memory', (req, res) => {
   const session = sessions.get(req.params.id);
   if (!session) { res.json({ ok: false, message: 'Session not found' }); return; }
@@ -171,18 +205,15 @@ app.get('/api/session/:id/memory', (req, res) => {
     toolCalls: mem.toolCalls,
     writes:    mem.writes,
     summary: {
-      files_read:  mem.filesRead.size,
-      tool_calls:  mem.toolCalls.length,
-      writes_total: mem.writes.length,
+      files_read:      mem.filesRead.size,
+      tool_calls:      mem.toolCalls.length,
+      writes_total:    mem.writes.length,
       writes_approved: mem.writes.filter(w => w.status === 'approved').length,
       writes_denied:   mem.writes.filter(w => w.status === 'denied').length,
     },
   });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/approve  — resolve a pending write_file or run_command approval
-// ---------------------------------------------------------------------------
 app.post('/api/approve', (req, res) => {
   const { approvalId, decision, sessionId } = req.body ?? {};
   if (!approvalId || !decision) {
@@ -195,21 +226,18 @@ app.post('/api/approve', (req, res) => {
   pendingApprovals.delete(approvalId);
   const approved = decision === 'approve';
   pending.resolve(approved ? 'yes' : 'no');
-
-  // Update session memory write status if this was a write_file approval
-  if (sessionId && pending.path) {
+  if (sessionId && pending.filePath) {
     const session = sessions.get(sessionId);
     if (session) {
       const wi = session.memory.writes.findIndex(w => w.approvalId === approvalId);
       if (wi !== -1) session.memory.writes[wi].status = approved ? 'approved' : 'denied';
     }
   }
-
   res.json({ ok: true, decision });
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/chat  — SSE, streams tool events then final answer
+// Chat SSE
 // ---------------------------------------------------------------------------
 app.get('/api/chat', async (req, res) => {
   const question  = (req.query.q ?? '').trim();
@@ -219,10 +247,8 @@ app.get('/api/chat', async (req, res) => {
   const session   = getSession(sessionId);
   const user      = session.user;
 
-  // Log the question
   logEvent({ user, action: 'query', sessionId, detail: { q: question.slice(0, 200) } });
 
-  // SSE setup
   res.setHeader('Content-Type',  'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection',    'keep-alive');
@@ -237,7 +263,6 @@ app.get('/api/chat', async (req, res) => {
   }
 
   const tools = getTools(session.taskType);
-
   const approvalFn        = makeApprovalFn(sessionId, send);
   const commandApprovalFn = makeCommandApprovalFn(sessionId, send);
 
@@ -271,9 +296,6 @@ app.get('/api/chat', async (req, res) => {
   res.end();
 });
 
-// ---------------------------------------------------------------------------
-// GET /admin  — serve admin panel
-// ---------------------------------------------------------------------------
 app.get('/admin', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });

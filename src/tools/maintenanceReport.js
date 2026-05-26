@@ -15,6 +15,37 @@ export function saveMaintenanceReport(report) {
   return file;
 }
 
+export function listReports(limit = 50) {
+  ensureLogsDir();
+  const files = fs.readdirSync(LOGS_DIR)
+    .filter(f => f.startsWith('maintenance-') && f.endsWith('.json'))
+    .sort()
+    .reverse()
+    .slice(0, limit);
+
+  return files.map(f => {
+    try {
+      const raw    = fs.readFileSync(path.join(LOGS_DIR, f), 'utf-8');
+      const data   = JSON.parse(raw);
+      const s      = data.scan?.summary ?? {};
+      return {
+        file,
+        mode:          data.mode,
+        started_at:    data.started_at,
+        duration_sec:  data.duration_sec,
+        tests_passed:  data.tests?.passed ?? null,
+        fixes_applied: data.fixes?.applied?.length ?? 0,
+        fixes_skipped: data.fixes?.skipped?.length ?? 0,
+        critical_todos: s.critical_todos ?? 0,
+        lint_errors:    s.lint_errors    ?? 0,
+        dead_files:     s.dead_code_files ?? 0,
+      };
+    } catch (_) {
+      return { file: f, error: 'parse error' };
+    }
+  });
+}
+
 export function formatReportSummary(report) {
   const { mode, started_at, duration_sec, scan, tests, fixes } = report;
   const bar = '━'.repeat(52);
