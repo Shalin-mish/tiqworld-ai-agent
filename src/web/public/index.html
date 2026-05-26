@@ -174,6 +174,12 @@
     }
     .sidebar-left.collapsed { width: 0; }
     .sidebar-section { padding: 12px; border-bottom: 1px solid var(--border); }
+    .tool-item {
+      padding: 5px 8px; border-radius: 5px; cursor: pointer;
+      font-size: 12px; color: var(--text-dim);
+      transition: background .15s, color .15s;
+    }
+    .tool-item:hover { background: var(--surface3); color: var(--text); }
     .sidebar-label {
       font-size: 10px; font-weight: 700; letter-spacing: .8px;
       text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;
@@ -842,7 +848,7 @@
 <body>
 
 <!-- Identity modal -->
-<div id="id-overlay" class="hidden">
+<div id="id-overlay">
   <div id="id-box">
     <!-- GitHub-authenticated view (shown after OAuth) -->
     <div id="id-gh-view" style="display:none">
@@ -886,13 +892,14 @@
 
 <!-- HEADER -->
 <header class="header">
-  <div class="header-logo">
+  <button id="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')" title="Toggle sidebar" style="background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;padding:4px 6px;border-radius:4px;">☰</button>
+  <div class="header-logo logo">
     <span class="dot">◆</span>
     TIQ Agent
   </div>
   <div class="header-spacer"></div>
   <span class="header-badge model" id="hdr-model">claude-sonnet</span>
-  <span class="header-badge" id="hdr-tools">— tools</span>
+  <span class="header-badge" id="tool-count-badge">— tools</span>
   <button id="hdr-maint-btn" onclick="quickMaintenance()" title="Ctrl+M">
     <span class="maint-dot"></span>
     <span id="hdr-maint-label">Maintenance</span>
@@ -901,7 +908,7 @@
     🔔
     <span id="notif-badge"></span>
   </button>
-  <button id="header-user-btn">👤 Identify</button>
+  <button id="header-user-btn">👤 <span id="user-label">Identify</span></button>
 </header>
 
 <!-- Notification panel -->
@@ -924,7 +931,7 @@
 <div class="body">
 
   <!-- LEFT SIDEBAR -->
-  <aside class="sidebar-left" id="sidebar-left">
+  <aside class="sidebar-left" id="sidebar">
     <div class="sidebar-section">
       <div class="sidebar-label">Quick Actions</div>
       <button class="sidebar-btn accent-btn" onclick="quickMaintenance()">
@@ -953,6 +960,14 @@
       <div class="sidebar-label">Memory — Files Read</div>
       <div id="memory-list"><div class="empty-state">Nothing read yet</div></div>
     </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Quick Queries</div>
+      <div class="tool-item" data-q="Run full scan" onclick="fillInput(this.dataset.q)">Run full scan</div>
+      <div class="tool-item" data-q="Find all TODOs" onclick="fillInput(this.dataset.q)">Find all TODOs</div>
+      <div class="tool-item" data-q="Health check" onclick="fillInput(this.dataset.q)">Health check</div>
+      <div class="tool-item" data-q="Detect dead code" onclick="fillInput(this.dataset.q)">Detect dead code</div>
+      <div class="tool-item" data-q="Check env usage" onclick="fillInput(this.dataset.q)">Check env usage</div>
+    </div>
   </aside>
 
   <!-- CHAT -->
@@ -965,14 +980,14 @@
           <p class="welcome-sub">Ask anything about the codebase. I’ll read files, trace errors, review code, and suggest fixes — with your approval before any change.</p>
         </div>
         <div class="welcome-chips">
-          <span class="welcome-chip" onclick="chip(this)">Run full scan</span>
-          <span class="welcome-chip" onclick="chip(this)">Explain route /api/auth/login</span>
-          <span class="welcome-chip" onclick="chip(this)">Find all TODOs</span>
-          <span class="welcome-chip" onclick="chip(this)">Check env usage</span>
-          <span class="welcome-chip" onclick="chip(this)">Detect dead code</span>
-          <span class="welcome-chip" onclick="chip(this)">Health check</span>
-          <span class="welcome-chip" onclick="chip(this)">Show last 10 commits</span>
-          <span class="welcome-chip" onclick="chip(this)">List all database tables</span>
+          <span class="welcome-chip qa-chip" data-q="Run full scan" onclick="fillInput(this.dataset.q)">Run full scan</span>
+          <span class="welcome-chip qa-chip" data-q="Explain route /api/auth/login" onclick="fillInput(this.dataset.q)">Explain route /api/auth/login</span>
+          <span class="welcome-chip qa-chip" data-q="Find all TODOs" onclick="fillInput(this.dataset.q)">Find all TODOs</span>
+          <span class="welcome-chip qa-chip" data-q="Check env usage" onclick="fillInput(this.dataset.q)">Check env usage</span>
+          <span class="welcome-chip qa-chip" data-q="Detect dead code" onclick="fillInput(this.dataset.q)">Detect dead code</span>
+          <span class="welcome-chip qa-chip" data-q="Health check" onclick="fillInput(this.dataset.q)">Health check</span>
+          <span class="welcome-chip qa-chip" data-q="Show last 10 commits" onclick="fillInput(this.dataset.q)">Show last 10 commits</span>
+          <span class="welcome-chip qa-chip" data-q="List all database tables" onclick="fillInput(this.dataset.q)">List all database tables</span>
         </div>
         <div class="welcome-divider">or type below ↓</div>
       </div>
@@ -984,7 +999,7 @@
             placeholder="Ask about the codebase… (Shift+Enter for newline)"></textarea>
           <button id="input-clear" onclick="clearInput()">✕</button>
         </div>
-        <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send (Enter)">➤</button>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send (Enter)" disabled>➤</button>
       </div>
       <div class="input-footer">
         <div class="input-hints">
@@ -999,7 +1014,7 @@
   </main>
 
   <!-- RIGHT SIDEBAR -->
-  <aside class="sidebar-right">
+  <aside class="sidebar-right" id="ctx-panel">
     <div class="sidebar-tabs">
       <div class="sidebar-tab active" onclick="switchTab('approvals',this)">Approvals</div>
       <div class="sidebar-tab" onclick="switchTab('writes',this)">Writes</div>
@@ -1055,12 +1070,12 @@
       <div class="admin-section-label">Cron Schedule</div>
       <div class="admin-cron-row">
         <div class="admin-cron-card">
-          <div class="admin-cron-label">Night Deep</div>
+          <div class="admin-cron-label">Night Deep <span id="admin-cron-night-status" style="color:var(--green);font-size:9px;margin-left:4px"></span></div>
           <div class="admin-cron-val" id="admin-cron-night">0 2 * * *</div>
           <div class="admin-cron-next" id="admin-cron-night-next"></div>
         </div>
         <div class="admin-cron-card">
-          <div class="admin-cron-label">Day Light</div>
+          <div class="admin-cron-label">Day Light <span id="admin-cron-day-status" style="color:var(--green);font-size:9px;margin-left:4px"></span></div>
           <div class="admin-cron-val" id="admin-cron-day">0 */2 * * *</div>
           <div class="admin-cron-next" id="admin-cron-day-next"></div>
         </div>
@@ -1150,7 +1165,8 @@ function applyIdentity(name, skipServer) {
   userName    = name;
   localStorage.setItem('tiq_user', name);
   document.getElementById('id-overlay').classList.add('hidden');
-  document.getElementById('header-user-btn').textContent = '👤 ' + name;
+  document.getElementById('user-label').textContent = name;
+  document.getElementById('header-user-btn').setAttribute('title', name);
   if (!skipServer) {
     fetch('/api/identify', {
       method: 'POST',
@@ -1215,7 +1231,7 @@ document.getElementById('header-user-btn').onclick = async () => {
 // ── init ──────────────────────────────────────────────────────────────────────
 async function init() {
   const res = await fetch('/api/status').then(r => r.json()).catch(() => ({}));
-  if (res.tool_count) document.getElementById('hdr-tools').textContent = res.tool_count + ' tools';
+  if (res.tool_count) document.getElementById('tool-count-badge').textContent = res.tool_count + ' tools';
   if (res.model)      document.getElementById('hdr-model').textContent = res.model.split('/').pop().slice(0,22);
 
   await initIdentity();
@@ -1239,12 +1255,6 @@ async function init() {
     adminAutoRefreshTimer = setInterval(loadAdminTab, 60000);
   }
 
-  // check ?tab= URL param and switch to that tab
-  const tabParam = new URLSearchParams(location.search).get('tab');
-  if (tabParam) {
-    const validTabs = ['approvals','writes','tools','maintenance','admin'];
-    if (validTabs.includes(tabParam)) switchTab(tabParam);
-  }
 }
 
 // ── maintenance status polling ────────────────────────────────────────────
@@ -1430,6 +1440,13 @@ function sendMessage() {
       warn.style.cssText = 'color:var(--yellow);font-size:12px;margin:6px 0;';
       warn.textContent = '⚠ Tool budget reached — please narrow your question.';
       bubble.appendChild(warn);
+    }
+
+    if (data.type === 'context_trimmed') {
+      const note = document.createElement('div');
+      note.style.cssText = 'color:var(--text-dim);font-size:11px;margin:4px 0;border-left:2px solid var(--border-light);padding-left:8px;';
+      note.textContent = `ℹ Context trimmed — keeping last 20 messages (${data.dropped} older messages dropped).`;
+      bubble.appendChild(note);
     }
 
     if (data.type === 'answer') {
@@ -1779,7 +1796,7 @@ function paletteKey(e) {
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey||e.metaKey) && e.key==='k') { e.preventDefault(); document.getElementById('palette-overlay').classList.contains('open') ? closePalette() : openPalette(); return; }
   if ((e.ctrlKey||e.metaKey) && e.key==='m') { e.preventDefault(); quickMaintenance(); return; }
-  if ((e.ctrlKey||e.metaKey) && e.key==='/') { e.preventDefault(); document.getElementById('sidebar-left').classList.toggle('collapsed'); return; }
+  if ((e.ctrlKey||e.metaKey) && e.key==='/') { e.preventDefault(); document.getElementById('input').focus(); return; }
   if (e.key==='Escape') { closePalette(); closeDiffModal(); return; }
   const inp = document.getElementById('input');
   if (document.activeElement === inp) {
@@ -1795,6 +1812,7 @@ inputEl.addEventListener('input', () => {
   inputEl.style.height = 'auto';
   inputEl.style.height = Math.min(inputEl.scrollHeight, 180) + 'px';
   const len = inputEl.value.length;
+  document.getElementById('send-btn').disabled = len === 0;
   document.getElementById('char-count').textContent = len > 80 ? len + ' chars' : '';
   document.getElementById('input-clear').style.display = len > 0 ? 'block' : 'none';
 });
@@ -1807,15 +1825,22 @@ function clearInput() {
   inputEl.focus();
 }
 
+function fillInput(text) {
+  const inp = document.getElementById('input');
+  inp.value = text;
+  inp.dispatchEvent(new Event('input'));
+  inp.focus();
+}
+
 function chip(el) {
-  document.getElementById('input').value = el.textContent;
+  document.getElementById('input').value = el.dataset.q ?? el.textContent;
   sendMessage();
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────────────
 function setSending(v) {
   sending = v;
-  document.getElementById('send-btn').disabled = v;
+  document.getElementById('send-btn').disabled = v || inputEl.value.trim().length === 0;
   inputEl.disabled = v;
 }
 
@@ -1850,8 +1875,7 @@ function escHtml(s) {
 
 function renderMarkdown(text) {
   // fenced code blocks
-  let out = text.replace(/```([\w]*)?
-([\s\S]*?)```/g, (_, lang, code) =>
+  let out = text.replace(/```([\w]*)?\n([\s\S]*?)```/g, (_, lang, code) =>
     `<pre><code class="lang-${lang||''}">${escHtml(code.trimEnd())}</code></pre>`);
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -1948,11 +1972,23 @@ function toggleAdminAutoRefresh() {
 
 async function loadAdminTab() {
   try {
-    const [actRes, scanRes, reportsRes] = await Promise.all([
+    const [actRes, scanRes, reportsRes, schedRes] = await Promise.all([
       fetch('/api/activity?limit=20').then(r => r.json()).catch(() => ({ entries: [], stats: {} })),
       fetch('/api/last-scan').then(r => r.json()).catch(() => null),
       fetch('/api/maintenance/reports').then(r => r.json()).catch(() => ({ reports: [] })),
+      fetch('/api/scheduler/health').then(r => r.json()).catch(() => null),
     ]);
+    // update cron display with actual configured values
+    if (schedRes?.ok) {
+      const nightEl = document.getElementById('admin-cron-night');
+      const dayEl   = document.getElementById('admin-cron-day');
+      if (nightEl && schedRes.night_cron) nightEl.textContent = schedRes.night_cron;
+      if (dayEl   && schedRes.day_cron)   dayEl.textContent   = schedRes.day_cron;
+      const nightStatus = document.getElementById('admin-cron-night-status');
+      const dayStatus   = document.getElementById('admin-cron-day-status');
+      if (nightStatus) nightStatus.textContent = schedRes.night_task_active ? '● active' : '○ stopped';
+      if (dayStatus)   dayStatus.textContent   = schedRes.day_task_active   ? '● active' : '○ stopped';
+    }
 
     renderAdminReports(reportsRes.reports ?? []);
     renderAdminActivity(actRes.entries ?? []);
@@ -2085,6 +2121,14 @@ function refreshAdminCountdowns() {
 setInterval(refreshAdminCountdowns, 60000);
 
 // ── boot ───────────────────────────────────────────────────────────────────────────
+// Switch to tab from URL param synchronously before async init
+(function() {
+  const tabParam = new URLSearchParams(location.search).get('tab');
+  if (tabParam) {
+    const validTabs = ['approvals','writes','tools','maintenance','admin'];
+    if (validTabs.includes(tabParam)) switchTab(tabParam);
+  }
+})();
 init();
 </script>
 </body>

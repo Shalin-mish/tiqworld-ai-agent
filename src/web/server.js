@@ -7,7 +7,7 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 import { config } from '../config.js';
 import {
   startScheduler, triggerScan,
-  getMaintenanceStatus, setBroadcastFn,
+  getMaintenanceStatus, setBroadcastFn, getSchedulerHealth,
 } from '../scheduler.js';
 import { TOOL_COUNT } from '../agent.js';
 import { logEvent } from '../activityLog.js';
@@ -71,6 +71,10 @@ app.post('/api/maintenance/trigger', (req, res) => {
 app.get('/api/maintenance/reports', (_req, res) => {
   try { res.json({ ok: true, reports: listReports(50) }); }
   catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+});
+
+app.get('/api/scheduler/health', (_req, res) => {
+  res.json({ ok: true, ...getSchedulerHealth() });
 });
 
 // ---------------------------------------------------------------------------

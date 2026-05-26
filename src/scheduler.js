@@ -80,7 +80,7 @@ async function runTests() {
   try {
     const result = await runCommand({
       command:            'npm test',
-      working_directory:  config.codebasePath,
+      directory:          '',
       _commandApprovalFn: () => true,
       _user:              'maintenance-scheduler',
     });
@@ -208,14 +208,14 @@ async function runDayScan() {
   pushProgress('start', 'Day light scan started');
   try {
     const [lint, todos, health] = await Promise.all([
-      lintFile({   path:      'backend/src' }),
+      lintFile({   file_path: 'backend/src' }),
       findTodos({  directory: config.codebasePath }),
       healthCheck(),
     ]);
     lastScanResult = { lint, todos, health };
     lastScanTime   = new Date().toISOString();
     const errors    = lint?.total_errors ?? 0;
-    const criticals = todos?.by_severity?.critical?.length ?? 0;
+    const criticals = todos?.by_severity?.critical ?? 0;
     const elapsed   = ((Date.now() - t0) / 1000).toFixed(1);
     pushProgress('done', `Day scan done in ${elapsed}s — ${errors} lint errors, ${criticals} critical TODOs`);
   } catch (err) {
@@ -258,6 +258,18 @@ export function stopScheduler() {
   _nightTask?.stop(); _dayTask?.stop();
   _nightTask = null;  _dayTask = null;
   console.log('[Scheduler] Stopped.');
+}
+
+export function getSchedulerHealth() {
+  return {
+    night_task_active: !!_nightTask,
+    day_task_active:   !!_dayTask,
+    night_cron:        config.nightMaintenanceCron,
+    day_cron:          config.dayLightScanCron,
+    auto_fix_enabled:  config.autoFixEnabled,
+    auto_fix_min_confidence: config.autoFixMinConfidence,
+    last_scan_at:      lastScanTime,
+  };
 }
 
 export async function triggerScan(mode = 'light') {

@@ -140,11 +140,10 @@ function extractKeywords(errorText) {
  */
 function scoreConfidence({ stackFilesFound, filesRead, keywordHits, hasFixHint, primaryFileCount }) {
   let score = 0;
-  if (stackFilesFound > 0)   score += 30;
-  if (filesRead > 0)         score += 20;
-  if (keywordHits > 0)       score += 15;
-  if (filesRead > 0)         score += 15; // bonus: file was readable
-  if (hasFixHint)            score += 10;
+  if (stackFilesFound > 0)    score += 30;
+  if (filesRead > 0)          score += 20;
+  if (keywordHits > 0)        score += 15;
+  if (hasFixHint)             score += 10;
   if (primaryFileCount === 1) score += 10;
   return Math.min(score, 100);
 }

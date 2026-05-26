@@ -207,7 +207,7 @@ Always show: Confidence: 87/100 — HIGH — likely a targeted fix
 If < 55, ask user to confirm before git_backup.
 
 ## Tool budget
-Maximum 5 tool calls per user query. If you need more, stop and ask the user to narrow scope.
+Maximum 8 tool calls per user query. If you need more, stop and ask the user to narrow scope.
 
 ## What NOT to do
 - User asks "what is the Track model?" → DO NOT call read_file. Use search_code or answer from knowledge.
@@ -269,14 +269,32 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
   let toolCallsThisTurn = 0;
   const TOOL_BUDGET = 8;
 
+  async function callBedrock(msgs, retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        return await client.send(new ConverseCommand({
+          modelId:         config.model,
+          system:          SYSTEM_BLOCKS,
+          messages:        toBedrockMessages(msgs),
+          toolConfig:      { tools: bedrockTools },
+          inferenceConfig: { maxTokens: config.maxTokens },
+        }));
+      } catch (err) {
+        const isThrottle = err.name === 'ThrottlingException' || err.$metadata?.httpStatusCode === 429;
+        const isTransient = isThrottle || err.name === 'ServiceUnavailableException';
+        if (isTransient && attempt < retries) {
+          const delay = Math.pow(2, attempt) * 1000;
+          console.warn(`[Agent] Bedrock ${err.name} — retry ${attempt}/${retries} in ${delay}ms`);
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          throw err;
+        }
+      }
+    }
+  }
+
   while (true) {
-    const response = await client.send(new ConverseCommand({
-      modelId:         config.model,
-      system:          SYSTEM_BLOCKS,
-      messages:        toBedrockMessages(messages),
-      toolConfig:      { tools: bedrockTools },
-      inferenceConfig: { maxTokens: config.maxTokens },
-    }));
+    const response = await callBedrock(messages);
 
     const stopReason   = response.stopReason;
     const outputBlocks = response.output?.message?.content ?? [];

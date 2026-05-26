@@ -49,7 +49,7 @@ export async function fullScan({ lint_path, todo_path } = {}) {
     timed('check_env_usage', () => checkEnvUsage()),
     timed('detect_dead_code',() => detectDeadCode({ directory: todo_path ?? `${cb}/backend/src` })),
     timed('git_log',         () => gitLog({ count: 20, since: '7 days ago' })),
-    timed('lint_file',       () => lintFile({ path: lint_path ?? 'backend/src' })),
+    timed('lint_file',       () => lintFile({ file_path: lint_path ?? 'backend/src' })),
   ]);
 
   const totalMs = Date.now() - t0;
@@ -63,8 +63,8 @@ export async function fullScan({ lint_path, todo_path } = {}) {
   const lint     = sections[5].result;
 
   const summary = {
-    critical_todos:       todos?.by_severity?.critical?.length ?? 0,
-    warning_todos:        todos?.by_severity?.warning?.length  ?? 0,
+    critical_todos:       todos?.by_severity?.critical ?? 0,
+    warning_todos:        todos?.by_severity?.warning  ?? 0,
     missing_env_vars:     env?.missing_from_example?.length    ?? 0,
     dead_code_files:      dead?.dead_files?.length             ?? 0,
     lint_errors:          lint?.total_errors                   ?? 0,

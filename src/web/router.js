@@ -242,7 +242,11 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
         approvalFn,
         commandApprovalFn,
       );
+      const prevLen = session.history.length;
       session.history = messages.slice(-20);
+      if (prevLen > 20) {
+        send('context_trimmed', { kept: 20, dropped: prevLen - 20 });
+      }
       send('answer', { text: answer });
     } catch (err) {
       send('error', { message: err.message });

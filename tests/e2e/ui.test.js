@@ -211,13 +211,20 @@ test.describe('/api/session/:id/memory', () => {
 
 // ── Admin panel ───────────────────────────────────────────────────────────────
 test.describe('Admin panel', () => {
-  test('loads /admin page', async ({ page }) => {
+  test('/admin redirects to main page with admin tab', async ({ page }) => {
     await page.goto('/admin');
-    await expect(page).toHaveTitle(/Admin/);
+    // Redirects to /?tab=admin — title is the main app title
+    await expect(page).toHaveTitle(/TIQ/);
+    await expect(page).toHaveURL(/tab=admin/);
   });
 
-  test('admin has activity log section', async ({ page }) => {
-    await page.goto('/admin');
-    await expect(page.locator('body')).toContainText('Activity');
+  test('admin tab panel is visible after redirect', async ({ page }) => {
+    await page.goto('/?tab=admin');
+    await expect(page.locator('#tab-admin')).toBeVisible();
+  });
+
+  test('admin tab has activity log section', async ({ page }) => {
+    await page.goto('/?tab=admin');
+    await expect(page.locator('#tab-admin')).toContainText('Activity');
   });
 });
