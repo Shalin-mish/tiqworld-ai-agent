@@ -10,81 +10,143 @@
       --bg:#0d0f18; --surface:#151822; --surface2:#1c1f2e;
       --border:#252840; --accent:#7c6af7; --text:#dde0f0;
       --text-dim:#8b90b0; --green:#34d399; --red:#f87171;
-      --yellow:#fbbf24; --radius:8px;
+      --yellow:#fbbf24; --radius:8px; --border-light:#2e3252;
     }
     body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+
     header {
       display:flex; align-items:center; justify-content:space-between;
       padding:0 24px; height:52px; background:var(--surface);
-      border-bottom:1px solid var(--border); gap:12px;
+      border-bottom:1px solid var(--border); gap:10px; flex-shrink:0;
     }
     .logo { font-size:15px; font-weight:700; color:var(--accent); }
     .logo-sub { font-size:11px; color:var(--text-dim); margin-left:6px; }
-    .hright { display:flex; gap:10px; align-items:center; }
+    .hright { display:flex; gap:8px; align-items:center; }
     .btn {
       background:var(--surface2); border:1px solid var(--border); color:var(--text-dim);
-      padding:5px 14px; border-radius:6px; cursor:pointer; font-size:12px; text-decoration:none;
-      transition:border-color .15s,color .15s;
+      padding:5px 12px; border-radius:6px; cursor:pointer; font-size:12px; text-decoration:none;
+      transition:border-color .15s,color .15s; white-space:nowrap;
     }
     .btn:hover { border-color:var(--accent); color:var(--accent); }
     .btn-primary { background:var(--accent); border:none; color:#fff; font-weight:600; }
     .btn-primary:hover { opacity:.85; }
-    .btn-danger  { background:#7f1d1d; border:none; color:#fca5a5; font-weight:600; }
-    .btn-danger:hover { opacity:.85; }
     .btn:disabled { opacity:.4; cursor:not-allowed; }
+
+    /* notification bell */
+    #notif-btn {
+      position:relative; background:var(--surface2); border:1px solid var(--border);
+      color:var(--text-dim); width:34px; height:34px; border-radius:6px;
+      cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;
+      transition:border-color .15s,color .15s;
+    }
+    #notif-btn:hover { border-color:var(--accent); color:var(--accent); }
+    #notif-badge {
+      position:absolute; top:-4px; right:-4px;
+      background:var(--red); color:#fff;
+      font-size:9px; font-weight:700;
+      width:16px; height:16px; border-radius:50%;
+      display:none; align-items:center; justify-content:center;
+    }
+    #notif-badge.visible { display:flex; }
+
+    /* auto-refresh toggle */
+    .toggle-wrap { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim); }
+    .toggle {
+      width:32px; height:18px; background:var(--surface2); border:1px solid var(--border);
+      border-radius:99px; cursor:pointer; position:relative; transition:background .2s;
+    }
+    .toggle.on { background:var(--accent); border-color:var(--accent); }
+    .toggle::after {
+      content:''; position:absolute; top:2px; left:2px;
+      width:12px; height:12px; border-radius:50%; background:#fff;
+      transition:transform .2s;
+    }
+    .toggle.on::after { transform:translateX(14px); }
+
     .page { max-width:1200px; margin:0 auto; padding:28px 24px; }
 
-    /* ── Maintenance hero ── */
+    /* notifications panel */
+    #notif-panel {
+      display:none; position:fixed; top:58px; right:24px;
+      width:380px; max-height:480px;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; z-index:200;
+      box-shadow:0 16px 48px rgba(0,0,0,.5);
+      display:none; flex-direction:column;
+    }
+    #notif-panel.open { display:flex; }
+    .notif-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 16px; border-bottom:1px solid var(--border); flex-shrink:0;
+    }
+    .notif-header h4 { font-size:13px; font-weight:700; }
+    .notif-list { overflow-y:auto; flex:1; }
+    .notif-list::-webkit-scrollbar { width:3px; }
+    .notif-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; }
+    .notif-item {
+      padding:12px 16px; border-bottom:1px solid var(--border);
+      display:flex; gap:10px; align-items:flex-start;
+    }
+    .notif-item:last-child { border-bottom:none; }
+    .notif-item.unread { background:rgba(124,106,247,.04); }
+    .notif-icon { font-size:16px; flex-shrink:0; margin-top:1px; }
+    .notif-body { flex:1; min-width:0; }
+    .notif-title { font-size:12px; font-weight:700; margin-bottom:2px; }
+    .notif-msg   { font-size:11px; color:var(--text-dim); line-height:1.5; white-space:pre-wrap; }
+    .notif-ts    { font-size:10px; color:var(--text-dim); margin-top:3px; }
+    .notif-empty { padding:24px; text-align:center; font-size:12px; color:var(--text-dim); }
+
+    /* Maintenance hero */
     .maint-hero {
       background:var(--surface); border:1px solid var(--border); border-radius:12px;
-      padding:24px 28px; margin-bottom:28px;
-      display:flex; align-items:center; justify-content:space-between; gap:24px;
-      flex-wrap:wrap;
+      padding:22px 28px; margin-bottom:24px;
+      display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;
     }
-    .maint-hero-left h2 { font-size:18px; font-weight:700; margin-bottom:4px; }
+    .maint-hero-left h2 { font-size:17px; font-weight:700; margin-bottom:3px; }
     .maint-hero-left p  { font-size:12px; color:var(--text-dim); }
-    .maint-hero-right   { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    #btn-maint-deep  { font-size:14px; padding:9px 22px; border-radius:8px; }
-    #btn-maint-light { font-size:13px; padding:8px 18px; }
+    .maint-hero-right   { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    #btn-maint-deep  { font-size:13px; padding:8px 20px; }
+    #btn-maint-light { font-size:12px; padding:7px 14px; }
     #maint-status-badge {
       font-size:11px; font-weight:700; padding:3px 10px; border-radius:99px;
       background:var(--surface2); color:var(--text-dim);
     }
-    #maint-status-badge.running { background:#1a1a4a; color:#a5b4fc; }
+    #maint-status-badge.running { background:#1a1a4a; color:#a5b4fc; animation:pulse .8s ease-in-out infinite; }
     #maint-status-badge.done    { background:#052e16; color:var(--green); }
     #maint-status-badge.error   { background:#3b0f0f; color:var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 
-    /* progress log */
     #maint-progress-wrap {
-      margin-top:16px; display:none;
+      margin-bottom:20px; display:none;
       background:var(--surface2); border:1px solid var(--border);
       border-radius:8px; padding:14px 16px;
     }
     #maint-progress-wrap.visible { display:block; }
-    #maint-progress-title { font-size:11px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; }
-    #maint-log { font-family:'Cascadia Code',Consolas,monospace; font-size:12px; line-height:1.7;
-      max-height:220px; overflow-y:auto; }
-    #maint-log .log-step { color:var(--accent); font-weight:600; margin-right:6px; }
-    #maint-log .log-done { color:var(--green); }
-    #maint-log .log-err  { color:var(--red); }
-    #maint-log .log-ts   { color:var(--text-dim); font-size:10px; margin-left:8px; }
+    #maint-log {
+      font-family:'Cascadia Code',Consolas,monospace; font-size:12px;
+      line-height:1.7; max-height:200px; overflow-y:auto;
+    }
+    .log-step { color:var(--accent); font-weight:700; margin-right:6px; }
+    .log-done { color:var(--green); }
+    .log-err  { color:var(--red); }
+    .log-ts   { color:var(--text-dim); font-size:10px; margin-left:8px; }
 
-    /* Stat cards */
-    .stats-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(155px,1fr)); gap:12px; margin-bottom:28px; }
+    /* stat cards */
+    .stats-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-bottom:24px; }
     .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; }
     .stat-label { font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; }
-    .stat-value { font-size:26px; font-weight:700; color:var(--text); margin-top:4px; }
+    .stat-value { font-size:24px; font-weight:700; margin-top:4px; }
     .stat-value.red    { color:var(--red); }
     .stat-value.yellow { color:var(--yellow); }
     .stat-value.green  { color:var(--green); }
 
-    /* Sections */
-    .section { margin-bottom:32px; }
+    /* sections */
+    .section { margin-bottom:28px; }
     .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
     .section-title  { font-size:14px; font-weight:700; }
     .section-sub    { font-size:11px; color:var(--text-dim); }
 
-    /* Tables */
+    /* tables */
     .tbl-wrap { overflow-x:auto; border-radius:var(--radius); border:1px solid var(--border); }
     table { width:100%; border-collapse:collapse; font-size:12.5px; }
     th { background:var(--surface2); color:var(--text-dim); font-weight:600; padding:8px 12px; text-align:left; white-space:nowrap; }
@@ -105,7 +167,7 @@
     .ts { font-size:11px; color:var(--text-dim); white-space:nowrap; }
     .user-badge { display:inline-block; background:#2d2860; color:var(--accent); padding:1px 7px; border-radius:99px; font-size:11px; font-weight:600; }
 
-    /* Scan grid */
+    /* scan grid */
     .scan-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
     .scan-item { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; display:flex; justify-content:space-between; align-items:center; }
     .scan-key { font-size:12px; color:var(--text-dim); }
@@ -114,20 +176,13 @@
     .scan-val.warn { color:var(--yellow); }
     .scan-val.ok   { color:var(--green); }
 
-    /* Approval modal */
-    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:center; justify-content:center; z-index:100; }
-    .modal-overlay.open { display:flex; }
-    .modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; max-width:640px; width:90%; }
-    .modal h3 { font-size:15px; font-weight:700; margin-bottom:12px; }
-    .modal pre { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:12px; font-size:11.5px; overflow-x:auto; max-height:300px; overflow-y:auto; margin-bottom:16px; }
-    .modal-actions { display:flex; gap:10px; justify-content:flex-end; }
-
-    /* Cron info */
-    .cron-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:28px; }
+    /* cron cards */
+    .cron-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; }
     .cron-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 18px; flex:1; min-width:220px; }
     .cron-card .cron-label { font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
     .cron-card .cron-val   { font-size:14px; font-weight:700; font-family:monospace; color:var(--accent); }
-    .cron-card .cron-desc  { font-size:11px; color:var(--text-dim); margin-top:4px; }
+    .cron-card .cron-desc  { font-size:11px; color:var(--text-dim); margin-top:3px; }
+    .cron-card .cron-next  { font-size:11px; color:var(--green); margin-top:4px; }
   </style>
 </head>
 <body>
@@ -139,34 +194,51 @@
   </div>
   <div class="hright">
     <span id="last-scan-label" style="font-size:11px;color:var(--text-dim);">Last scan: —</span>
-    <button class="btn" id="refresh-btn">↺ Refresh</button>
-    <a href="/" class="btn">← Back to Agent</a>
+    <div class="toggle-wrap">
+      <div class="toggle" id="auto-refresh-toggle" onclick="toggleAutoRefresh()"></div>
+      <span>Auto-refresh</span>
+    </div>
+    <button id="notif-btn" onclick="toggleNotifPanel()">
+      🔔
+      <span id="notif-badge"></span>
+    </button>
+    <button class="btn btn-primary" id="refresh-btn">↺ Refresh</button>
+    <a href="/" class="btn">← Chat</a>
   </div>
 </header>
 
+<!-- Notification panel -->
+<div id="notif-panel">
+  <div class="notif-header">
+    <h4>Notifications</h4>
+    <button class="btn" style="font-size:11px;padding:3px 8px" onclick="readAllNotifs()">Mark all read</button>
+  </div>
+  <div class="notif-list" id="notif-list"><div class="notif-empty">Loading…</div></div>
+</div>
+
 <div class="page">
 
-  <!-- ── One-Click Maintenance Hero ── -->
+  <!-- Maintenance Hero -->
   <div class="maint-hero">
     <div class="maint-hero-left">
       <h2>Maintenance</h2>
-      <p>Kabhii bhi click karo — agent khud scan karega, fix karega, report save karega.</p>
+      <p>Kabhi bhi click karo — agent khud scan, fix, report karega.</p>
     </div>
     <div class="maint-hero-right">
       <span id="maint-status-badge">Idle</span>
-      <button class="btn" id="btn-maint-light">Light Scan</button>
-      <button class="btn btn-primary" id="btn-maint-deep">▶ Start Deep Maintenance</button>
+      <button class="btn" id="btn-maint-light" onclick="triggerMaintenance('light')">Light Scan</button>
+      <button class="btn btn-primary" id="btn-maint-deep" onclick="triggerMaintenance('deep')">▶ Deep Maintenance</button>
     </div>
   </div>
 
-  <!-- Live progress log -->
+  <!-- Live progress -->
   <div id="maint-progress-wrap">
-    <div id="maint-progress-title">Live Progress</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Live Progress</div>
     <div id="maint-log"></div>
   </div>
 
-  <!-- Stat Cards -->
-  <div class="stats-row" style="margin-top:24px;">
+  <!-- Stat cards -->
+  <div class="stats-row">
     <div class="stat-card"><div class="stat-label">Total Actions</div><div class="stat-value" id="s-total">—</div></div>
     <div class="stat-card"><div class="stat-label">Critical TODOs</div><div class="stat-value red" id="s-todos">—</div></div>
     <div class="stat-card"><div class="stat-label">Lint Errors</div><div class="stat-value red" id="s-lint">—</div></div>
@@ -177,10 +249,20 @@
     <div class="stat-card"><div class="stat-label">Recent Commits</div><div class="stat-value green" id="s-commits">—</div></div>
   </div>
 
-  <!-- Cron schedule info -->
-  <div class="cron-row" id="cron-row">
-    <div class="cron-card"><div class="cron-label">Night Deep Maintenance</div><div class="cron-val" id="cron-night">loading…</div><div class="cron-desc">IST timezone — runs full scan + auto-fix</div></div>
-    <div class="cron-card"><div class="cron-label">Day Light Scan</div><div class="cron-val" id="cron-day">loading…</div><div class="cron-desc">IST timezone — scan only, no writes</div></div>
+  <!-- Cron schedule -->
+  <div class="cron-row">
+    <div class="cron-card">
+      <div class="cron-label">Night Deep Maintenance</div>
+      <div class="cron-val" id="cron-night">0 2 * * *</div>
+      <div class="cron-desc">IST — full scan + auto-fix</div>
+      <div class="cron-next" id="cron-night-next"></div>
+    </div>
+    <div class="cron-card">
+      <div class="cron-label">Day Light Scan</div>
+      <div class="cron-val" id="cron-day">0 */2 * * *</div>
+      <div class="cron-desc">IST — scan only, no writes</div>
+      <div class="cron-next" id="cron-day-next"></div>
+    </div>
   </div>
 
   <!-- Last Scan Summary -->
@@ -191,10 +273,10 @@
     <div class="scan-grid" id="scan-grid"></div>
   </div>
 
-  <!-- Maintenance Report History -->
+  <!-- Maintenance Reports -->
   <div class="section">
     <div class="section-header">
-      <div><div class="section-title">Maintenance Report History</div><div class="section-sub">Past maintenance runs — sorted latest first</div></div>
+      <div><div class="section-title">Maintenance Report History</div><div class="section-sub">Past runs — latest first</div></div>
     </div>
     <div class="tbl-wrap">
       <table>
@@ -207,7 +289,7 @@
   <!-- Activity Log -->
   <div class="section">
     <div class="section-header">
-      <div><div class="section-title">Activity Log</div><div class="section-sub">Har tool call, query, aur write yahan dikh ta hai</div></div>
+      <div><div class="section-title">Activity Log</div><div class="section-sub">Every tool call, query, and write</div></div>
     </div>
     <div class="tbl-wrap">
       <table>
@@ -220,7 +302,7 @@
   <!-- Write Archive -->
   <div class="section">
     <div class="section-header">
-      <div><div class="section-title">Write Archive</div><div class="section-sub">Har file write ka record — logs/writes/ mein saved</div></div>
+      <div><div class="section-title">Write Archive</div><div class="section-sub">Every file write — saved in logs/writes/</div></div>
     </div>
     <div class="tbl-wrap">
       <table>
@@ -232,81 +314,158 @@
 
 </div>
 
-<!-- Approval Modal -->
-<div class="modal-overlay" id="approval-modal">
-  <div class="modal">
-    <h3>File Write Approval</h3>
-    <p style="font-size:12px;color:var(--text-dim);margin-bottom:10px;" id="approval-path"></p>
-    <p style="font-size:12px;color:var(--text-dim);margin-bottom:10px;" id="approval-reason"></p>
-    <pre id="approval-diff"></pre>
-    <div class="modal-actions">
-      <button class="btn" id="btn-deny">Deny</button>
-      <button class="btn btn-primary" id="btn-approve">Approve Write</button>
-    </div>
-  </div>
-</div>
-
 <script>
-let currentApprovalId = null;
 let maintEventSource  = null;
+let autoRefreshTimer  = null;
 
 function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 function fmtTime(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  return new Date(iso).toLocaleDateString() + ' ' + new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 function setText(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val ?? '—';
+  const el = document.getElementById(id); if (el) el.textContent = val ?? '—';
 }
 function pillClass(action) {
-  if (action === 'write_file' || action.startsWith('tool:write')) return 'pill-write';
+  if (action.includes('write')) return 'pill-write';
   if (action.includes('scan') || action.includes('maintenance')) return 'pill-scan';
   if (action.startsWith('tool:')) return 'pill-tool';
   if (action === 'query') return 'pill-query';
   return 'pill-system';
 }
 
-// ── Maintenance button logic ──────────────────────────────────────────────
+// ─ cron next-run countdown ────────────────────────────────────────────────────────
+function nextRunFromCron(cronStr) {
+  // Simplified: only handles "0 H * * *" and "0 */N * * *" patterns (covers our defaults)
+  const parts = cronStr.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+  const [min, hour] = parts;
+  const now = new Date();
+  const nowIST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
+  if (!isNaN(hour) && hour !== '*') {
+    // Fixed hour: "0 2 * * *"
+    const next = new Date(nowIST);
+    next.setHours(parseInt(hour), parseInt(min) || 0, 0, 0);
+    if (next <= nowIST) next.setDate(next.getDate() + 1);
+    const diffMs = next - nowIST;
+    return fmtDiff(diffMs);
+  } else if (hour.startsWith('*/')) {
+    // Interval: "0 */2 * * *"
+    const interval = parseInt(hour.slice(2));
+    const h = nowIST.getHours();
+    const nextH = Math.ceil((h + 1) / interval) * interval;
+    const next = new Date(nowIST);
+    next.setHours(nextH % 24, 0, 0, 0);
+    if (nextH >= 24) next.setDate(next.getDate() + 1);
+    return fmtDiff(next - nowIST);
+  }
+  return null;
+}
+
+function fmtDiff(ms) {
+  if (ms <= 0) return 'now';
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
+}
+
+function refreshCountdowns() {
+  const nightCron = document.getElementById('cron-night').textContent;
+  const dayCron   = document.getElementById('cron-day').textContent;
+  const n = nextRunFromCron(nightCron);
+  const d = nextRunFromCron(dayCron);
+  if (n) document.getElementById('cron-night-next').textContent = 'Next run: ' + n;
+  if (d) document.getElementById('cron-day-next').textContent   = 'Next run: ' + d;
+}
+
+// ─ notifications ───────────────────────────────────────────────────────────────
+function toggleNotifPanel() {
+  const p = document.getElementById('notif-panel');
+  p.classList.toggle('open');
+  if (p.classList.contains('open')) loadNotifications();
+}
+
+async function loadNotifications() {
+  const res = await fetch('/api/notifications?limit=30').then(r=>r.json()).catch(()=>({notifications:[],unread:0}));
+  const badge = document.getElementById('notif-badge');
+  badge.textContent = res.unread > 0 ? res.unread : '';
+  badge.classList.toggle('visible', res.unread > 0);
+
+  const list = document.getElementById('notif-list');
+  const notifs = res.notifications ?? [];
+  if (!notifs.length) { list.innerHTML = '<div class="notif-empty">No notifications yet</div>'; return; }
+
+  const icons = { success:'✅', warning:'⚠️', error:'❌', info:'ℹ️' };
+  list.innerHTML = notifs.map(n => `
+    <div class="notif-item${n.read?'':' unread'}">
+      <span class="notif-icon">${icons[n.type] ?? '🤖'}</span>
+      <div class="notif-body">
+        <div class="notif-title">${escHtml(n.title)}</div>
+        <div class="notif-msg">${escHtml(n.body)}</div>
+        <div class="notif-ts">${fmtTime(n.at)}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function readAllNotifs() {
+  await fetch('/api/notifications/read-all', { method:'POST' });
+  document.getElementById('notif-badge').classList.remove('visible');
+  loadNotifications();
+}
+
+// Update badge on load
+fetch('/api/notifications?limit=1').then(r=>r.json()).then(res => {
+  const badge = document.getElementById('notif-badge');
+  badge.textContent = res.unread > 0 ? res.unread : '';
+  badge.classList.toggle('visible', (res.unread ?? 0) > 0);
+}).catch(()=>{});
+
+// Close notification panel when clicking outside
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('notif-panel');
+  const btn   = document.getElementById('notif-btn');
+  if (panel.classList.contains('open') && !panel.contains(e.target) && !btn.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+});
+
+// ─ maintenance ─────────────────────────────────────────────────────────────────────
 function setBadge(state) {
   const badge = document.getElementById('maint-status-badge');
-  badge.className = '';
-  badge.classList.add(state);
-  const labels = { idle:'Idle', running:'Running…', done:'Done', error:'Error' };
+  badge.className = state;
+  const labels = { idle:'Idle', running:'Running…', done:'Done ✔', error:'Error ⚠' };
   badge.textContent = labels[state] ?? state;
 }
 
 function appendLog(step, msg, at) {
-  const div    = document.getElementById('maint-log');
-  const isDone = step === 'done';
-  const isErr  = step === 'error';
-  const line   = document.createElement('div');
+  const div = document.getElementById('maint-log');
+  const isDone = step === 'done', isErr = step === 'error';
+  const line = document.createElement('div');
   line.innerHTML =
-    `<span class="log-step ${isDone ? 'log-done' : isErr ? 'log-err' : ''}">[${escHtml(step)}]</span>` +
+    `<span class="log-step ${isDone?'log-done':isErr?'log-err':''}">[${ escHtml(step)}]</span>` +
     `${escHtml(msg)}<span class="log-ts">${fmtTime(at)}</span>`;
   div.appendChild(line);
   div.scrollTop = div.scrollHeight;
 }
 
-function startMaintenanceStream() {
+function startMaintStream() {
   if (maintEventSource) { maintEventSource.close(); }
   document.getElementById('maint-progress-wrap').classList.add('visible');
   document.getElementById('maint-log').innerHTML = '';
-
   maintEventSource = new EventSource('/api/maintenance/stream');
   maintEventSource.onmessage = (e) => {
     try {
       const data = JSON.parse(e.data);
-      if (data.type === 'maintenance_progress') {
-        appendLog(data.step, data.msg, data.at);
-      } else if (data.type === 'maintenance_status') {
+      if (data.type === 'maintenance_progress') appendLog(data.step, data.msg, data.at);
+      else if (data.type === 'maintenance_status') {
         setBadge(data.state);
         if (data.state === 'done' || data.state === 'idle') {
-          maintEventSource.close();
-          load(); // refresh tables after done
+          maintEventSource.close(); maintEventSource = null;
+          load();
+          loadNotifications();
         }
       }
     } catch (_) {}
@@ -314,128 +473,105 @@ function startMaintenanceStream() {
 }
 
 async function triggerMaintenance(mode) {
-  const btnDeep  = document.getElementById('btn-maint-deep');
-  const btnLight = document.getElementById('btn-maint-light');
-  btnDeep.disabled  = true;
-  btnLight.disabled = true;
+  document.getElementById('btn-maint-deep').disabled  = true;
+  document.getElementById('btn-maint-light').disabled = true;
   setBadge('running');
-  startMaintenanceStream();
-
+  startMaintStream();
   try {
     const res = await fetch('/api/maintenance/trigger', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ mode }),
     });
     const data = await res.json();
-    if (!data.ok) {
-      appendLog('error', data.message ?? 'Failed to start', new Date().toISOString());
-      setBadge('error');
-    }
-  } catch (err) {
-    appendLog('error', err.message, new Date().toISOString());
-    setBadge('error');
+    if (!data.ok) appendLog('error', data.message ?? 'Failed', new Date().toISOString());
   } finally {
-    btnDeep.disabled  = false;
-    btnLight.disabled = false;
+    document.getElementById('btn-maint-deep').disabled  = false;
+    document.getElementById('btn-maint-light').disabled = false;
   }
 }
 
-document.getElementById('btn-maint-deep').addEventListener('click',  () => triggerMaintenance('deep'));
-document.getElementById('btn-maint-light').addEventListener('click', () => triggerMaintenance('light'));
-
-// Poll status on load in case maintenance is already running
-fetch('/api/maintenance/status').then(r => r.json()).then(data => {
+fetch('/api/maintenance/status').then(r=>r.json()).then(data => {
   setBadge(data.state ?? 'idle');
-  if (data.state === 'running') startMaintenanceStream();
+  if (data.state === 'running') startMaintStream();
   if (data.progress?.length) {
     document.getElementById('maint-progress-wrap').classList.add('visible');
     data.progress.forEach(p => appendLog(p.step, p.msg, p.at));
   }
-}).catch(() => {});
+}).catch(()=>{});
 
-// ── Approval modal ────────────────────────────────────────────────────────
-function openApproval(approvalId, filePath, diff, reason) {
-  currentApprovalId = approvalId;
-  document.getElementById('approval-path').textContent   = 'File: ' + filePath;
-  document.getElementById('approval-reason').textContent = 'Reason: ' + reason;
-  document.getElementById('approval-diff').textContent   = diff ?? '(no diff)';
-  document.getElementById('approval-modal').classList.add('open');
+// ─ auto-refresh ──────────────────────────────────────────────────────────────────
+function toggleAutoRefresh() {
+  const toggle = document.getElementById('auto-refresh-toggle');
+  const on = !toggle.classList.contains('on');
+  toggle.classList.toggle('on', on);
+  localStorage.setItem('admin-auto-refresh', on ? '1' : '0');
+  if (on) {
+    autoRefreshTimer = setInterval(load, 60000);
+  } else {
+    clearInterval(autoRefreshTimer);
+  }
 }
-function closeApproval() {
-  currentApprovalId = null;
-  document.getElementById('approval-modal').classList.remove('open');
-}
-async function resolveApproval(decision) {
-  if (!currentApprovalId) return;
-  await fetch('/api/approve', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ approvalId: currentApprovalId, decision }),
-  });
-  closeApproval();
-}
-document.getElementById('btn-approve').addEventListener('click', () => resolveApproval('approve'));
-document.getElementById('btn-deny').addEventListener('click',    () => resolveApproval('deny'));
 
-// ── Data rendering ────────────────────────────────────────────────────────
+// restore toggle state
+if (localStorage.getItem('admin-auto-refresh') === '1') {
+  document.getElementById('auto-refresh-toggle').classList.add('on');
+  autoRefreshTimer = setInterval(load, 60000);
+}
+
+// countdown refresh every minute
+setInterval(refreshCountdowns, 60000);
+
+// ─ data rendering ─────────────────────────────────────────────────────────────────
 function renderReports(reports) {
   const tbody = document.getElementById('reports-body');
-  if (!reports.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No maintenance reports yet — click Start Deep Maintenance</td></tr>'; return;
-  }
+  if (!reports.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No reports yet — run Deep Maintenance first</td></tr>'; return; }
   tbody.innerHTML = reports.map(r => {
-    if (r.error) return `<tr><td colspan="8" class="mono" style="color:var(--red)">${escHtml(r.file)}: parse error</td></tr>`;
+    if (r.error) return `<tr><td colspan="8" style="color:var(--red)">${escHtml(r.file)}: parse error</td></tr>`;
     const modePill = r.mode === 'night' ? 'pill-night' : 'pill-light';
     const testPill = r.tests_passed === null ? '' : r.tests_passed ? '<span class="pill pill-pass">PASS</span>' : '<span class="pill pill-fail">FAIL</span>';
     return `<tr>
       <td class="ts mono">${fmtTime(r.started_at)}</td>
-      <td><span class="pill ${modePill}">${escHtml(r.mode ?? '—')}</span></td>
-      <td class="mono">${escHtml(r.duration_sec ?? '—')}s</td>
+      <td><span class="pill ${modePill}">${escHtml(r.mode??'—')}</span></td>
+      <td class="mono">${escHtml(r.duration_sec??'—')}s</td>
       <td>${testPill}</td>
       <td style="color:var(--green);font-weight:600">${r.fixes_applied}</td>
       <td style="color:var(--yellow)">${r.fixes_skipped}</td>
-      <td style="color:${r.critical_todos > 0 ? 'var(--red)' : 'var(--text-dim)'}">${r.critical_todos}</td>
-      <td style="color:${r.lint_errors    > 0 ? 'var(--red)' : 'var(--text-dim)'}">${r.lint_errors}</td>
+      <td style="color:${r.critical_todos>0?'var(--red)':'var(--text-dim)'}">${r.critical_todos}</td>
+      <td style="color:${r.lint_errors>0?'var(--red)':'var(--text-dim)'}">${r.lint_errors}</td>
     </tr>`;
   }).join('');
 }
 
 function renderActivity(entries) {
   const tbody = document.getElementById('activity-body');
-  if (!entries.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No activity yet</td></tr>'; return;
-  }
+  if (!entries.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No activity yet</td></tr>'; return; }
   tbody.innerHTML = entries.map(e => {
-    const detail = e.q ?? e.file ?? e.cmd ?? (e.input ? JSON.stringify(e.input).slice(0,80) : '') ?? '';
+    const detail = e.q ?? e.file ?? e.cmd ?? (e.input?JSON.stringify(e.input).slice(0,80):'') ?? '';
     return `<tr>
       <td class="ts mono">${fmtTime(e.ts)}</td>
-      <td><span class="user-badge">${escHtml(e.user ?? '?')}</span></td>
+      <td><span class="user-badge">${escHtml(e.user??'?')}</span></td>
       <td><span class="pill ${pillClass(e.action)}">${escHtml(e.action)}</span></td>
-      <td class="mono" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(detail)}</td>
+      <td class="mono" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(detail)}</td>
     </tr>`;
   }).join('');
 }
 
 function renderWrites(archives) {
   const tbody = document.getElementById('writes-body');
-  if (!archives.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No writes archived yet</td></tr>'; return;
-  }
+  if (!archives.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No writes yet</td></tr>'; return; }
   tbody.innerHTML = archives.map(a => `<tr>
-    <td class="ts mono">${escHtml((a.time ?? '').slice(0,19).replace('T',' '))}</td>
+    <td class="ts mono">${escHtml((a.time??'').slice(0,19).replace('T',' '))}</td>
     <td><span class="user-badge">${escHtml(a.user)}</span></td>
     <td class="mono">${escHtml(a.file)}</td>
-    <td style="color:var(--text-dim);max-width:300px;">${escHtml(a.reason)}</td>
+    <td style="color:var(--text-dim);max-width:300px">${escHtml(a.reason)}</td>
   </tr>`).join('');
 }
 
-function renderScanSummary(summary, scannedAt, totalMs) {
+function renderScan(summary, scannedAt, totalMs) {
   if (!summary) return;
   document.getElementById('scan-section').style.display = '';
   const dur = totalMs ? `${(totalMs/1000).toFixed(1)}s` : '';
-  document.getElementById('scan-time-detail').textContent =
-    `Ran at ${fmtTime(scannedAt)} ${dur ? '· ' + dur : ''}`;
+  document.getElementById('scan-time-detail').textContent = `Ran at ${fmtTime(scannedAt)} ${dur?'· '+dur:''}`;
   const items = [
     { key:'Critical TODOs',    val:summary.critical_todos,    cls:summary.critical_todos>0?'bad':'ok' },
     { key:'Warning TODOs',     val:summary.warning_todos,     cls:summary.warning_todos>0?'warn':'ok' },
@@ -448,7 +584,7 @@ function renderScanSummary(summary, scannedAt, totalMs) {
     { key:'Recent Commits',    val:summary.recent_commits,    cls:'ok' },
   ];
   document.getElementById('scan-grid').innerHTML = items.map(i =>
-    `<div class="scan-item"><span class="scan-key">${i.key}</span><span class="scan-val ${i.cls}">${i.val ?? '?'}</span></div>`
+    `<div class="scan-item"><span class="scan-key">${i.key}</span><span class="scan-val ${i.cls}">${i.val??'?'}</span></div>`
   ).join('');
   setText('s-todos',       summary.critical_todos);
   setText('s-lint',        summary.lint_errors);
@@ -459,35 +595,29 @@ function renderScanSummary(summary, scannedAt, totalMs) {
 }
 
 async function load() {
-  const [actRes, writesRes, scanRes, reportsRes, statusRes] = await Promise.all([
-    fetch('/api/activity?limit=150').then(r=>r.json()).catch(()=>({ entries:[], stats:{} })),
-    fetch('/api/writes').then(r=>r.json()).catch(()=>({ archives:[] })),
+  const [actRes, writesRes, scanRes, reportsRes] = await Promise.all([
+    fetch('/api/activity?limit=150').then(r=>r.json()).catch(()=>({entries:[],stats:{}})),
+    fetch('/api/writes').then(r=>r.json()).catch(()=>({archives:[]})),
     fetch('/api/last-scan').then(r=>r.json()).catch(()=>null),
-    fetch('/api/maintenance/reports').then(r=>r.json()).catch(()=>({ reports:[] })),
-    fetch('/api/status').then(r=>r.json()).catch(()=>null),
+    fetch('/api/maintenance/reports').then(r=>r.json()).catch(()=>({reports:[]})),
   ]);
 
-  renderActivity(actRes.entries ?? []);
-  renderWrites(writesRes.archives ?? []);
-  renderReports(reportsRes.reports ?? []);
+  renderActivity(actRes.entries??[]);
+  renderWrites(writesRes.archives??[]);
+  renderReports(reportsRes.reports??[]);
 
   const stats = actRes.stats ?? {};
   setText('s-total',  stats.total);
   setText('s-writes', stats.byAction?.['write_file'] ?? 0);
 
   if (scanRes?.ok) {
-    renderScanSummary(scanRes.result?.summary, scanRes.scannedAt, scanRes.result?.total_duration_ms);
-    const ago = scanRes.scannedAt
-      ? Math.round((Date.now() - new Date(scanRes.scannedAt)) / 60000)
-      : null;
+    renderScan(scanRes.result?.summary, scanRes.scannedAt, scanRes.result?.total_duration_ms);
+    const ago = scanRes.scannedAt ? Math.round((Date.now()-new Date(scanRes.scannedAt))/60000) : null;
     document.getElementById('last-scan-label').textContent =
-      ago == null ? 'Last scan: —' : ago < 1 ? 'Last scan: just now' : `Last scan: ${ago}m ago`;
+      ago==null?'Last scan: —':ago<1?'Last scan: just now':`Last scan: ${ago}m ago`;
   }
 
-  if (statusRes) {
-    setText('cron-night', statusRes.nightCron ?? '0 2 * * *');
-    setText('cron-day',   statusRes.dayCron   ?? '0 */2 * * *');
-  }
+  refreshCountdowns();
 }
 
 document.getElementById('refresh-btn').addEventListener('click', load);
