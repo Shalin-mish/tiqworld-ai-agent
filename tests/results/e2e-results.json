@@ -1,0 +1,1526 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\playwright.config.js",
+    "rootDir": "C:/Users/Shalini Mishra/tiqworld-ai-agent/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/Shalini Mishra/tiqworld-ai-agent/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/Shalini Mishra/tiqworld-ai-agent/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "tests/results/e2e-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.60.0",
+    "workers": 6,
+    "webServer": {
+      "command": "node src/web/server.js",
+      "url": "http://localhost:3001/api/status",
+      "timeout": 15000,
+      "reuseExistingServer": true
+    }
+  },
+  "suites": [
+    {
+      "title": "ui.test.js",
+      "file": "ui.test.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Page load",
+          "file": "ui.test.js",
+          "line": 14,
+          "column": 6,
+          "specs": [
+            {
+              "title": "loads with correct title",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 47058,
+                      "error": {
+                        "message": "\u001b[31mTearing down \"context\" exceeded the test timeout of 30000ms.\u001b[39m",
+                        "stack": "\u001b[31mTearing down \"context\" exceeded the test timeout of 30000ms.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTearing down \"context\" exceeded the test timeout of 30000ms.\u001b[39m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:00:54.907Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Page-load-loads-with-correct-title-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Page-load-loads-with-correct-title-chromium\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Page-load-loads-with-correct-title-chromium\\trace.zip"
+                        }
+                      ]
+                    },
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 35113,
+                      "error": {
+                        "message": "\u001b[31mTearing down \"context\" exceeded the test timeout of 30000ms.\u001b[39m",
+                        "stack": "\u001b[31mTearing down \"context\" exceeded the test timeout of 30000ms.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTearing down \"context\" exceeded the test timeout of 30000ms.\u001b[39m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-05-21T07:01:53.289Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Page-load-loads-with-correct-title-chromium-retry1\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Page-load-loads-with-correct-title-chromium-retry1\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Page-load-loads-with-correct-title-chromium-retry1\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-381fa49e9e056a1dd5cc",
+              "file": "ui.test.js",
+              "line": 15,
+              "column": 3
+            },
+            {
+              "title": "shows identity modal on first visit",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 797,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:36.546Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-d9f24e802c1543533da8",
+              "file": "ui.test.js",
+              "line": 20,
+              "column": 3
+            },
+            {
+              "title": "identity modal has English text only",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 717,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:37.634Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-cd9f66a831115b3d90d9",
+              "file": "ui.test.js",
+              "line": 25,
+              "column": 3
+            },
+            {
+              "title": "header renders logo and badges",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 721,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:38.369Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-77a92a007445c0644521",
+              "file": "ui.test.js",
+              "line": 33,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Identity modal",
+          "file": "ui.test.js",
+          "line": 41,
+          "column": 6,
+          "specs": [
+            {
+              "title": "dismisses on name submit",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 921,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:39.115Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-ef81b37b613dafccf03d",
+              "file": "ui.test.js",
+              "line": 42,
+              "column": 3
+            },
+            {
+              "title": "dismisses on Enter key",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1268,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:40.072Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-f86ecea01628b704d7e8",
+              "file": "ui.test.js",
+              "line": 49,
+              "column": 3
+            },
+            {
+              "title": "does not dismiss with empty name",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11884,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:41.394Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-5fb23aa617f9560f7757",
+              "file": "ui.test.js",
+              "line": 56,
+              "column": 3
+            },
+            {
+              "title": "shows user label in header after login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 864,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:53.816Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-88cf96563e789abcfbe8",
+              "file": "ui.test.js",
+              "line": 62,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "API health",
+          "file": "ui.test.js",
+          "line": 71,
+          "column": 6,
+          "specs": [
+            {
+              "title": "/api/status returns ok:true",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 91,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:54.724Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-776cef07e4c5d115bc26",
+              "file": "ui.test.js",
+              "line": 72,
+              "column": 3
+            },
+            {
+              "title": "/api/me returns authMode",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 413,
+                      "error": {
+                        "message": "Error: page.evaluate: TypeError: Failed to execute 'fetch' on 'Window': Failed to parse URL from /api/me\n    at eval (eval at evaluate (:302:30), <anonymous>:2:23)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+                        "stack": "Error: page.evaluate: TypeError: Failed to execute 'fetch' on 'Window': Failed to parse URL from /api/me\n    at eval (eval at evaluate (:302:30), <anonymous>:2:23)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at eval (eval at evaluate (:302:30), <anonymous>:2:23)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:81:29",
+                        "location": {
+                          "file": "eval at evaluate (:302:30), <anonymous>",
+                          "column": 23,
+                          "line": 2
+                        }
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "eval at evaluate (:302:30), <anonymous>",
+                            "column": 23,
+                            "line": 2
+                          },
+                          "message": "Error: page.evaluate: TypeError: Failed to execute 'fetch' on 'Window': Failed to parse URL from /api/me\n    at eval (eval at evaluate (:302:30), <anonymous>:2:23)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at eval (eval at evaluate (:302:30), <anonymous>:2:23)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:81:29"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:54.853Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-API-health-api-me-returns-authMode-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-API-health-api-me-returns-authMode-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-API-health-api-me-returns-authMode-chromium\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-API-health-api-me-returns-authMode-chromium\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "eval at evaluate (:302:30), <anonymous>",
+                        "column": 23,
+                        "line": 2
+                      }
+                    },
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 339,
+                      "error": {
+                        "message": "Error: page.evaluate: TypeError: Failed to execute 'fetch' on 'Window': Failed to parse URL from /api/me\n    at eval (eval at evaluate (:302:30), <anonymous>:2:23)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+                        "stack": "Error: page.evaluate: TypeError: Failed to execute 'fetch' on 'Window': Failed to parse URL from /api/me\n    at eval (eval at evaluate (:302:30), <anonymous>:2:23)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at eval (eval at evaluate (:302:30), <anonymous>:2:23)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:81:29",
+                        "location": {
+                          "file": "eval at evaluate (:302:30), <anonymous>",
+                          "column": 23,
+                          "line": 2
+                        }
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "eval at evaluate (:302:30), <anonymous>",
+                            "column": 23,
+                            "line": 2
+                          },
+                          "message": "Error: page.evaluate: TypeError: Failed to execute 'fetch' on 'Window': Failed to parse URL from /api/me\n    at eval (eval at evaluate (:302:30), <anonymous>:2:23)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at eval (eval at evaluate (:302:30), <anonymous>:2:23)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:81:29"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-05-21T07:02:56.487Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-API-health-api-me-returns-authMode-chromium-retry1\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-API-health-api-me-returns-authMode-chromium-retry1\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-API-health-api-me-returns-authMode-chromium-retry1\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-API-health-api-me-returns-authMode-chromium-retry1\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "eval at evaluate (:302:30), <anonymous>",
+                        "column": 23,
+                        "line": 2
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-2bdf59b38b54184c3130",
+              "file": "ui.test.js",
+              "line": 80,
+              "column": 3
+            },
+            {
+              "title": "/api/activity returns entries array",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 64,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:57.927Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-de3351895bf5356dd604",
+              "file": "ui.test.js",
+              "line": 88,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "3-column layout",
+          "file": "ui.test.js",
+          "line": 97,
+          "column": 6,
+          "specs": [
+            {
+              "title": "sidebar is visible",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 811,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:58.035Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-7922d0dc3e3f30d26110",
+              "file": "ui.test.js",
+              "line": 103,
+              "column": 3
+            },
+            {
+              "title": "context panel is visible",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 928,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:58.988Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-b8027f70788ef4c058b3",
+              "file": "ui.test.js",
+              "line": 107,
+              "column": 3
+            },
+            {
+              "title": "sidebar can be collapsed",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 928,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:02:59.932Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-4d5f37e9789088d6713a",
+              "file": "ui.test.js",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "tool items are clickable and populate input",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 7474,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#input')\nExpected: \u001b[32m\"List files in backend/src\"\u001b[39m\nReceived: \u001b[31m\"\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#input')\u001b[22m\n\u001b[2m    14 × locator resolved to <textarea rows=\"1\" id=\"input\" placeholder=\"Ask about the TIQ codebase… (Enter to send, Shift+Enter for newline)\"></textarea>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#input')\nExpected: \u001b[32m\"List files in backend/src\"\u001b[39m\nReceived: \u001b[31m\"\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#input')\u001b[22m\n\u001b[2m    14 × locator resolved to <textarea rows=\"1\" id=\"input\" placeholder=\"Ask about the TIQ codebase… (Enter to send, Shift+Enter for newline)\"></textarea>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:127:42",
+                        "location": {
+                          "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                          "column": 42,
+                          "line": 127
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 125 |\u001b[39m     \u001b[36mconst\u001b[39m q \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m first\u001b[33m.\u001b[39mgetAttribute(\u001b[32m'data-q'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 126 |\u001b[39m     \u001b[36mawait\u001b[39m first\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 127 |\u001b[39m     \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'#input'\u001b[39m))\u001b[33m.\u001b[39mtoHaveValue(q \u001b[33m?\u001b[39m\u001b[33m?\u001b[39m \u001b[32m''\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                          \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 128 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 129 |\u001b[39m\n \u001b[90m 130 |\u001b[39m   test(\u001b[32m'quick-start chips populate input'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                            "column": 42,
+                            "line": 127
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#input')\nExpected: \u001b[32m\"List files in backend/src\"\u001b[39m\nReceived: \u001b[31m\"\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#input')\u001b[22m\n\u001b[2m    14 × locator resolved to <textarea rows=\"1\" id=\"input\" placeholder=\"Ask about the TIQ codebase… (Enter to send, Shift+Enter for newline)\"></textarea>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n\n\n  125 |     const q = await first.getAttribute('data-q');\n  126 |     await first.click();\n> 127 |     await expect(page.locator('#input')).toHaveValue(q ?? '');\n      |                                          ^\n  128 |   });\n  129 |\n  130 |   test('quick-start chips populate input', async ({ page }) => {\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:127:42"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:03:00.887Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-tool-it-4db29-lickable-and-populate-input-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-tool-it-4db29-lickable-and-populate-input-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-tool-it-4db29-lickable-and-populate-input-chromium\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-tool-it-4db29-lickable-and-populate-input-chromium\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                        "column": 42,
+                        "line": 127
+                      }
+                    },
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 13573,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#input')\nExpected: \u001b[32m\"List files in backend/src\"\u001b[39m\nReceived: \u001b[31m\"\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#input')\u001b[22m\n\u001b[2m    14 × locator resolved to <textarea rows=\"1\" id=\"input\" placeholder=\"Ask about the TIQ codebase… (Enter to send, Shift+Enter for newline)\"></textarea>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#input')\nExpected: \u001b[32m\"List files in backend/src\"\u001b[39m\nReceived: \u001b[31m\"\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#input')\u001b[22m\n\u001b[2m    14 × locator resolved to <textarea rows=\"1\" id=\"input\" placeholder=\"Ask about the TIQ codebase… (Enter to send, Shift+Enter for newline)\"></textarea>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:127:42",
+                        "location": {
+                          "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                          "column": 42,
+                          "line": 127
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 125 |\u001b[39m     \u001b[36mconst\u001b[39m q \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m first\u001b[33m.\u001b[39mgetAttribute(\u001b[32m'data-q'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 126 |\u001b[39m     \u001b[36mawait\u001b[39m first\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 127 |\u001b[39m     \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'#input'\u001b[39m))\u001b[33m.\u001b[39mtoHaveValue(q \u001b[33m?\u001b[39m\u001b[33m?\u001b[39m \u001b[32m''\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                          \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 128 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 129 |\u001b[39m\n \u001b[90m 130 |\u001b[39m   test(\u001b[32m'quick-start chips populate input'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                            "column": 42,
+                            "line": 127
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#input')\nExpected: \u001b[32m\"List files in backend/src\"\u001b[39m\nReceived: \u001b[31m\"\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#input')\u001b[22m\n\u001b[2m    14 × locator resolved to <textarea rows=\"1\" id=\"input\" placeholder=\"Ask about the TIQ codebase… (Enter to send, Shift+Enter for newline)\"></textarea>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n\n\n  125 |     const q = await first.getAttribute('data-q');\n  126 |     await first.click();\n> 127 |     await expect(page.locator('#input')).toHaveValue(q ?? '');\n      |                                          ^\n  128 |   });\n  129 |\n  130 |   test('quick-start chips populate input', async ({ page }) => {\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:127:42"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-05-21T07:03:09.376Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-tool-it-4db29-lickable-and-populate-input-chromium-retry1\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-tool-it-4db29-lickable-and-populate-input-chromium-retry1\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-tool-it-4db29-lickable-and-populate-input-chromium-retry1\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-tool-it-4db29-lickable-and-populate-input-chromium-retry1\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                        "column": 42,
+                        "line": 127
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-3d0385e5ffa369997652",
+              "file": "ui.test.js",
+              "line": 116,
+              "column": 3
+            },
+            {
+              "title": "quick-start chips populate input",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 36452,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#input')\nExpected: \u001b[32m\"Run a full maintenance scan of the entire codebase\"\u001b[39m\nReceived: \u001b[31m\"\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#input')\u001b[22m\n\u001b[2m    12 × locator resolved to <textarea rows=\"1\" id=\"input\" placeholder=\"Ask about the TIQ codebase… (Enter to send, Shift+Enter for newline)\"></textarea>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#input')\nExpected: \u001b[32m\"Run a full maintenance scan of the entire codebase\"\u001b[39m\nReceived: \u001b[31m\"\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#input')\u001b[22m\n\u001b[2m    12 × locator resolved to <textarea rows=\"1\" id=\"input\" placeholder=\"Ask about the TIQ codebase… (Enter to send, Shift+Enter for newline)\"></textarea>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:135:42",
+                        "location": {
+                          "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                          "column": 42,
+                          "line": 135
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 133 |\u001b[39m     \u001b[36mconst\u001b[39m q \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m chip\u001b[33m.\u001b[39mgetAttribute(\u001b[32m'data-q'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 134 |\u001b[39m     \u001b[36mawait\u001b[39m chip\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 135 |\u001b[39m     \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'#input'\u001b[39m))\u001b[33m.\u001b[39mtoHaveValue(q \u001b[33m?\u001b[39m\u001b[33m?\u001b[39m \u001b[32m''\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                          \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 136 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 137 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 138 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                            "column": 42,
+                            "line": 135
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#input')\nExpected: \u001b[32m\"Run a full maintenance scan of the entire codebase\"\u001b[39m\nReceived: \u001b[31m\"\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#input')\u001b[22m\n\u001b[2m    12 × locator resolved to <textarea rows=\"1\" id=\"input\" placeholder=\"Ask about the TIQ codebase… (Enter to send, Shift+Enter for newline)\"></textarea>\u001b[22m\n\u001b[2m       - unexpected value \"\"\u001b[22m\n\n\n  133 |     const q = await chip.getAttribute('data-q');\n  134 |     await chip.click();\n> 135 |     await expect(page.locator('#input')).toHaveValue(q ?? '');\n      |                                          ^\n  136 |   });\n  137 | });\n  138 |\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:135:42"
+                        },
+                        {
+                          "message": "\u001b[31mTearing down \"context\" exceeded the test timeout of 30000ms.\u001b[39m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:03:24.990Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-quick-start-chips-populate-input-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-quick-start-chips-populate-input-chromium\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-quick-start-chips-populate-input-chromium\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                        "column": 42,
+                        "line": 135
+                      }
+                    },
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 60224,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                            "column": 42,
+                            "line": 135
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#input')\nExpected: \u001b[32m\"Run a full maintenance scan of the entire codebase\"\u001b[39m\nReceived: \u001b[31m\"\"\u001b[39m\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#input')\u001b[22m\n\u001b[2m    9 × locator resolved to <textarea rows=\"1\" id=\"input\" placeholder=\"Ask about the TIQ codebase… (Enter to send, Shift+Enter for newline)\"></textarea>\u001b[22m\n\u001b[2m      - unexpected value \"\"\u001b[22m\n\n\n  133 |     const q = await chip.getAttribute('data-q');\n  134 |     await chip.click();\n> 135 |     await expect(page.locator('#input')).toHaveValue(q ?? '');\n      |                                          ^\n  136 |   });\n  137 | });\n  138 |\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:135:42"
+                        },
+                        {
+                          "message": "\u001b[31mTearing down \"context\" exceeded the test timeout of 30000ms.\u001b[39m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-05-21T07:04:06.799Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-quick-start-chips-populate-input-chromium-retry1\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-quick-start-chips-populate-input-chromium-retry1\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-3-column-layout-quick-start-chips-populate-input-chromium-retry1\\trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-1441bd5525b3722f497b",
+              "file": "ui.test.js",
+              "line": 130,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Brand colors",
+          "file": "ui.test.js",
+          "line": 140,
+          "column": 6,
+          "specs": [
+            {
+              "title": "uses TIQ World background color #0d1219",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3563,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:11.944Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-8b7871e04353709ad79d",
+              "file": "ui.test.js",
+              "line": 141,
+              "column": 3
+            },
+            {
+              "title": "uses TIQ World orange accent #f09247",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 534,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:15.668Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-e74f6dbab109a1f2fb9e",
+              "file": "ui.test.js",
+              "line": 147,
+              "column": 3
+            },
+            {
+              "title": "uses TIQ World teal #20c9c9",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 514,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:16.217Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-910fcacde2638445c8c5",
+              "file": "ui.test.js",
+              "line": 153,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Chat input",
+          "file": "ui.test.js",
+          "line": 161,
+          "column": 6,
+          "specs": [
+            {
+              "title": "send button is disabled when input is empty",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 5876,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#send-btn')\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#send-btn')\u001b[22m\n\u001b[2m    14 × locator resolved to <button id=\"send-btn\" title=\"Send (Enter)\">➤</button>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#send-btn')\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#send-btn')\u001b[22m\n\u001b[2m    14 × locator resolved to <button id=\"send-btn\" title=\"Send (Enter)\">➤</button>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:168:45",
+                        "location": {
+                          "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                          "column": 45,
+                          "line": 168
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 166 |\u001b[39m\n \u001b[90m 167 |\u001b[39m   test(\u001b[32m'send button is disabled when input is empty'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 168 |\u001b[39m     \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'#send-btn'\u001b[39m))\u001b[33m.\u001b[39mtoBeDisabled()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 169 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 170 |\u001b[39m\n \u001b[90m 171 |\u001b[39m   test(\u001b[32m'send button enables when text is typed'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                            "column": 45,
+                            "line": 168
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#send-btn')\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#send-btn')\u001b[22m\n\u001b[2m    14 × locator resolved to <button id=\"send-btn\" title=\"Send (Enter)\">➤</button>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n\n\n  166 |\n  167 |   test('send button is disabled when input is empty', async ({ page }) => {\n> 168 |     await expect(page.locator('#send-btn')).toBeDisabled();\n      |                                             ^\n  169 |   });\n  170 |\n  171 |   test('send button enables when text is typed', async ({ page }) => {\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:168:45"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:16.743Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Chat-input-send-button-is-disabled-when-input-is-empty-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Chat-input-send-button-is-disabled-when-input-is-empty-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Chat-input-send-button-is-disabled-when-input-is-empty-chromium\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Chat-input-send-button-is-disabled-when-input-is-empty-chromium\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                        "column": 45,
+                        "line": 168
+                      }
+                    },
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 5930,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#send-btn')\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#send-btn')\u001b[22m\n\u001b[2m    14 × locator resolved to <button id=\"send-btn\" title=\"Send (Enter)\">➤</button>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#send-btn')\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#send-btn')\u001b[22m\n\u001b[2m    14 × locator resolved to <button id=\"send-btn\" title=\"Send (Enter)\">➤</button>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:168:45",
+                        "location": {
+                          "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                          "column": 45,
+                          "line": 168
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 166 |\u001b[39m\n \u001b[90m 167 |\u001b[39m   test(\u001b[32m'send button is disabled when input is empty'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 168 |\u001b[39m     \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'#send-btn'\u001b[39m))\u001b[33m.\u001b[39mtoBeDisabled()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 169 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 170 |\u001b[39m\n \u001b[90m 171 |\u001b[39m   test(\u001b[32m'send button enables when text is typed'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                            "column": 45,
+                            "line": 168
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeDisabled\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#send-btn')\nExpected: disabled\nReceived: enabled\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeDisabled\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#send-btn')\u001b[22m\n\u001b[2m    14 × locator resolved to <button id=\"send-btn\" title=\"Send (Enter)\">➤</button>\u001b[22m\n\u001b[2m       - unexpected value \"enabled\"\u001b[22m\n\n\n  166 |\n  167 |   test('send button is disabled when input is empty', async ({ page }) => {\n> 168 |     await expect(page.locator('#send-btn')).toBeDisabled();\n      |                                             ^\n  169 |   });\n  170 |\n  171 |   test('send button enables when text is typed', async ({ page }) => {\n    at C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js:168:45"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-05-21T07:05:23.671Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Chat-input-send-button-is-disabled-when-input-is-empty-chromium-retry1\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Chat-input-send-button-is-disabled-when-input-is-empty-chromium-retry1\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Chat-input-send-button-is-disabled-when-input-is-empty-chromium-retry1\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\test-results\\ui-Chat-input-send-button-is-disabled-when-input-is-empty-chromium-retry1\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\Shalini Mishra\\tiqworld-ai-agent\\tests\\e2e\\ui.test.js",
+                        "column": 45,
+                        "line": 168
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-1b8d23ab519af9259701",
+              "file": "ui.test.js",
+              "line": 167,
+              "column": 3
+            },
+            {
+              "title": "send button enables when text is typed",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 921,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:30.601Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-46434f7e270da06624d8",
+              "file": "ui.test.js",
+              "line": 171,
+              "column": 3
+            },
+            {
+              "title": "Ctrl+/ focuses the input",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 720,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:31.743Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-b92ff56bb8e846d98615",
+              "file": "ui.test.js",
+              "line": 176,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "/api/session/:id/memory",
+          "file": "ui.test.js",
+          "line": 183,
+          "column": 6,
+          "specs": [
+            {
+              "title": "returns ok:false for unknown session",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 31,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:32.482Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-a1b026904253091cd114",
+              "file": "ui.test.js",
+              "line": 184,
+              "column": 3
+            },
+            {
+              "title": "returns session data after identify",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 983,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:32.521Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-2014a78baf3cc5f124e9",
+              "file": "ui.test.js",
+              "line": 190,
+              "column": 3
+            },
+            {
+              "title": "window.SESSION_ID is defined on page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 603,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:33.524Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-581265051cba9f5763ab",
+              "file": "ui.test.js",
+              "line": 204,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Admin panel",
+          "file": "ui.test.js",
+          "line": 213,
+          "column": 6,
+          "specs": [
+            {
+              "title": "loads /admin page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 457,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:34.144Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-8ca76f34d6b31967a615",
+              "file": "ui.test.js",
+              "line": 214,
+              "column": 3
+            },
+            {
+              "title": "admin has activity log section",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 481,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-21T07:05:34.616Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "53aa42be48d82f034778-2b607e478a70ccc2904a",
+              "file": "ui.test.js",
+              "line": 219,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-05-21T07:00:38.017Z",
+    "duration": 297280.77300000004,
+    "expected": 22,
+    "skipped": 0,
+    "unexpected": 5,
+    "flaky": 0
+  }
+}
