@@ -65,6 +65,7 @@ Once PM2 is set up, the agent stays alive through reboots. Night maintenance at 
 |-------|-------|
 | Exploration | `list_files`, `read_file`, `search_code`, `recall_session` |
 | Analysis | `health_check`, `full_scan`, `trace_error`, `fix_error`, `map_dependencies`, `explain_route`, `find_todos`, `check_env_usage`, `detect_dead_code`, `schema_to_api`, `summarize_diff`, `git_log`, `lint_file`, `db_query` |
+| Security + Deps | `secret_scanner`, `dep_updater` |
 | Write + Verify | `git_backup`, `show_diff`, `write_file`, `run_command` |
 
 ## Maintenance Schedule
@@ -91,14 +92,30 @@ User query
   → classify() → task type (query/review/maintenance/feature)
   → getTools()  → restrict tool set by type
   → runAgent()  → Bedrock Converse API loop
-  → tool calls executed → results fed back
+  → tool calls executed → results fed back (capped at 3000 chars each)
   → answer streamed via SSE
 ```
 
 Write sequence (always):
 ```
 git_backup → show_diff → write_file → run_command (verify)
+                                           ↓ if tests fail
+                                       git_backup restore
 ```
+
+## Token Optimisations
+
+Every Bedrock call logs token usage to the console:
+```
+[Tokens] in:1240 out:312 cache_read:890
+```
+- System prompt is cached via `cachePoint: default`
+- Tool results are capped at 3 000 chars each
+- Conversation history is capped at 8 messages (4 turns)
+
+## Note on `agent/` folder
+
+The `agent/` directory contains an early Python prototype built with the Anthropic SDK directly. It is **archived** — not run, not tested, not maintained. All active development is in `src/`.
 
 ---
 *Internship project — TIQ World, 2026*
