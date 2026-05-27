@@ -4,6 +4,7 @@ import { lintFile }   from './tools/lintFile.js';
 import { findTodos }  from './tools/findTodos.js';
 import { healthCheck } from './tools/healthCheck.js';
 import { runCommand } from './tools/runCommand.js';
+import { gitBackup }  from './tools/gitBackup.js';
 import { runAgent, ALL_TOOLS }   from './agent.js';
 import { acquireLock, releaseAllLocks } from './tools/fileLock.js';
 import { saveMaintenanceReport, formatReportSummary } from './tools/maintenanceReport.js';
@@ -93,6 +94,20 @@ async function runTests() {
 }
 
 // ---------------------------------------------------------------------------
+// Rollback helper — restores last git_backup checkpoint
+// ---------------------------------------------------------------------------
+
+async function rollbackLastWrite(label) {
+  pushProgress('rollback', `Tests failed after ${label} — rolling back via git_backup restore`);
+  try {
+    await gitBackup({ action: 'restore', _user: 'maintenance-scheduler' });
+    pushProgress('rollback', 'Rollback complete. Codebase restored to pre-fix state.');
+  } catch (err) {
+    pushProgress('rollback', `Rollback FAILED: ${err.message} — manual check required`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Night: deep maintenance
 // ---------------------------------------------------------------------------
 
@@ -123,40 +138,60 @@ async function runNightMaintenance() {
   }
 
   pushProgress('tests', 'Running test suite...');
-  const tests = await runTests();
-  pushProgress('tests', `Tests: ${tests.passed ? 'PASS' : 'FAIL'}`);
+  const testsBefore = await runTests();
+  pushProgress('tests', `Tests before fixes: ${testsBefore.passed ? 'PASS' : 'FAIL'}`);
 
-  const issueCount = (scan?.summary?.lint_errors ?? 0) + (scan?.summary?.critical_todos ?? 0);
-  if (config.autoFixEnabled && issueCount > 0) {
-    pushProgress('fix', `Auto-fixing ${issueCount} issue(s)...`);
-    try {
-      await runAgent(
-        `AUTONOMOUS MAINTENANCE MODE — proceed without human confirmation.\n\n` +
-        `Codebase scan summary:\n${JSON.stringify(scan?.summary ?? {}, null, 2)}\n\n` +
-        `Task: Fix all SAFE issues only (lint errors, missing null checks, unused variables, console.log cleanup).\n\n` +
-        `MANDATORY RULES:\n` +
-        `1. SKIP any file containing: routes/, models/, middleware/, auth, config.js, index.js, server.js, app.js\n` +
-        `2. Only apply fix if fix_error confidence >= ${config.autoFixMinConfidence}\n` +
-        `3. Sequence: git_backup → show_diff → write_file → run_command\n` +
-        `4. Fix one file at a time\n` +
-        `5. Run npm test after each fix\n` +
-        `6. Stop if a fix causes test failure\n\n` +
-        `Feature additions, schema changes, route changes are STRICTLY OFF-LIMITS.`,
-        [],
-        ALL_TOOLS,
-        null,
-        'maintenance-scheduler',
-        makeWriteApprovalFn(writeLog),
-        commandApprovalFn,
-      );
-    } catch (err) {
-      pushProgress('fix', `Auto-fix error: ${err.message}`);
-      _status.error = err.message;
-    }
-  } else if (!config.autoFixEnabled) {
-    pushProgress('fix', 'Auto-fix disabled. Scan-only mode.');
+  // If tests were already failing before we touch anything, skip auto-fix —
+  // we don't want to make an already-broken state harder to diagnose.
+  if (!testsBefore.passed) {
+    pushProgress('fix', 'Tests failing before any fixes — skipping auto-fix to avoid compounding issues.');
+    _status.error = 'Pre-existing test failures detected — auto-fix skipped.';
   } else {
-    pushProgress('fix', 'No issues found. Codebase is clean.');
+    const issueCount = (scan?.summary?.lint_errors ?? 0) + (scan?.summary?.critical_todos ?? 0);
+    if (config.autoFixEnabled && issueCount > 0) {
+      pushProgress('fix', `Auto-fixing ${issueCount} issue(s)...`);
+      let fixAborted = false;
+      try {
+        await runAgent(
+          `AUTONOMOUS MAINTENANCE MODE — proceed without human confirmation.\n\n` +
+          `Codebase scan summary:\n${JSON.stringify(scan?.summary ?? {}, null, 2)}\n\n` +
+          `Task: Fix all SAFE issues only (lint errors, missing null checks, unused variables, console.log cleanup).\n\n` +
+          `MANDATORY RULES:\n` +
+          `1. SKIP any file containing: routes/, models/, middleware/, auth, config.js, index.js, server.js, app.js\n` +
+          `2. Only apply fix if fix_error confidence >= ${config.autoFixMinConfidence}\n` +
+          `3. Sequence: git_backup → show_diff → write_file → run_command\n` +
+          `4. Fix one file at a time\n` +
+          `5. Run npm test after each fix\n` +
+          `6. If run_command shows test failure after a write_file, IMMEDIATELY call git_backup with action=restore, then STOP — do not attempt further fixes\n` +
+          `7. Feature additions, schema changes, route changes are STRICTLY OFF-LIMITS.`,
+          [],
+          ALL_TOOLS,
+          null,
+          'maintenance-scheduler',
+          makeWriteApprovalFn(writeLog),
+          commandApprovalFn,
+        );
+      } catch (err) {
+        pushProgress('fix', `Auto-fix error: ${err.message}`);
+        _status.error = err.message;
+        fixAborted = true;
+      }
+
+      // Final safety net: run tests again. If they're now failing, rollback.
+      if (!fixAborted) {
+        pushProgress('tests', 'Running post-fix test suite...');
+        const testsAfter = await runTests();
+        pushProgress('tests', `Tests after fixes: ${testsAfter.passed ? 'PASS' : 'FAIL'}`);
+        if (!testsAfter.passed) {
+          await rollbackLastWrite('auto-fix run');
+          _status.error = 'Post-fix tests failed — all changes rolled back.';
+        }
+      }
+    } else if (!config.autoFixEnabled) {
+      pushProgress('fix', 'Auto-fix disabled. Scan-only mode.');
+    } else {
+      pushProgress('fix', 'No issues found. Codebase is clean.');
+    }
   }
 
   const duration_sec = ((Date.now() - t0) / 1000).toFixed(1);
@@ -165,7 +200,8 @@ async function runNightMaintenance() {
     skipped: writeLog.filter(w => !w.approved),
   };
 
-  const report = { mode: 'night', started_at: _status.startedAt, duration_sec, scan, tests, fixes };
+  const testsResult = await runTests();
+  const report = { mode: 'night', started_at: _status.startedAt, duration_sec, scan, tests: testsResult, fixes };
   const reportPath = saveMaintenanceReport(report);
   pushProgress('done', `Report saved: ${reportPath}. Applied: ${fixes.applied.length}, Skipped: ${fixes.skipped.length}.`);
 
@@ -175,16 +211,16 @@ async function runNightMaintenance() {
 
   // — Send notification —
   const s = scan?.summary ?? {};
-  const hasIssues = (s.critical_todos ?? 0) > 0 || (s.lint_errors ?? 0) > 0 || !tests.passed;
+  const hasIssues = (s.critical_todos ?? 0) > 0 || (s.lint_errors ?? 0) > 0 || !testsResult.passed;
   if (_status.error) {
     notify('error', 'Night Maintenance Failed',
       `Error: ${_status.error}\nDuration: ${duration_sec}s`);
   } else if (hasIssues) {
     notify('warning', 'Night Maintenance Done — Issues Found',
       `${fixes.applied.length} fixed, ${fixes.skipped.length} need attention.\n` +
-      `TODOs: ${s.critical_todos ?? 0}, Lint errors: ${s.lint_errors ?? 0}, Tests: ${tests.passed ? 'PASS' : 'FAIL'}`);
+      `TODOs: ${s.critical_todos ?? 0}, Lint errors: ${s.lint_errors ?? 0}, Tests: ${testsResult.passed ? 'PASS' : 'FAIL'}`);
   } else {
-    notify('success', 'Night Maintenance Complete ✔',
+    notify('success', 'Night Maintenance Complete',
       `Codebase is clean. ${fixes.applied.length} auto-fix(es) applied. Duration: ${duration_sec}s`);
   }
 
@@ -262,13 +298,13 @@ export function stopScheduler() {
 
 export function getSchedulerHealth() {
   return {
-    night_task_active: !!_nightTask,
-    day_task_active:   !!_dayTask,
-    night_cron:        config.nightMaintenanceCron,
-    day_cron:          config.dayLightScanCron,
-    auto_fix_enabled:  config.autoFixEnabled,
+    night_task_active:       !!_nightTask,
+    day_task_active:         !!_dayTask,
+    night_cron:              config.nightMaintenanceCron,
+    day_cron:                config.dayLightScanCron,
+    auto_fix_enabled:        config.autoFixEnabled,
     auto_fix_min_confidence: config.autoFixMinConfidence,
-    last_scan_at:      lastScanTime,
+    last_scan_at:            lastScanTime,
   };
 }
 
