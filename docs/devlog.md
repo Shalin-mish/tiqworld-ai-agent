@@ -4,6 +4,36 @@
 
 ---
 
+## May 27, 2026 (Session 3) — Aligned agent with tiq_workplace (sample codebase)
+
+### Context
+`tiq_workplace` is the sample codebase for development/review phase. Once lead approves the agent, it will be pointed at the real TIQ codebase. Until then, all tools, commands, and prompts are aligned to `tiq_workplace`.
+
+### What changed
+
+**System prompt** — completely rewritten codebase section:
+- Old: MERN monolith (`backend/src/controllers/`, `models/`, Express, MongoDB)
+- New: TypeScript microservices (Fastify, PostgreSQL, BetterAuth, 7 services)
+- Services listed: auth, training, assessment, inference, notification, job-posting, payment
+- Frontend: `consumer-app` + `admin-app` (both React + Vite + TypeScript)
+- Verify commands section: tells Claude to use `npm --prefix backend/<service> test`
+
+**runCommand whitelist** — updated for microservices:
+- Added: `npm --prefix backend/<service> test` for all 7 services
+- Added: `npm --prefix consumer-app/admin-app test/build`
+- Added: `npx tsc --noEmit` for TypeScript type checking
+- Error message updated to show correct examples
+
+**HIGH_RISK_PATTERNS** — updated for TypeScript:
+- Added: `config.ts`, `server.ts`, `app.ts`, `/config/`, `database.config`, `env.ts`
+- Added: `auth-service/src/modules/auth/` (core auth — never auto-touch)
+- Added: `__tests__/` (vitest directory convention in tiq_workplace)
+- Removed: bare `'auth'` keyword (too broad — blocked unrelated utils)
+
+**safetyGate.test.js** — rewritten for tiq_workplace paths, 75/75 passing
+
+---
+
 ## May 27, 2026 (Session 2) — 6 production drawbacks fixed
 
 Full audit of agent tools against the real TIQ codebase revealed 6 bugs/gaps that would cause silent failures in production. All fixed and tested.
