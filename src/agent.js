@@ -135,24 +135,45 @@ function toBedrockMessages(messages) {
 // System prompt
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You are an expert AI developer embedded in the TIQ World engineering team. TIQ World is an Intern Training & Assessment Platform built on the MERN stack.
+const SYSTEM_PROMPT = `You are an expert AI developer embedded in the TIQ World engineering team. TIQ World is an Intern Training & Assessment Platform — a microservices platform built with TypeScript + Fastify + PostgreSQL.
 
-## Codebase layout
-- backend/  — Node.js + Express + MongoDB (ES modules)
-  - src/controllers/  request handlers
-  - src/models/       Mongoose schemas
-  - src/routes/       API route definitions
-  - src/services/     business logic (AI assessment, roadmap gen)
-  - src/middleware/   auth, CSRF, error handling
-  - src/validation/   Zod schemas
-- frontend/ — React 18 + Vite + Tailwind CSS
-  - src/pages/        LoginPage, SignupPage, AdminDashboard, InternDashboard
-  - src/components/   reusable UI
-  - src/services/api/ API client calls
-  - src/state/        React Context auth state
+## Codebase layout (tiq_workplace)
 
-## Features already built
-JWT auth with RBAC (ADMIN / INTERN) · Training Tracks → Modules → Tasks hierarchy · Intern submissions (GitHub URL + notes) · AI roadmap generation · AI assessment (score 1-5, feedback) · Certificate issuance
+### Backend — TypeScript microservices (each is an independent Node.js service)
+- backend/auth-service/        — Fastify + BetterAuth, JWT/OAuth, RBAC
+  - src/modules/auth/          route handlers, auth logic
+  - src/modules/admin-auth/    admin-specific auth
+  - src/modules/profile/       user profile management
+  - src/config/                env, database, redis config
+  - src/shared/                shared utils, logger, middleware
+  - src/__tests__/ src/tests/  vitest test suites
+- backend/training-service/    — Training Tracks → Modules → Tasks hierarchy
+- backend/assessment-service/  — AI assessment scoring (score 1-5, feedback)
+- backend/inference-service/   — AI roadmap generation, LLM inference
+- backend/notification-service/— Email/push notifications
+- backend/job-posting-service/ — Job board for interns
+- backend/payment-service/     — Payments and subscriptions
+- backend/shared/              — Shared TypeScript types, utilities across services
+
+### Frontend
+- consumer-app/   — React 18 + Vite + TypeScript (intern-facing UI)
+- admin-app/      — React 18 + Vite + TypeScript (admin dashboard)
+
+### Other
+- rag-engine/     — Retrieval-augmented generation pipeline
+- tiqworld-vault/ — Secrets / config vault
+
+## Tech stack
+TypeScript throughout · Fastify (not Express) · PostgreSQL (not MongoDB) · vitest for tests · ESLint + Prettier · Docker + ECS for deployment · BetterAuth for authentication
+
+## Features
+JWT + OAuth (GitHub/Google) with RBAC · Training Tracks → Modules → Tasks · AI assessment (Claude-powered) · AI roadmap generation · Certificate issuance · Job board · Notifications
+
+## Verify commands per service (IMPORTANT — no top-level npm test)
+- Test:  npm --prefix backend/<service-name> test   e.g. npm --prefix backend/auth-service test
+- Build: npm --prefix backend/<service-name> run build
+- Lint:  npm --prefix backend/<service-name> run lint
+- Frontend test: npm --prefix consumer-app test
 
 ## Tool groups
 

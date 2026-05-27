@@ -2,16 +2,28 @@ import { execSync } from 'child_process';
 import path from 'path';
 import { config } from '../config.js';
 
+// tiq_workplace services — each is run via npm --prefix backend/<service>
+const TIQ_SERVICES = [
+  'auth-service', 'training-service', 'assessment-service',
+  'inference-service', 'notification-service', 'job-posting-service',
+  'payment-service', 'shared',
+].join('|');
+
 const ALLOWED_PATTERNS = [
-  // Generic test runners
+  // tiq_workplace microservice commands
+  new RegExp(`^npm --prefix backend/(${TIQ_SERVICES}) (test|run (build|test|lint|type-check|typecheck))$`),
+  new RegExp(`^npm --prefix backend/(${TIQ_SERVICES}) list --depth=0$`),
+  // Frontend apps
+  /^npm --prefix (consumer-app|admin-app) (test|run (build|test|lint|type-check))$/,
+  /^npm --prefix (consumer-app|admin-app) list --depth=0$/,
+  // Generic test runners (agent repo + fallback)
   /^npm test$/,
   /^npm run test$/,
   /^npm run test:.+$/,
   /^npx vitest run.*$/,
   /^npx jest.*$/,
-  // TIQ-specific: prefix-scoped commands (no test script in TIQ — use build/start check)
-  /^npm --prefix (backend|frontend) run (dev|build|start|lint)$/,
-  /^npm --prefix (backend|frontend) list --depth=0$/,
+  // TypeScript type check
+  /^npx tsc --noEmit.*$/,
   // Lint
   /^npx eslint .+$/,
   /^npm run lint.*$/,
@@ -34,16 +46,24 @@ export const runCommandDefinition = {
   name: 'run_command',
   description:
     'Run a safe, whitelisted shell command in the TIQ codebase directory. ' +
-    'TIQ has no top-level npm test — use "npm --prefix backend run build" or "npx eslint backend/src" to verify changes. ' +
-    'For test suites use "npx vitest run" (agent repo) or "npx jest" (if configured).',
+    'tiq_workplace is a microservices repo — each service has its own test/build. ' +
+    'Use "npm --prefix backend/<service> test" to run tests, ' +
+    '"npm --prefix backend/<service> run build" to verify TypeScript compiles. ' +
+    'Services: auth-service, training-service, assessment-service, inference-service, ' +
+    'notification-service, job-posting-service, payment-service. ' +
+    'Frontend: consumer-app, admin-app.',
   input_schema: {
     type: 'object',
     properties: {
       command: {
         type: 'string',
         description:
-          'Command to run. Examples: "npm --prefix backend run build", "npx eslint backend/src", ' +
-          '"git status", "node --version", "npm --prefix backend list --depth=0"',
+          'Command to run. Examples: ' +
+          '"npm --prefix backend/auth-service test", ' +
+          '"npm --prefix backend/training-service run build", ' +
+          '"npm --prefix consumer-app test", ' +
+          '"npx eslint backend/auth-service/src", ' +
+          '"git status"',
       },
       directory: {
         type: 'string',
@@ -60,16 +80,17 @@ export async function runCommand({ command, directory = '', _commandApprovalFn =
     return {
       error: `Command not allowed: "${command}"`,
       allowed_commands: [
-        'npm --prefix backend run build',
-        'npm --prefix frontend run build',
-        'npx eslint backend/src',
-        'npm run lint',
+        'npm --prefix backend/auth-service test',
+        'npm --prefix backend/training-service run build',
+        'npm --prefix backend/auth-service run lint',
+        'npm --prefix consumer-app test',
+        'npx tsc --noEmit',
+        'npx eslint backend/auth-service/src',
         'git status',
         'git diff',
         'node --version',
-        'npm list --depth=0',
       ],
-      suggestion: 'Only whitelisted commands can run for safety. TIQ has no top-level npm test — use build or lint to verify.',
+      suggestion: 'tiq_workplace is microservices — use "npm --prefix backend/<service-name> test" to run tests per service.',
     };
   }
 

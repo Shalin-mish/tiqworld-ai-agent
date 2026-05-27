@@ -50,9 +50,16 @@ export function getLastScan() { return { result: lastScanResult, scannedAt: last
 // IMPORTANT: tests/ and *.test.* are here so the agent cannot overwrite
 // test files to make itself appear green — an agent must not be its own judge.
 const HIGH_RISK_PATTERNS = [
+  // Original MERN patterns
   '/routes/', '/models/', '/middleware/',
-  'auth', 'config.js', 'index.js', 'server.js', 'app.js',
-  'tests/', '.test.', '.spec.',
+  'config.js', 'index.js', 'server.js', 'app.js',
+  // tiq_workplace microservice patterns (TypeScript)
+  'config.ts', 'server.ts', 'app.ts',
+  '/config/', 'database.config', 'env.ts', 'env.js',
+  'auth-service/src/modules/auth/',    // core auth logic — never auto-touch
+  'auth-service/src/config/',
+  // Test files — agent must never be its own judge
+  'tests/', '__tests__/', '.test.', '.spec.',
 ];
 
 export function isHighRisk(filePath) {
