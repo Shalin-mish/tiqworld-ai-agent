@@ -457,9 +457,10 @@
     .write-item .wi-file { color: var(--text); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .write-item .wi-meta { color: var(--text-dim); display: flex; gap: 6px; }
     .wi-status { padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 600; }
-    .wi-status.approved { background: var(--green-dim); color: var(--green); }
-    .wi-status.denied   { background: var(--red-dim);   color: var(--red); }
-    .wi-status.pending  { background: var(--yellow-dim); color: var(--yellow); }
+    .wi-status.approved   { background: var(--green-dim);  color: var(--green); }
+    .wi-status.denied     { background: var(--red-dim);    color: var(--red); }
+    .wi-status.pending    { background: var(--yellow-dim); color: var(--yellow); }
+    .wi-status.timed_out  { background: var(--red-dim);    color: var(--text-dim); }
     .empty-state { color: var(--text-dim); font-size: 12px; text-align: center; padding: 24px 0; }
 
     /* maintenance tab in right sidebar */
@@ -955,6 +956,9 @@
       <div class="session-stat"><span>Tool calls</span><span id="stat-tools">0</span></div>
       <div class="session-stat"><span>Writes</span><span id="stat-writes">0</span></div>
       <div class="session-stat"><span>Task type</span><span id="stat-task">—</span></div>
+      <div class="session-stat"><span>Tokens in</span><span id="stat-tokens-in">—</span></div>
+      <div class="session-stat"><span>Tokens out</span><span id="stat-tokens-out">—</span></div>
+      <div class="session-stat"><span>Cache hits</span><span id="stat-tokens-cache">—</span></div>
     </div>
     <div class="sidebar-scroll">
       <div class="sidebar-label">Memory — Files Read</div>
@@ -1449,6 +1453,13 @@ function sendMessage() {
       bubble.appendChild(note);
     }
 
+    if (data.type === 'token_usage') {
+      const s = data.session ?? data.turn ?? {};
+      document.getElementById('stat-tokens-in').textContent    = s.in        != null ? s.in.toLocaleString()        : '—';
+      document.getElementById('stat-tokens-out').textContent   = s.out       != null ? s.out.toLocaleString()       : '—';
+      document.getElementById('stat-tokens-cache').textContent = s.cacheRead != null ? s.cacheRead.toLocaleString() : '—';
+    }
+
     if (data.type === 'answer') {
       thinkEl.remove();
       const md = document.createElement('div');
@@ -1489,7 +1500,21 @@ function sendMessage() {
     refreshMemory();
   };
 
-  eventSource.onerror = () => { done(); };
+  eventSource.onerror = async (e) => {
+    if (eventSource?.readyState === EventSource.CLOSED) {
+      // Try fetching the URL directly to get the HTTP status for user-friendly messaging
+      try {
+        const r = await fetch(`/api/chat?q=${encodeURIComponent(text)}&sessionId=${encodeURIComponent(sessionId)}`, { method: 'HEAD' });
+        if (r.status === 429) {
+          const err = document.createElement('div');
+          err.style.cssText = 'color:var(--yellow);font-size:12px;margin-top:6px;';
+          err.textContent = '⚠ Rate limit reached — please wait a moment before sending another message.';
+          bubble.appendChild(err);
+        }
+      } catch { /* network error, silent */ }
+    }
+    done();
+  };
 
   function done() {
     thinkEl.remove();
