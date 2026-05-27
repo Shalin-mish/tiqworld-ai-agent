@@ -9,7 +9,8 @@ export const config = {
   maxTokens:             16000,
   dbUrl:                 process.env.DB_URL  ?? null,
   webPort:               parseInt(process.env.WEB_PORT, 10) || 3001,
-  enablePromptCache:     process.env.ENABLE_PROMPT_CACHE === 'true',
+  // Prompt caching is ON by default — set ENABLE_PROMPT_CACHE=false to disable
+  enablePromptCache:     process.env.ENABLE_PROMPT_CACHE !== 'false',
   scanIntervalMinutes:   parseInt(process.env.SCAN_INTERVAL_MINUTES, 10) || 0,
   nightMaintenanceCron:  process.env.NIGHT_MAINTENANCE_CRON || '0 2 * * *',
   dayLightScanCron:      process.env.DAY_LIGHT_SCAN_CRON    || '0 */2 * * *',
