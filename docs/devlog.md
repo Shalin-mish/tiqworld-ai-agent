@@ -4,6 +4,278 @@
 
 ---
 
+## May 27, 2026 — Deep audit + all remaining gaps fixed
+
+### Overview
+
+Full audit of the agent was done — identified every gap between "working" and "production-ready." Fixed all of them in one session. Test count went from 46 → 74. All 74 passing.
+
+---
+
+### Problem identified: "Judge aur Criminal" problem
+
+Agent apna khud ka code likhta tha aur khud test bhi karta tha — matlab ek hi insaan judge bhi tha aur criminal bhi. Agar agent test file tod deta toh koi rokne wala nahi tha.
+
+**Solution implemented:**
+1. `HIGH_RISK_PATTERNS` mein `tests/`, `.test.`, `.spec.` add kiye — agent in files ko touch nahi kar sakta
+2. `isHighRisk` export kiya taaki independently test ho sake
+3. Autonomous maintenance prompt mein rule likha: "NEVER touch test files"
+4. GitHub Actions CI setup kiya — ek independent baahri judge jo har push par tests chalata hai
+
+---
+
+### What was fixed (date: May 27)
+
+#### 1. Token waste — 3 optimizations
+
+**Token truncation** (`src/utils/truncate.js` — NEW file)
+- Tool results ko 3000 characters par cap kiya
+- Pehle ek `list_files` call 15,000+ chars return kar sakti thi — poora context fill ho jata tha
+- Ab: `...[truncated 12847 chars — use a narrower query if more detail is needed]`
+- 8 unit tests added for boundary cases
+
+**History reduction** (`src/index.js`, `src/web/router.js`)
+- Conversation history -20 → -8 messages
+- Ek turn mein average 4-5 tool calls hoti hain, 8 messages enough hai context ke liye
+
+**Prompt caching default ON** (`src/config.js`)
+- Bug fix: `=== 'true'` (default OFF) → `!== 'false'` (default ON)
+- Ye ek silent bug tha — har deployment par caching off thi, ~30% extra tokens waste ho rahe the
+
+---
+
+#### 2. Dispatcher confidence scoring fix (`src/dispatcher.js`)
+
+**Pehle:** Single keyword match — "explain how to fix" → `explain` milta, type = `query`
+
+**Ab:** Multi-keyword scoring — har keyword ka count karo, highest score jeet ta hai
+- "explain how to fix" → `explain:1, fix:1` → tie → `TYPE_PRIORITY` se `maintenance` jeet ta hai (priority 2 > 0)
+- `/gi` flag se case-insensitive aur multiple matches count hoti hain
+- `WRITE_SCOPE` ek shared object — feature aur maintenance dono same reference use karte hain (no duplication)
+
+---
+
+#### 3. Per-session log isolation (`src/session.js`) — PRIVACY BUG FIX
+
+**Bug:** Global `log[]` array thi — User A `read_file` kare aur User B `recall_session` kare toh User B ko User A ka history dikhe ga.
+
+**Fix:** `Map<sessionId, LogEntry[]>` — har user ka log alag
+- `recordToolCall(name, input, summary, sessionId)` — sessionId parameter add kiya
+- `getLog(sessionId)` — sirf us session ka log
+- `clearLog('*')` — sab sessions clear (admin use)
+- `agent.js` → `router.js` → `recallSession.js` sab update kiye taaki sessionId thread ho
+- 7 isolation tests added
+
+---
+
+#### 4. Tool call deduplication (`src/agent.js`)
+
+Claude kabhi kabhi ek hi tool ko same arguments ke saath do baar call kar deta tha ek turn mein.
+
+**Fix:** `seenCalls = new Set()` keyed on `name:JSON(input)`
+- Duplicate call pe: actual execution nahi hoti, `[duplicate]` message return hota hai
+- Tool budget waste nahi hota
+
+---
+
+#### 5. Bedrock call timeout (`src/agent.js` + `src/config.js`)
+
+**Problem:** Hung Bedrock call SSE connection ko forever open rakhti thi — server memory leak.
+
+**Fix:** `AbortController` har `callBedrock` call ko wrap karta hai
+- Default timeout: 60 seconds (`BEDROCK_TIMEOUT_MS` env var se configurable)
+- Timeout pe clear error message user ko dikhta hai
+
+---
+
+#### 6. Memory leaks fix (`src/web/router.js`) — MAJOR REWRITE
+
+**sessions Map leak:**
+- Sessions kabhi delete nahi hote the — server days chalane ke baad memory full
+- Fix: TTL-based cleanup — 2 ghante idle sessions auto-delete, har 30 min check
+
+**pendingApprovals leak:**
+- User browser band kar de toh approval forever pending rehti thi
+- Fix: 5-minute auto-reject timeout — auto `no` resolve karta hai, session mein `timed_out` status mark karta hai
+
+**Rate limiting:**
+- `/api/chat` → max 15 queries/min per IP
+- `/api/scan` → max 5/min per IP
+- `express-rate-limit` package install kiya
+
+**Input cap:**
+- User 100,000 char question bhi bhej sakta tha — Bedrock crash
+- Fix: 4000 char cap on `/api/chat`
+
+---
+
+#### 7. Token usage SSE + UI display
+
+**Backend (`src/agent.js`):**
+- Bedrock `response.usage` → `[Tokens] in:X out:X cache_read:X` console log
+
+**Web UI (`src/web/public/index.html`):**
+- Sidebar mein 3 new stat rows: "Tokens in", "Tokens out", "Cache hits"
+- `token_usage` SSE event → live update karta hai har Bedrock call ke baad
+- Rate limit (429) error → user ko friendly message dikhta hai
+- `.wi-status.timed_out` CSS class → approval badge ke liye
+
+---
+
+#### 8. Safety gate — test files protect karna (`src/scheduler.js`)
+
+Agent ki autonomous maintenance sab files touch kar sakti thi — including test files.
+
+- `HIGH_RISK_PATTERNS` mein `'tests/'`, `'.test.'`, `'.spec.'` add kiye
+- `isHighRisk` export kiya — independently testable
+- Autonomous prompt mein Rule 2: "NEVER touch test files"
+- `rollbackLastWrite(label)` — agar post-fix tests fail ho toh `git_backup({action:'restore'})` call karta hai
+- Pre-fix check bhi: agar fix se pehle hi tests fail hain toh auto-fix skip karo
+
+---
+
+#### 9. Scheduler auto-rollback (`src/scheduler.js`)
+
+Autonomous maintenance mein agar fix apply karne ke baad tests fail ho toh:
+1. `run_command("npm test")` → exit code check
+2. Exit code ≠ 0 → `rollbackLastWrite()` → `git_backup({action:'restore'})`
+3. Log mein note: "fix reverted — tests failed"
+
+---
+
+### Tests added this session
+
+| File | Tests | What they cover |
+|------|-------|----------------|
+| `tests/unit/truncate.test.js` | 8 | Under/at/over limit, truncation message format, empty string, JSON passthrough |
+| `tests/unit/session.test.js` | 7 | Per-session isolation, copy safety, stats accuracy, wildcard clear, unknown session |
+| `tests/unit/safetyGate.test.js` | 7 | `isHighRisk()` blocks test files, allows safe utility files |
+| `tests/unit/dispatcher.test.js` | Updated | Confidence scoring, tie-break, scope isolation |
+
+**Total: 46 → 74 tests (all passing)**
+
+---
+
+### Files changed (May 27)
+
+| File | Change |
+|------|--------|
+| `src/session.js` | Global log → per-session Map |
+| `src/agent.js` | SessionId threading, dedup, AbortController timeout, truncateResult |
+| `src/config.js` | Prompt cache default ON, bedrockTimeoutMs added |
+| `src/dispatcher.js` | Multi-keyword confidence scoring, TYPE_PRIORITY tie-break |
+| `src/scheduler.js` | Test file safety gate, auto-rollback, isHighRisk export |
+| `src/web/router.js` | TTL session cleanup, approval timeout, rate limiting, input cap, token SSE |
+| `src/utils/truncate.js` | NEW — tool result truncation util |
+| `src/tools/recallSession.js` | Uses _sessionId from extras |
+| `src/web/public/index.html` | Token stats sidebar, rate limit error, timed_out CSS |
+| `tests/unit/*.test.js` | 3 new test files, 1 updated |
+
+---
+
+## May 26, 2026 — Secret scanner, dep updater, admin panel, full UI overhaul
+
+### What shipped
+
+**2 new tools:**
+
+`secret_scanner` — scans entire codebase for accidentally committed API keys, tokens, passwords. Regex patterns for AWS keys, JWT secrets, DB passwords, Stripe keys, private keys. Returns file:line citations with the matched pattern type. Context: one leaked key in a GitHub repo can mean a full security breach — this tool makes secret detection a one-command operation.
+
+`dep_updater` — checks all npm packages against npm registry, categorises outdated ones by risk: patch (safe), minor (usually safe), major (breaking changes likely). Returns `safe_update_command` for patches. Context: outdated dependencies are the most common source of silent bugs and CVEs — checking them manually is tedious, this makes it a 1-click operation.
+
+**Notification system** (`src/notifications.js`)
+- Scheduler maintenance results now create persistent notifications
+- Bell icon in header shows unread count
+- `/api/notifications` returns last N notifications
+- `/api/notifications/read-all` marks all read
+
+**Admin panel** — merged into main `index.html` (no separate URL):
+- Stats: total actions, critical TODOs, lint errors, dead code, uncommitted files, missing env vars, recent commits
+- Cron schedule display with next-run countdown
+- Maintenance reports list
+- Activity log (last 20 actions with user + timestamp)
+- Trigger maintenance manually
+
+**UI overhaul (`src/web/public/index.html`):**
+- Thinking animation (animated dots while agent works)
+- Live tool call chips — pulse while running, green checkmark when done
+- Copy button on every code block
+- Maintenance banner in header with pulsing dot
+- Auto-refresh toggle for admin panel
+- Write history tab — shows every file change attempt with approved/denied/pending status
+- Approvals tab — file diff viewer with one-click approve/deny
+
+---
+
+## May 23, 2026 — Semi-autonomous maintenance system
+
+### What shipped
+
+`src/scheduler.js` — the core of the autonomous maintenance loop:
+
+**Night deep maintenance (2am daily):** Full scan → identify issues → for each issue above confidence threshold (55/100): git backup → show diff → write fix → run tests → verify. Rollback if tests fail.
+
+**Day light scan (every 2 hours):** Health check only — no writes, just observe and notify.
+
+**Manual trigger:** `POST /api/maintenance/trigger` → runs immediately, streams progress via SSE.
+
+**Why 55/100 confidence threshold:** Below 55, the fix is a guess — risks introducing new bugs. Above 55, fix_error has traced the full call stack and identified a specific line. This is the dividing line between "I think I know" and "I know."
+
+**Tool: `fix_error`** — the meta-tool that powers autonomous maintenance:
+1. Parse error text → extract file path + line number
+2. `read_file` on the erroring file + its imports
+3. Identify root cause
+4. Return: confidence score (0-100), fix description, exact file edits needed, verification command
+
+**Tool: `full_scan`** — runs all 10 maintenance checks in parallel:
+health_check + find_todos + check_env_usage + detect_dead_code + lint (backend + frontend) + secret_scanner + dep_updater + db schema check
+
+Returns unified summary with severity counts. Designed to be the "opening move" for any maintenance session — one call instead of 10.
+
+---
+
+## May 22, 2026 — fix_error tool + UI redesign
+
+### What shipped
+
+`fix_error` meta-tool wired into agent + dispatcher. Claude now has a decision tree:
+- User pastes error → `fix_error` → confidence ≥ 55 → full fix pipeline
+- Confidence < 55 → ask user to confirm before touching any file
+
+UI redesigned with TIQ brand palette (dark orange + dark teal). Left sidebar with tool list. Right sidebar with session stats + memory. Progress strip shows tool call chain in real time.
+
+---
+
+## May 21, 2026 — GitHub OAuth + audit trail + approval gates (Week 4 complete)
+
+### What shipped
+
+**GitHub OAuth** (`src/web/auth.js`):
+- "Sign in with GitHub" → Passport.js OAuth flow
+- Agent tags every action with real GitHub username
+- `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET` in `.env`
+
+**Audit trail** (`src/activityLog.js`):
+- Every query, tool call, write attempt, approval logged with user + timestamp
+- Persisted to `activity-log.json` (gitignored)
+- `/api/activity` endpoint for admin view
+
+**Write archive** (`src/writeArchive.js`):
+- Every `write_file` call (approved or denied) archived with before/after content
+- Rollback possible from admin panel
+
+**Approval gates** (redesigned in `router.js`):
+- `approval_needed` SSE event → browser shows diff modal
+- `/api/approve` with `{ approvalId, decision }` → resolves the pending Promise in agent loop
+- Agent waits (async) — Bedrock call is paused until human decides
+
+**Session memory** (right sidebar):
+- Files read this session with access count
+- Tool calls timeline
+- Writes with approved/denied status
+
+---
+
 ## May 20, 2026 — Week 4 (full plan)
 
 ### Overview
