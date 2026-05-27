@@ -36,7 +36,7 @@ const client = new BedrockRuntimeClient({
 });
 
 // ---------------------------------------------------------------------------
-// Tool registry — 26 tools
+// Tool registry — 24 tools
 // ---------------------------------------------------------------------------
 
 export const ALL_TOOLS = {
@@ -100,6 +100,16 @@ export const ALL_TOOLS = {
 };
 
 export const TOOL_COUNT = ALL_TOOLS.definitions.length;
+
+// Max chars for any single tool result sent back to Claude.
+// Prevents large outputs (fixError, explainRoute) from ballooning token cost.
+const MAX_TOOL_RESULT_CHARS = 3000;
+
+function truncateResult(raw) {
+  if (raw.length <= MAX_TOOL_RESULT_CHARS) return raw;
+  return raw.slice(0, MAX_TOOL_RESULT_CHARS) +
+    `\n...[truncated ${raw.length - MAX_TOOL_RESULT_CHARS} chars — use a narrower query if more detail is needed]`;
+}
 
 // ---------------------------------------------------------------------------
 // Bedrock helpers
@@ -189,6 +199,7 @@ JWT auth with RBAC (ADMIN / INTERN) · Training Tracks → Modules → Tasks hie
 
 **"Fix X" / error / stack trace**
 → fix_error(error_text) → if confidence ≥ 55: git_backup → show_diff → write_file → run_command
+→ If run_command exit_code ≠ 0: IMMEDIATELY call git_backup with action=restore to rollback the change, then report failure.
 
 **"Any secrets leaked?" / security audit**
 → secret_scanner → report findings with file:line citations
@@ -199,7 +210,7 @@ JWT auth with RBAC (ADMIN / INTERN) · Training Tracks → Modules → Tasks hie
 **"Explain X" / "How does Y work"**
 → read_file(Y) → map_dependencies(Y) if cross-file
 
-**"What’s wrong" / maintenance report**
+**"What's wrong" / maintenance report**
 → full_scan
 
 ## Confidence score (from fix_error)
@@ -215,6 +226,7 @@ Maximum 8 tool calls per user query. If you need more, stop and ask the user to 
 - User pastes a stack trace → Pick fix_error OR trace_error. Never both.
 - write_file without git_backup + show_diff first → NEVER.
 - Re-read a file mid-conversation → Check recall_session first.
+- run_command fails after write_file → NEVER leave codebase in broken state. Rollback immediately.
 
 ## Behaviour rules
 - Never guess at code — read the file first. Always cite path:lineNumber.
@@ -296,6 +308,18 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
   while (true) {
     const response = await callBedrock(messages);
 
+    // Log token usage so we can verify caching is working
+    const usage = response.usage;
+    if (usage) {
+      const cacheRead  = usage.cacheReadInputTokens  ?? 0;
+      const cacheWrite = usage.cacheWriteInputTokens ?? 0;
+      console.log(
+        `  [Tokens] in:${usage.inputTokens} out:${usage.outputTokens}` +
+        (cacheRead  ? ` cache_read:${cacheRead}`   : '') +
+        (cacheWrite ? ` cache_write:${cacheWrite}` : ''),
+      );
+    }
+
     const stopReason   = response.stopReason;
     const outputBlocks = response.output?.message?.content ?? [];
 
@@ -329,12 +353,17 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
           console.log(`    ${args}`);
         }
         onEvent?.({ type: 'tool_call', name: call.name, input: call.input });
-        const result = await executeTool(call.name, call.input, executors, user, approvalFn, commandApprovalFn);
+        const result    = await executeTool(call.name, call.input, executors, user, approvalFn, commandApprovalFn);
+        const rawJson   = JSON.stringify(result);
+        const safeJson  = truncateResult(rawJson);
+        if (safeJson.length < rawJson.length) {
+          console.log(`  [Truncated] ${call.name} result: ${rawJson.length} → ${safeJson.length} chars`);
+        }
         onEvent?.({ type: 'tool_result', name: call.name, result });
         toolResults.push({
           type:        'tool_result',
           tool_use_id: call.id,
-          content:     JSON.stringify(result),
+          content:     safeJson,
         });
       }
       messages.push({ role: 'user', content: toolResults });
