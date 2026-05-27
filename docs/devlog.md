@@ -4,6 +4,71 @@
 
 ---
 
+## May 27, 2026 (Session 2) — 6 production drawbacks fixed
+
+Full audit of agent tools against the real TIQ codebase revealed 6 bugs/gaps that would cause silent failures in production. All fixed and tested.
+
+### Fix 1 — `gitBackup` restore was silently a no-op (`src/tools/gitBackup.js`)
+
+**Bug:** Scheduler calls `gitBackup({ action: 'restore' })` after a failed fix, but the function had no `action` parameter — it silently created another backup branch instead of rolling back.
+
+**Fix:** Added `action` enum (`backup` | `restore`). `_lastBackupBranch` variable tracks the last checkpoint in the session. `restore` runs `git checkout <branch> -- .` against the TIQ codebase. Returns a clear error if no prior backup exists.
+
+**Why it matters:** The entire rollback safety net was broken. Agent could apply a bad fix, tests fail, rollback called, nothing happens — codebase stays broken.
+
+---
+
+### Fix 2 — `runCommand` whitelist had `npm test` which doesn't exist in TIQ (`src/tools/runCommand.js`)
+
+**Bug:** TIQ's `backend/package.json` has no `test` script — only `dev`, `start`, `seed`. `npm test` would always fail with "missing script: test". Agent could never verify its own fixes.
+
+**Fix:** Added TIQ-specific commands: `npm --prefix backend run build`, `npm --prefix frontend run build`, `npx eslint backend/src`. Added `npx vitest run`, `npx jest`. Removed `git push origin` (dangerous). Timeout raised 30s → 60s. Tool description updated to tell Claude: "TIQ has no top-level npm test — use build or lint to verify."
+
+---
+
+### Fix 3 — `searchCode` was plain `includes()` only, no regex, only 50 results (`src/tools/searchCode.js`)
+
+**Bug:** Searching `user` matched `userController`, `getUserById`, `isUserAdmin`, `currentUser` — 200+ noise results. No way to search `^export function` or `require\(.+\)`. Hard cap of 50 results could miss important matches.
+
+**Fix:** Added `is_regex` boolean param — uses `new RegExp(keyword, 'i')` when true. Added `max_results` param (default 100, max 300). Added `.yaml/.yml/.sh/.env` to searched file types. Invalid regex returns a clean error message instead of crashing.
+
+---
+
+### Fix 4 — `writeFile` diff was index-based, showed 500 lines for a 1-line change (`src/tools/writeFile.js`)
+
+**Bug:** Naive line-by-line index comparison. Add one line at top of file → every subsequent line shows as "changed". 500-line diff for a 1-line fix. User can't review it properly.
+
+**Fix:** Context-aware diff with `@@ line N @@` headers. Shows 3 lines of context before/after each change group. A 1-line change in a 500-line file now shows ~7 lines. Grouped consecutive changes so related edits appear together.
+
+---
+
+### Fix 5 — Autonomous maintenance tool budget was 8 — not enough for multi-file fix (`src/agent.js` + `src/scheduler.js`)
+
+**Bug:** Maintenance mode needs `git_backup → show_diff → write_file → run_command` per issue = 4 calls. With 5 issues that's 20 calls. Budget was 8 → maintenance silently stops after 2 fixes.
+
+**Fix:** Added `toolBudget` parameter to `runAgent()` (default 8 for web users). Scheduler passes `toolBudget=20` for autonomous maintenance runs.
+
+---
+
+### Fix 6 — Scheduler `runAgent` had no `sessionId` — tool calls polluted default session (`src/scheduler.js`)
+
+**Bug:** Scheduler called `runAgent(..., 'maintenance-scheduler')` without `sessionId`. All maintenance tool calls went into the `'default'` bucket in `session.js`, mixing with web user logs.
+
+**Fix:** Scheduler now passes `'maintenance-scheduler'` as `sessionId`. Maintenance history is fully isolated from web users' `recall_session` results.
+
+---
+
+### Final state after May 27 Session 2
+- 74/74 tests passing
+- 6 production bugs fixed
+- Rollback works correctly
+- TIQ-specific commands in whitelist
+- Regex search available
+- Context-aware diff for human review
+- Maintenance budget 20 tool calls
+
+---
+
 ## May 27, 2026 — Deep audit + all remaining gaps fixed
 
 ### Overview
