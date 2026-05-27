@@ -3,14 +3,24 @@ import path from 'path';
 import { config } from '../config.js';
 
 const ALLOWED_PATTERNS = [
+  // Generic test runners
   /^npm test$/,
   /^npm run test$/,
   /^npm run test:.+$/,
+  /^npx vitest run.*$/,
+  /^npx jest.*$/,
+  // TIQ-specific: prefix-scoped commands (no test script in TIQ — use build/start check)
+  /^npm --prefix (backend|frontend) run (dev|build|start|lint)$/,
+  /^npm --prefix (backend|frontend) list --depth=0$/,
+  // Lint
+  /^npx eslint .+$/,
+  /^npm run lint.*$/,
+  // Git read-only
   /^git status$/,
   /^git log --oneline(-\d+)?$/,
   /^git diff$/,
   /^git diff --stat$/,
-  /^git push origin .+$/,
+  // Version / info
   /^node --version$/,
   /^npm --version$/,
   /^npm list --depth=0$/,
@@ -23,14 +33,17 @@ function isAllowed(command) {
 export const runCommandDefinition = {
   name: 'run_command',
   description:
-    'Run a safe, whitelisted shell command in the TIQ codebase directory. Use to verify a fix works (npm test), check git state, or inspect installed packages.',
+    'Run a safe, whitelisted shell command in the TIQ codebase directory. ' +
+    'TIQ has no top-level npm test — use "npm --prefix backend run build" or "npx eslint backend/src" to verify changes. ' +
+    'For test suites use "npx vitest run" (agent repo) or "npx jest" (if configured).',
   input_schema: {
     type: 'object',
     properties: {
       command: {
         type: 'string',
         description:
-          'Command to run. Allowed: npm test, npm run test, git status, git log --oneline, git diff, node --version, npm --version, npm list --depth=0',
+          'Command to run. Examples: "npm --prefix backend run build", "npx eslint backend/src", ' +
+          '"git status", "node --version", "npm --prefix backend list --depth=0"',
       },
       directory: {
         type: 'string',
@@ -47,21 +60,19 @@ export async function runCommand({ command, directory = '', _commandApprovalFn =
     return {
       error: `Command not allowed: "${command}"`,
       allowed_commands: [
-        'npm test',
-        'npm run test',
+        'npm --prefix backend run build',
+        'npm --prefix frontend run build',
+        'npx eslint backend/src',
+        'npm run lint',
         'git status',
-        'git log --oneline',
         'git diff',
-        'git push origin <branch>',
         'node --version',
-        'npm --version',
         'npm list --depth=0',
       ],
-      suggestion: 'Only whitelisted commands can run for safety reasons',
+      suggestion: 'Only whitelisted commands can run for safety. TIQ has no top-level npm test — use build or lint to verify.',
     };
   }
 
-  // Web mode: ask for approval before running any command
   if (_commandApprovalFn) {
     const answer = await _commandApprovalFn(command, directory);
     if (answer !== 'yes' && answer !== 'y') {
@@ -76,7 +87,7 @@ export async function runCommand({ command, directory = '', _commandApprovalFn =
 
     const output = execSync(command, {
       cwd,
-      timeout: 30000,
+      timeout: 60000,
       encoding: 'utf-8',
       stdio: 'pipe',
     });

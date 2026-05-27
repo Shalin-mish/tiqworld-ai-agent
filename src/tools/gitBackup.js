@@ -1,26 +1,62 @@
 import { execSync } from 'child_process';
 import { config } from '../config.js';
 
+// Track the last backup branch so restore() knows where to roll back to
+let _lastBackupBranch = null;
+
 export const gitBackupDefinition = {
   name: 'git_backup',
   description:
-    'Create a named git backup branch before making any file changes. Always call this before write_file on an existing file so the change is reversible. Returns the backup branch name.',
+    'Create a named git backup branch before any file change (action=backup, default), OR restore the ' +
+    'working tree to the last backup (action=restore). Always call backup before write_file. ' +
+    'Call restore immediately if tests fail after a write.',
   input_schema: {
     type: 'object',
     properties: {
       reason: {
         type: 'string',
-        description:
-          'Short description of what is about to change, e.g. "fix-auth-middleware" or "update-task-schema". Used in the branch name.',
+        description: 'Required for action=backup. Short label used in branch name, e.g. "fix-auth-middleware".',
+      },
+      action: {
+        type: 'string',
+        enum: ['backup', 'restore'],
+        description: '"backup" (default) creates a checkpoint branch. "restore" resets to the last checkpoint.',
       },
     },
-    required: ['reason'],
   },
 };
 
-export function gitBackup({ reason }) {
+export function gitBackup({ reason = 'manual', action = 'backup' } = {}) {
+  const cwd = config.codebasePath;
+
+  // ── RESTORE ──────────────────────────────────────────────────────────────
+  if (action === 'restore') {
+    if (!_lastBackupBranch) {
+      return {
+        status:     'error',
+        error:      'No backup branch recorded in this session — nothing to restore.',
+        suggestion: 'Call git_backup with action=backup before making any writes.',
+      };
+    }
+    try {
+      execSync(`git checkout "${_lastBackupBranch}" -- .`, { cwd, stdio: 'pipe' });
+      return {
+        status:  'restored',
+        branch:  _lastBackupBranch,
+        message: `Working tree restored from backup branch: ${_lastBackupBranch}`,
+      };
+    } catch (err) {
+      return {
+        status:     'error',
+        error:      err.stderr ? err.stderr.toString().trim() : err.message,
+        suggestion: `Run manually: git checkout "${_lastBackupBranch}" -- .  inside ${cwd}`,
+      };
+    }
+  }
+
+  // ── BACKUP ───────────────────────────────────────────────────────────────
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const slug = reason
+  const slug = String(reason)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
@@ -28,26 +64,20 @@ export function gitBackup({ reason }) {
   const branchName = `backup/maint-${timestamp}-${slug}`;
 
   try {
-    execSync(`git checkout -b "${branchName}"`, {
-      cwd: config.codebasePath,
-      stdio: 'pipe',
-    });
-    execSync(`git checkout -`, {
-      cwd: config.codebasePath,
-      stdio: 'pipe',
-    });
-
+    execSync(`git checkout -b "${branchName}"`, { cwd, stdio: 'pipe' });
+    execSync('git checkout -', { cwd, stdio: 'pipe' });
+    _lastBackupBranch = branchName;
     return {
-      status: 'success',
-      branch: branchName,
-      message: `Backup branch created: ${branchName}`,
-      restore_command: `git checkout ${branchName}`,
+      status:          'success',
+      branch:          branchName,
+      message:         `Backup branch created: ${branchName}`,
+      restore_command: `git checkout "${branchName}" -- .`,
     };
   } catch (err) {
     return {
-      status: 'error',
-      error: err.stderr ? err.stderr.toString().trim() : err.message,
-      suggestion: 'Ensure TIQ_CODEBASE_PATH is a git repository. Run git init if needed.',
+      status:     'error',
+      error:      err.stderr ? err.stderr.toString().trim() : err.message,
+      suggestion: 'Ensure TIQ_CODEBASE_PATH is a git repository with at least one commit.',
     };
   }
 }

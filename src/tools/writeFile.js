@@ -34,20 +34,33 @@ export const writeFileDefinition = {
 function showDiff(oldContent, newContent) {
   const oldLines = oldContent.split('\n');
   const newLines = newContent.split('\n');
-  const maxLen = Math.max(oldLines.length, newLines.length);
   const diff = [];
 
+  // Context-aware diff: group consecutive changes with surrounding context lines
+  const CONTEXT = 3;
+  const changes = new Set();
+  const maxLen  = Math.max(oldLines.length, newLines.length);
   for (let i = 0; i < maxLen; i++) {
-    const oldLine = oldLines[i];
-    const newLine = newLines[i];
-    if (oldLine === undefined) {
-      diff.push(`+ ${newLine}`);
-    } else if (newLine === undefined) {
-      diff.push(`- ${oldLine}`);
-    } else if (oldLine !== newLine) {
-      diff.push(`- ${oldLine}`);
-      diff.push(`+ ${newLine}`);
+    if (oldLines[i] !== newLines[i]) changes.add(i);
+  }
+
+  if (changes.size === 0) return '';
+
+  let lastPrinted = -1;
+  for (const idx of [...changes].sort((a, b) => a - b)) {
+    const from = Math.max(0, idx - CONTEXT);
+    if (from > lastPrinted + 1) diff.push(`@@ line ${from + 1} @@`);
+    for (let i = Math.max(lastPrinted + 1, from); i < idx; i++) {
+      diff.push(`  ${oldLines[i] ?? ''}`);
     }
+    if (oldLines[idx] !== undefined) diff.push(`- ${oldLines[idx]}`);
+    if (newLines[idx] !== undefined) diff.push(`+ ${newLines[idx]}`);
+    const to = Math.min(maxLen - 1, idx + CONTEXT);
+    for (let i = idx + 1; i <= to && !changes.has(i); i++) {
+      diff.push(`  ${oldLines[i] ?? ''}`);
+      lastPrinted = i;
+    }
+    lastPrinted = Math.max(lastPrinted, idx);
   }
 
   return diff.join('\n');

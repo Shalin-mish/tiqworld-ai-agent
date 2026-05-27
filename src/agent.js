@@ -258,7 +258,7 @@ async function executeTool(name, input, executors, user = 'unknown', approvalFn 
   return result;
 }
 
-export async function runAgent(userQuestion, conversationHistory = [], tools = null, onEvent = null, user = 'unknown', approvalFn = null, commandApprovalFn = null, sessionId = 'default') {
+export async function runAgent(userQuestion, conversationHistory = [], tools = null, onEvent = null, user = 'unknown', approvalFn = null, commandApprovalFn = null, sessionId = 'default', toolBudget = 8) {
   const { definitions, executors } = tools ?? ALL_TOOLS;
   const bedrockTools = toBedrockTools(definitions);
 
@@ -270,7 +270,7 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
   console.log('\n  Thinking...\n');
 
   let toolCallsThisTurn = 0;
-  const TOOL_BUDGET = 8;
+  const TOOL_BUDGET = toolBudget;
   const seenCalls = new Set(); // dedup: skip identical name+input pairs
 
   async function callBedrock(msgs, retries = 3) {

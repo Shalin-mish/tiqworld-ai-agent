@@ -176,6 +176,8 @@ async function runNightMaintenance() {
           'maintenance-scheduler',
           makeWriteApprovalFn(writeLog),
           commandApprovalFn,
+          'maintenance-scheduler',
+          20,
         );
       } catch (err) {
         pushProgress('fix', `Auto-fix error: ${err.message}`);
