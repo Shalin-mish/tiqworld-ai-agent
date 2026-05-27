@@ -87,8 +87,9 @@ function prompt() {
 
     try {
       const { answer, messages } = await runAgent(input, conversationHistory, tools);
-      // Keep last 20 message pairs to avoid unbounded history growth.
-      conversationHistory = messages.slice(-20);
+      // Keep last 8 messages (4 turns) — enough context without bleeding
+      // old tool results into every Bedrock call.
+      conversationHistory = messages.slice(-8);
       console.log('\nAgent:\n');
       console.log(answer);
       console.log('\n' + '─'.repeat(54) + '\n');
