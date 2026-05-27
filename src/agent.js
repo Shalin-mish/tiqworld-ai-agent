@@ -268,18 +268,25 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
 
   let toolCallsThisTurn = 0;
   const TOOL_BUDGET = 8;
+  const seenCalls = new Set(); // dedup: skip identical name+input pairs
 
   async function callBedrock(msgs, retries = 3) {
     for (let attempt = 1; attempt <= retries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), config.bedrockTimeoutMs);
       try {
-        return await client.send(new ConverseCommand({
+        const result = await client.send(new ConverseCommand({
           modelId:         config.model,
           system:          SYSTEM_BLOCKS,
           messages:        toBedrockMessages(msgs),
           toolConfig:      { tools: bedrockTools },
           inferenceConfig: { maxTokens: config.maxTokens },
-        }));
+        }), { abortSignal: controller.signal });
+        clearTimeout(timer);
+        return result;
       } catch (err) {
+        clearTimeout(timer);
+        if (err.name === 'AbortError') throw new Error(`Bedrock call timed out after ${config.bedrockTimeoutMs}ms`);
         const isThrottle = err.name === 'ThrottlingException' || err.$metadata?.httpStatusCode === 429;
         const isTransient = isThrottle || err.name === 'ServiceUnavailableException';
         if (isTransient && attempt < retries) {
@@ -323,6 +330,18 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
       }
 
       for (const call of toolCalls) {
+        const callKey = `${call.name}:${JSON.stringify(call.input)}`;
+        if (seenCalls.has(callKey)) {
+          console.log(`  Skipping duplicate: ${call.name}`);
+          toolResults.push({
+            type:        'tool_result',
+            tool_use_id: call.id,
+            content:     JSON.stringify({ message: '[duplicate] Result already returned for identical call this turn.' }),
+          });
+          continue;
+        }
+        seenCalls.add(callKey);
+
         console.log(`  Using: ${call.name}`);
         if (call.input && Object.keys(call.input).length) {
           const args = Object.entries(call.input).map(([k, v]) => `${k}="${v}"`).join(', ');
