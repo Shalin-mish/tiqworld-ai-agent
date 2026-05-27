@@ -9,6 +9,7 @@ export const config = {
   maxTokens:             16000,
   dbUrl:                 process.env.DB_URL  ?? null,
   webPort:               parseInt(process.env.WEB_PORT, 10) || 3001,
+  // Prompt caching is ON by default — set ENABLE_PROMPT_CACHE=false to disable
   enablePromptCache:     process.env.ENABLE_PROMPT_CACHE !== 'false',
   bedrockTimeoutMs:      parseInt(process.env.BEDROCK_TIMEOUT_MS, 10) || 60000,
   scanIntervalMinutes:   parseInt(process.env.SCAN_INTERVAL_MINUTES, 10) || 0,
