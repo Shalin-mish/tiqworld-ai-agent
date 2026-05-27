@@ -1,6 +1,7 @@
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { config } from './config.js';
 import { recordToolCall } from './session.js';
+import { truncateResult } from './utils/truncate.js';
 
 import { listFilesDefinition,        listFiles        } from './tools/listFiles.js';
 import { readFileDefinition,         readFile         } from './tools/readFile.js';
@@ -100,16 +101,6 @@ export const ALL_TOOLS = {
 };
 
 export const TOOL_COUNT = ALL_TOOLS.definitions.length;
-
-// Max chars for any single tool result sent back to Claude.
-// Prevents large outputs (fixError, explainRoute) from ballooning token cost.
-const MAX_TOOL_RESULT_CHARS = 3000;
-
-function truncateResult(raw) {
-  if (raw.length <= MAX_TOOL_RESULT_CHARS) return raw;
-  return raw.slice(0, MAX_TOOL_RESULT_CHARS) +
-    `\n...[truncated ${raw.length - MAX_TOOL_RESULT_CHARS} chars — use a narrower query if more detail is needed]`;
-}
 
 // ---------------------------------------------------------------------------
 // Bedrock helpers
