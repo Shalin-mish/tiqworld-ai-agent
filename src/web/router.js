@@ -133,7 +133,7 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
     const id   = req.body.sessionId ?? 'default';
     const user = getSession(id).user ?? 'unknown';
     sessions.delete(id);
-    clearLog();
+    clearLog(id);
     logEvent({ user, action: 'session_clear', sessionId: id });
     res.json({ ok: true, sessionId: id });
   });
@@ -241,6 +241,7 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
         user,
         approvalFn,
         commandApprovalFn,
+        sessionId,
       );
       const prevLen = session.history.length;
       session.history = messages.slice(-20);

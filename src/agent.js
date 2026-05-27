@@ -236,7 +236,7 @@ const SYSTEM_BLOCKS = config.enablePromptCache
 // Agent loop
 // ---------------------------------------------------------------------------
 
-async function executeTool(name, input, executors, user = 'unknown', approvalFn = null, commandApprovalFn = null) {
+async function executeTool(name, input, executors, user = 'unknown', approvalFn = null, commandApprovalFn = null, sessionId = 'default') {
   const fn = executors[name];
   if (!fn) {
     return {
@@ -244,18 +244,18 @@ async function executeTool(name, input, executors, user = 'unknown', approvalFn 
       suggestion: `Available: ${Object.keys(executors).join(', ')}`,
     };
   }
-  const extra = { _user: user };
+  const extra = { _user: user, _sessionId: sessionId };
   if (name === 'write_file'  && approvalFn)        extra._approvalFn        = approvalFn;
   if (name === 'run_command' && commandApprovalFn)  extra._commandApprovalFn = commandApprovalFn;
   const result  = await fn({ ...input, ...extra });
   const summary = result?.error
     ? `error: ${result.error}`
     : result?.total ?? result?.file_path ?? result?.message ?? result?.summary ?? 'ok';
-  recordToolCall(name, input, String(summary));
+  recordToolCall(name, input, String(summary), sessionId);
   return result;
 }
 
-export async function runAgent(userQuestion, conversationHistory = [], tools = null, onEvent = null, user = 'unknown', approvalFn = null, commandApprovalFn = null) {
+export async function runAgent(userQuestion, conversationHistory = [], tools = null, onEvent = null, user = 'unknown', approvalFn = null, commandApprovalFn = null, sessionId = 'default') {
   const { definitions, executors } = tools ?? ALL_TOOLS;
   const bedrockTools = toBedrockTools(definitions);
 
@@ -329,7 +329,7 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
           console.log(`    ${args}`);
         }
         onEvent?.({ type: 'tool_call', name: call.name, input: call.input });
-        const result = await executeTool(call.name, call.input, executors, user, approvalFn, commandApprovalFn);
+        const result = await executeTool(call.name, call.input, executors, user, approvalFn, commandApprovalFn, sessionId);
         onEvent?.({ type: 'tool_result', name: call.name, result });
         toolResults.push({
           type:        'tool_result',

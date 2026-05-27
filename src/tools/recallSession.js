@@ -15,8 +15,8 @@ export const recallSessionDefinition = {
   },
 };
 
-export function recallSession({ filter_tool } = {}) {
-  const entries = getLog();
+export function recallSession({ filter_tool, _sessionId } = {}) {
+  const entries = getLog(_sessionId ?? 'default');
   const filtered = filter_tool
     ? entries.filter(e => e.tool === filter_tool)
     : entries;
