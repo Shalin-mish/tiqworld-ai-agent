@@ -46,11 +46,16 @@ export function getLastScan() { return { result: lastScanResult, scannedAt: last
 // Safety gates
 // ---------------------------------------------------------------------------
 
+// Any file whose path matches one of these patterns is NEVER auto-written.
+// IMPORTANT: tests/ and *.test.* are here so the agent cannot overwrite
+// test files to make itself appear green — an agent must not be its own judge.
 const HIGH_RISK_PATTERNS = [
   '/routes/', '/models/', '/middleware/',
   'auth', 'config.js', 'index.js', 'server.js', 'app.js',
+  'tests/', '.test.', '.spec.',
 ];
-function isHighRisk(filePath) {
+
+export function isHighRisk(filePath) {
   return HIGH_RISK_PATTERNS.some(p => filePath.toLowerCase().includes(p));
 }
 
@@ -158,12 +163,13 @@ async function runNightMaintenance() {
           `Task: Fix all SAFE issues only (lint errors, missing null checks, unused variables, console.log cleanup).\n\n` +
           `MANDATORY RULES:\n` +
           `1. SKIP any file containing: routes/, models/, middleware/, auth, config.js, index.js, server.js, app.js\n` +
-          `2. Only apply fix if fix_error confidence >= ${config.autoFixMinConfidence}\n` +
-          `3. Sequence: git_backup → show_diff → write_file → run_command\n` +
-          `4. Fix one file at a time\n` +
-          `5. Run npm test after each fix\n` +
-          `6. If run_command shows test failure after a write_file, IMMEDIATELY call git_backup with action=restore, then STOP — do not attempt further fixes\n` +
-          `7. Feature additions, schema changes, route changes are STRICTLY OFF-LIMITS.`,
+          `2. NEVER touch test files (tests/, *.test.*, *.spec.*) — tests are written by humans and reviewed independently\n` +
+          `3. Only apply fix if fix_error confidence >= ${config.autoFixMinConfidence}\n` +
+          `4. Sequence: git_backup → show_diff → write_file → run_command\n` +
+          `5. Fix one file at a time\n` +
+          `6. Run npm test after each fix\n` +
+          `7. If run_command shows test failure after a write_file, IMMEDIATELY call git_backup with action=restore, then STOP\n` +
+          `8. Feature additions, schema changes, route changes are STRICTLY OFF-LIMITS.`,
           [],
           ALL_TOOLS,
           null,
