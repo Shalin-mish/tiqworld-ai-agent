@@ -27,6 +27,8 @@ import { fullScanDefinition,         fullScan         } from './tools/fullScan.j
 import { fixErrorDefinition,         fixError         } from './tools/fixError.js';
 import { secretScannerDefinition,    secretScanner    } from './tools/secretScanner.js';
 import { depUpdaterDefinition,       depUpdater       } from './tools/depUpdater.js';
+import { healthMonitorDefinition,    healthMonitor    } from './tools/healthMonitor.js';
+import { credentialGuardDefinition,  credentialGuard  } from './tools/credentialGuard.js';
 
 const client = new BedrockRuntimeClient({
   region: config.awsRegion,
@@ -37,7 +39,7 @@ const client = new BedrockRuntimeClient({
 });
 
 // ---------------------------------------------------------------------------
-// Tool registry — 24 tools
+// Tool registry — 26 tools
 // ---------------------------------------------------------------------------
 
 export const ALL_TOOLS = {
@@ -64,6 +66,9 @@ export const ALL_TOOLS = {
     // Security + deps
     secretScannerDefinition,
     depUpdaterDefinition,
+    credentialGuardDefinition,
+    // Monitoring
+    healthMonitorDefinition,
     // Fix pipeline
     fixErrorDefinition,
     // Write + verification
@@ -73,30 +78,32 @@ export const ALL_TOOLS = {
     runCommandDefinition,
   ],
   executors: {
-    list_files:       listFiles,
-    read_file:        readFile,
-    search_code:      searchCode,
-    recall_session:   recallSession,
-    trace_error:      traceError,
-    map_dependencies: mapDependencies,
-    explain_route:    explainRoute,
-    find_todos:       findTodos,
-    check_env_usage:  checkEnvUsage,
-    detect_dead_code: detectDeadCode,
-    schema_to_api:    schemaToApi,
-    summarize_diff:   summarizeDiff,
-    git_log:          gitLog,
-    health_check:     healthCheck,
-    lint_file:        lintFile,
-    db_query:         dbQuery,
-    full_scan:        fullScan,
-    secret_scanner:   secretScanner,
-    dep_updater:      depUpdater,
-    fix_error:        fixError,
-    show_diff:        showDiff,
-    git_backup:       gitBackup,
-    write_file:       writeFile,
-    run_command:      runCommand,
+    list_files:        listFiles,
+    read_file:         readFile,
+    search_code:       searchCode,
+    recall_session:    recallSession,
+    trace_error:       traceError,
+    map_dependencies:  mapDependencies,
+    explain_route:     explainRoute,
+    find_todos:        findTodos,
+    check_env_usage:   checkEnvUsage,
+    detect_dead_code:  detectDeadCode,
+    schema_to_api:     schemaToApi,
+    summarize_diff:    summarizeDiff,
+    git_log:           gitLog,
+    health_check:      healthCheck,
+    lint_file:         lintFile,
+    db_query:          dbQuery,
+    full_scan:         fullScan,
+    secret_scanner:    secretScanner,
+    dep_updater:       depUpdater,
+    credential_guard:  credentialGuard,
+    health_monitor:    healthMonitor,
+    fix_error:         fixError,
+    show_diff:         showDiff,
+    git_backup:        gitBackup,
+    write_file:        writeFile,
+    run_command:       runCommand,
   },
 };
 

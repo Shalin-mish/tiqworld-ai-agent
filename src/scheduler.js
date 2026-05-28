@@ -1,10 +1,11 @@
 import cron from 'node-cron';
-import { fullScan }    from './tools/fullScan.js';
-import { lintFile }   from './tools/lintFile.js';
-import { findTodos }  from './tools/findTodos.js';
-import { healthCheck } from './tools/healthCheck.js';
-import { runCommand } from './tools/runCommand.js';
-import { gitBackup }  from './tools/gitBackup.js';
+import { fullScan }         from './tools/fullScan.js';
+import { lintFile }         from './tools/lintFile.js';
+import { findTodos }        from './tools/findTodos.js';
+import { healthCheck }      from './tools/healthCheck.js';
+import { healthMonitor }    from './tools/healthMonitor.js';
+import { runCommand }       from './tools/runCommand.js';
+import { gitBackup }        from './tools/gitBackup.js';
 import { runAgent, ALL_TOOLS }   from './agent.js';
 import { acquireLock, releaseAllLocks } from './tools/fileLock.js';
 import { saveMaintenanceReport, formatReportSummary } from './tools/maintenanceReport.js';
@@ -258,17 +259,28 @@ async function runDayScan() {
   const t0 = Date.now();
   pushProgress('start', 'Day light scan started');
   try {
-    const [lint, todos, health] = await Promise.all([
+    const [lint, todos, health, monitor] = await Promise.all([
       lintFile({   file_path: 'backend/src' }),
       findTodos({  directory: config.codebasePath }),
       healthCheck(),
+      healthMonitor({ last_minutes: 60 }),
     ]);
-    lastScanResult = { lint, todos, health };
+    lastScanResult = { lint, todos, health, monitor };
     lastScanTime   = new Date().toISOString();
     const errors    = lint?.total_errors ?? 0;
     const criticals = todos?.by_severity?.critical ?? 0;
     const elapsed   = ((Date.now() - t0) / 1000).toFixed(1);
-    pushProgress('done', `Day scan done in ${elapsed}s — ${errors} lint errors, ${criticals} critical TODOs`);
+    const monStatus = monitor?.overall ?? 'UNKNOWN';
+    pushProgress('done', `Day scan done in ${elapsed}s — ${errors} lint errors, ${criticals} critical TODOs, health: ${monStatus}`);
+
+    // Alert if platform is unhealthy
+    if (monStatus === 'UNHEALTHY' || monStatus === 'DEGRADED') {
+      notify(
+        monStatus === 'UNHEALTHY' ? 'error' : 'warning',
+        `Platform Health: ${monStatus}`,
+        `Score: ${monitor.score}/100\n${Object.entries(monitor.checks).map(([k,v]) => `${v === 'pass' ? '✓' : v === 'warn' ? '⚠' : '✗'} ${k}: ${v}`).join('\n')}`,
+      );
+    }
   } catch (err) {
     pushProgress('error', `Day scan failed: ${err.message}`);
     _status.error = err.message;

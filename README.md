@@ -83,23 +83,39 @@ npx eslint backend/auth-service/src
 
 Services: `auth-service`, `training-service`, `assessment-service`, `inference-service`, `notification-service`, `job-posting-service`, `payment-service`
 
-## Tools (24 total)
+## Tools (26 total)
 
 | Group | Tools |
 |-------|-------|
 | Exploration | `list_files`, `read_file`, `search_code`, `recall_session` |
 | Analysis | `health_check`, `full_scan`, `trace_error`, `fix_error`, `map_dependencies`, `explain_route`, `find_todos`, `check_env_usage`, `detect_dead_code`, `schema_to_api`, `summarize_diff`, `git_log`, `lint_file`, `db_query` |
-| Security + Deps | `secret_scanner`, `dep_updater` |
+| Security + Deps | `secret_scanner`, `dep_updater`, `credential_guard` |
+| Monitoring | `health_monitor` |
 | Write + Verify | `git_backup`, `show_diff`, `write_file`, `run_command` |
+
+### `health_monitor`
+Probes the platform without touching any code. Three signal layers:
+1. **HTTP synthetic probes** — GET critical URLs, checks status codes and response time (<3s threshold)
+2. **Log anomaly scan** — scans agent logs for ERROR/CRITICAL/FATAL patterns in the last N minutes
+3. **Process vitals** — Node heap usage, uptime, event-loop lag
+
+Results appear in the Admin tab → "Platform Health" section. Configure URLs via `HEALTH_MONITOR_URLS` env var (comma-separated). Also runs automatically on every day scan cycle.
+
+### `credential_guard`
+**Automatic write-gate** — every `write_file` call passes through this guard before touching disk:
+- Blocks writes that contain hardcoded passwords, API keys, AWS credentials, private keys (PEM), JWT secrets, DB connection strings with embedded credentials
+- Blocks writes to protected filenames: `.env`, `.env.*`, `secrets.json`, `id_rsa`, etc.
+- Also callable explicitly by the agent before proposing a change
+- Does **not** block `process.env.VARIABLE` usage — that is the correct pattern
 
 ## Maintenance Schedule
 
 | Cron | Time (IST) | What happens |
 |------|-----------|-------------|
 | `0 2 * * *` | 2:00 AM | Deep scan + auto-fix (confidence ≥ 55) |
-| `0 */2 * * *` | Every 2h | Light scan, no writes |
+| `0 */2 * * *` | Every 2h | Light scan + health monitor probe |
 
-Admin panel is embedded in the main UI at `http://localhost:3001` (Admin tab) — shows live progress, report history, and write approvals.
+Admin panel is embedded in the main UI at `http://localhost:3001` (Admin tab) — shows live progress, report history, write approvals, and platform health.
 
 ## Admin Panel
 
@@ -108,6 +124,7 @@ Admin panel is embedded in the main UI at `http://localhost:3001` (Admin tab) �
 - **Report history** — every past maintenance run with stats
 - **Write approval dialog** — approve or deny file writes from the browser
 - **Activity log** — every tool call, query, and write
+- **Platform Health** — run `health_monitor` on demand, see URL probe results, log errors, process vitals
 
 ## Architecture
 
@@ -122,9 +139,18 @@ User query
 
 Write sequence (always):
 ```
+credential_guard (blocks hardcoded secrets)
+  ↓ if clean
 git_backup → show_diff → write_file → run_command (verify)
                                            ↓ if tests fail
                                        git_backup restore
+```
+
+Day scan cycle (every 2h):
+```
+lint + findTodos + healthCheck + healthMonitor (parallel)
+  ↓ if health DEGRADED/UNHEALTHY
+notify() → in-app notification + webhook (Slack/Discord)
 ```
 
 ## Token Optimisations

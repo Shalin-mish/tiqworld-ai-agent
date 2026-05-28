@@ -1292,6 +1292,22 @@
         </div>
       </div>
 
+      <!-- Health Monitor -->
+      <div class="admin-section-label" style="margin-top:12px">
+        Platform Health
+        <button onclick="runHealthMonitor()" id="hm-run-btn" style="margin-left:8px;padding:2px 8px;font-size:10px;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);border-radius:4px;cursor:pointer">▶ Run Now</button>
+        <span id="hm-status-badge" style="margin-left:6px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;display:none"></span>
+      </div>
+      <div id="hm-panel" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;font-size:11px">
+        <div id="hm-loading" style="color:var(--text-dim)">Press ▶ Run Now to probe platform health.</div>
+        <div id="hm-results" style="display:none">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px" id="hm-checks"></div>
+          <div id="hm-probes"></div>
+          <div id="hm-logs" style="margin-top:6px"></div>
+          <div style="color:var(--text-dim);font-size:10px;margin-top:4px" id="hm-meta"></div>
+        </div>
+      </div>
+
       <!-- Maintenance Reports -->
       <div class="admin-section-label">Maintenance Reports (last 5)</div>
       <div class="admin-tbl-wrap">
@@ -2514,6 +2530,81 @@ async function loadAdminTab() {
     refreshAdminCountdowns();
     loadAdminNotifications();
   } catch (_) {}
+}
+
+// ── Health Monitor ────────────────────────────────────────────────────────────
+async function runHealthMonitor() {
+  const btn     = document.getElementById('hm-run-btn');
+  const loading = document.getElementById('hm-loading');
+  const results = document.getElementById('hm-results');
+  const badge   = document.getElementById('hm-status-badge');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Probing…'; }
+  if (loading) { loading.textContent = 'Running health probes…'; loading.style.display = ''; }
+  if (results) results.style.display = 'none';
+
+  try {
+    const d = await fetch('/api/health-monitor').then(r => r.json());
+    if (!d.ok) throw new Error(d.error ?? 'Unknown error');
+
+    // Badge
+    if (badge) {
+      const colors = { HEALTHY: 'var(--green)', DEGRADED: 'var(--yellow)', UNHEALTHY: 'var(--red)', UNKNOWN: 'var(--text-dim)' };
+      badge.textContent = `${d.overall}  ${d.score}/100`;
+      badge.style.background = (d.overall === 'HEALTHY') ? 'rgba(0,200,100,.12)' : (d.overall === 'UNHEALTHY') ? 'rgba(220,50,50,.15)' : 'rgba(200,160,0,.12)';
+      badge.style.color = colors[d.overall] ?? 'var(--text)';
+      badge.style.display = '';
+    }
+
+    // Check pills
+    const checksEl = document.getElementById('hm-checks');
+    if (checksEl && d.checks) {
+      const icons = { pass:'✓', warn:'⚠', fail:'✗' };
+      const cols  = { pass:'var(--green)', warn:'var(--yellow)', fail:'var(--red)' };
+      checksEl.innerHTML = Object.entries(d.checks).map(([k, v]) =>
+        `<span style="padding:3px 8px;border-radius:4px;border:1px solid ${cols[v]};color:${cols[v]};font-size:10px;font-weight:600">${icons[v]} ${k.replace(/_/g,' ')}</span>`
+      ).join('');
+    }
+
+    // HTTP probes
+    const probesEl = document.getElementById('hm-probes');
+    if (probesEl && d.http_probes?.length) {
+      probesEl.innerHTML = '<div style="color:var(--text-dim);font-size:10px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">URL Probes</div>' +
+        d.http_probes.map(p => {
+          const ok = p.ok;
+          const col = ok ? 'var(--green)' : 'var(--red)';
+          const latency = p.latency_ms ? ` ${p.latency_ms}ms` : '';
+          const status  = p.status ? ` [${p.status}]` : '';
+          const err     = p.error  ? ` — ${escHtml(p.error)}` : '';
+          return `<div style="font-size:10px;padding:2px 0;color:${col}">${ok?'✓':'✗'} ${escHtml(p.url)}${status}${latency}${err}</div>`;
+        }).join('');
+    }
+
+    // Log anomalies
+    const logsEl = document.getElementById('hm-logs');
+    if (logsEl) {
+      const issues = (d.log_scan ?? []).flatMap(l => l.issues ?? []);
+      if (issues.length) {
+        logsEl.innerHTML = `<div style="color:var(--yellow);font-size:10px;margin-bottom:2px">⚠ ${issues.length} error line(s) in logs</div>` +
+          issues.slice(0,5).map(l => `<div style="font-size:9px;color:var(--text-dim);font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(l)}</div>`).join('');
+      } else {
+        logsEl.innerHTML = '<div style="color:var(--green);font-size:10px">✓ No error lines in logs</div>';
+      }
+    }
+
+    // Meta
+    const metaEl = document.getElementById('hm-meta');
+    if (metaEl && d.process) {
+      const p = d.process;
+      metaEl.textContent = `Heap: ${p.heap_used_mb}/${p.heap_total_mb} MB | Uptime: ${p.uptime_human} | Event-loop lag: ${p.event_loop_lag_ms}ms | Probed: ${new Date(d.started_at).toLocaleTimeString()}`;
+    }
+
+    if (loading) loading.style.display = 'none';
+    if (results) results.style.display = '';
+  } catch (err) {
+    if (loading) loading.textContent = '⚠ Health probe failed: ' + err.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '▶ Run Now'; }
+  }
 }
 
 function renderAdminReports(reports) {

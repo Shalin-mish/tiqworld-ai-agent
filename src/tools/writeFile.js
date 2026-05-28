@@ -5,6 +5,7 @@ import { execSync } from 'child_process';
 import { config } from '../config.js';
 import { archiveWrite } from '../writeArchive.js';
 import { logEvent } from '../activityLog.js';
+import { guardCheck } from './credentialGuard.js';
 
 export const writeFileDefinition = {
   name: 'write_file',
@@ -102,6 +103,25 @@ function gitCommit(fullPath, reason) {
 // Injected by web server; CLI falls back to readline.
 export async function writeFile({ file_path, new_content, reason, _user = 'unknown', _approvalFn = null }) {
   try {
+    // ── Credential Guard — block before anything else ──────────────────────
+    const guard = guardCheck(new_content, file_path);
+    if (guard.blocked) {
+      logEvent({ user: _user, action: 'write_blocked_credential_guard', detail: { file: file_path, reason: guard.reason } });
+      console.error(`\n🚫 CREDENTIAL GUARD: Write blocked for "${file_path}"\n   ${guard.reason}`);
+      return {
+        status:       'blocked',
+        file_path,
+        blocked_by:   'credential_guard',
+        reason:       guard.reason,
+        findings:     guard.findings,
+        message:      `Write BLOCKED. Hardcoded credentials detected in "${file_path}". Fix them before retrying.`,
+      };
+    }
+    if (guard.findings.length > 0) {
+      console.warn(`\n⚠️  Credential Guard warning for "${file_path}": ${guard.findings.length} finding(s) — proceeding with caution.`);
+    }
+    // ── End credential guard ───────────────────────────────────────────────
+
     const fullPath = path.join(config.codebasePath, file_path);
     const isNewFile = !fs.existsSync(fullPath);
     const oldContent = isNewFile ? '' : fs.readFileSync(fullPath, 'utf-8');

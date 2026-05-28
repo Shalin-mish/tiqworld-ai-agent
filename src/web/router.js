@@ -8,6 +8,7 @@ import { getLastScan, triggerScan } from '../scheduler.js';
 import { logEvent, readLog, logStats } from '../activityLog.js';
 import { listArchives } from '../writeArchive.js';
 import { unreadCount } from '../notifications.js';
+import { healthMonitor } from '../tools/healthMonitor.js';
 
 // ---------------------------------------------------------------------------
 // Session store  { history, taskType, user, github, memory, lastActiveAt, tokens }
@@ -178,6 +179,16 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
     const { result, scannedAt } = getLastScan();
     if (!result) { res.json({ ok: false, message: 'No scan run yet' }); return; }
     res.json({ ok: true, scannedAt, result });
+  });
+
+  // GET /api/health-monitor — run a live health probe
+  router.get('/api/health-monitor', async (_req, res) => {
+    try {
+      const result = await healthMonitor({ last_minutes: 60 });
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
   });
 
   // POST /api/clear
