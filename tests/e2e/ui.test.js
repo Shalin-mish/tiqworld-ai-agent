@@ -110,7 +110,7 @@ test.describe('3-column layout', () => {
   });
 
   test('sidebar can be collapsed', async ({ page }) => {
-    await page.click('#sidebar-toggle');
+    await page.click('#left-panel-toggle');
     await expect(page.locator('#sidebar')).toHaveClass(/collapsed/);
   });
 
@@ -118,7 +118,7 @@ test.describe('3-column layout', () => {
     // Ensure sidebar is expanded before clicking
     const sidebar = page.locator('#sidebar');
     if (await sidebar.evaluate(el => el.classList.contains('collapsed'))) {
-      await page.click('#sidebar-toggle');
+      await page.click('#left-panel-toggle');
       await expect(sidebar).not.toHaveClass(/collapsed/);
     }
     const first = page.locator('.tool-item').first();
