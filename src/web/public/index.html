@@ -2658,12 +2658,22 @@ function refreshAdminCountdowns() {
 setInterval(refreshAdminCountdowns, 60000);
 
 // ── boot ───────────────────────────────────────────────────────────────────────────
-// Switch to tab from URL param synchronously before async init
 (function() {
+  // Switch to tab from URL param, or default to admin
   const tabParam = new URLSearchParams(location.search).get('tab');
-  if (tabParam) {
-    const validTabs = ['approvals','writes','tools','maintenance','admin'];
-    if (validTabs.includes(tabParam)) switchTab(tabParam);
+  const validTabs = ['approvals','writes','tools','maintenance','admin'];
+  const startTab = (tabParam && validTabs.includes(tabParam)) ? tabParam : 'admin';
+  switchTab(startTab);
+
+  // Ensure right panel is open on load (not collapsed)
+  const panel = document.getElementById('ctx-panel');
+  const btn   = document.getElementById('right-panel-toggle');
+  if (panel && panel.classList.contains('collapsed')) {
+    const savedW = parseInt(localStorage.getItem('tiq-right-w') || '272', 10);
+    panel.classList.remove('collapsed');
+    panel.style.width = savedW + 'px';
+    document.documentElement.style.setProperty('--right-w', savedW + 'px');
+    if (btn) { btn.textContent = '‹'; btn.classList.remove('collapsed'); }
   }
 })();
 init();
