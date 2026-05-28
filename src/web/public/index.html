@@ -1289,6 +1289,7 @@ async function pollMaintStatus() {
 function startMaintStream() {
   if (maintEventSource) { maintEventSource.close(); }
   const log = document.getElementById('sidebar-maint-log');
+  if (!log) return;
   log.innerHTML = '';
   maintEventSource = new EventSource('/api/maintenance/stream');
   maintEventSource.onmessage = (e) => {
@@ -1325,20 +1326,26 @@ function appendMaintLog(step, msg, at) {
 }
 
 async function triggerMaintenance(mode) {
-  const btnDeep  = document.getElementById('btn-maint-deep-side');
-  const btnLight = document.getElementById('btn-maint-light-side');
-  btnDeep.disabled = btnLight.disabled = true;
+  const allDeepBtns  = document.querySelectorAll('#btn-maint-deep-side, #admin-btn-deep');
+  const allLightBtns = document.querySelectorAll('#btn-maint-light-side, #admin-btn-light');
+  allDeepBtns.forEach(b => { b.disabled = true; });
+  allLightBtns.forEach(b => { b.disabled = true; });
   try {
-    await fetch('/api/maintenance/trigger', {
+    const res  = await fetch('/api/maintenance/trigger', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ mode, sessionId }),
     });
+    const json = await res.json();
+    if (!json.ok && json.message !== 'Maintenance already running') {
+      console.error('[triggerMaintenance]', json.message);
+      return;
+    }
     startMaintStream();
-    // switch to maintenance tab
     const tabs = document.querySelectorAll('.sidebar-tab');
     switchTab('maintenance', tabs[3]);
   } finally {
-    btnDeep.disabled = btnLight.disabled = false;
+    allDeepBtns.forEach(b => { b.disabled = false; });
+    allLightBtns.forEach(b => { b.disabled = false; });
   }
 }
 
@@ -1470,6 +1477,7 @@ function sendMessage() {
     }
 
     if (data.type === 'approval_needed') {
+      thinkEl.remove();
       pendingApprovalId = data.approvalId;
       switchTab('approvals');
       const card = buildApprovalCard(data);
@@ -1480,6 +1488,7 @@ function sendMessage() {
     }
 
     if (data.type === 'command_approval_needed') {
+      thinkEl.remove();
       pendingApprovalId = data.approvalId;
       switchTab('approvals');
       const card = buildCommandApprovalCard(data);
@@ -1639,10 +1648,12 @@ async function resolveApproval(approved) {
   const id = currentDiffApprovalId ?? pendingApprovalId;
   if (!id) return;
   closeDiffModal();
-  await fetch('/api/approve', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ approvalId:id, decision: approved?'approve':'deny', sessionId }),
-  });
+  try {
+    await fetch('/api/approve', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ approvalId:id, decision: approved?'approve':'deny', sessionId }),
+    });
+  } catch { /* network error — UI still updates */ }
   document.getElementById('approval-list').innerHTML = '<div class="empty-state">Resolved</div>';
   addWriteItem(
     document.getElementById('diff-file').textContent,
@@ -1666,10 +1677,12 @@ function buildCommandApprovalCard(data) {
 }
 
 async function resolveCommandApproval(id, approved) {
-  await fetch('/api/approve', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ approvalId:id, decision: approved?'approve':'deny', sessionId }),
-  });
+  try {
+    await fetch('/api/approve', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ approvalId:id, decision: approved?'approve':'deny', sessionId }),
+    });
+  } catch { /* network error — UI still updates */ }
   document.getElementById('approval-list').innerHTML = '<div class="empty-state">Resolved</div>';
 }
 
@@ -1716,7 +1729,7 @@ function addWriteItem(file, status, reason) {
   const item = document.createElement('div');
   item.className = 'write-item';
   item.innerHTML = `
-    <div class="wi-file">${escHtml(file.split('/').pop())}</div>
+    <div class="wi-file">${escHtml((file ?? '').split('/').pop() || '(unknown)')}</div>
     <div class="wi-meta">
       <span class="wi-status ${status}">${status}</span>
       <span class="text-dim">${escHtml((reason||'').replace('Reason: ','').slice(0,50))}</span>
