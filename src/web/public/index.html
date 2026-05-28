@@ -288,7 +288,7 @@
     }
 
     /* ── CHAT AREA ───────────────────────────────────────────── */
-    .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 320px; }
     .chat-messages {
       flex: 1; overflow-y: auto;
       padding: 20px 24px;
@@ -2095,8 +2095,10 @@ function toggleRightPanel() {
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
     function onMove(ev) {
-      const delta = startX - ev.clientX;
-      const newW  = Math.min(Math.max(startW + delta, 220), window.innerWidth * 0.55);
+      const delta  = startX - ev.clientX;
+      const leftW  = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--left-w')) || 228;
+      const maxRW  = Math.max(220, window.innerWidth - leftW - 320 - 5);
+      const newW   = Math.min(Math.max(startW + delta, 220), maxRW);
       panel.style.width = newW + 'px';
       document.documentElement.style.setProperty('--right-w', newW + 'px');
     }
@@ -2112,11 +2114,13 @@ function toggleRightPanel() {
     document.addEventListener('mouseup', onUp);
   });
 
-  // Restore saved right-panel width on load
+  // Restore saved right-panel width on load (capped to safe range)
   const savedW = parseInt(localStorage.getItem('tiq-right-w') || '272', 10);
   if (savedW && !isNaN(savedW)) {
-    panel.style.width = savedW + 'px';
-    document.documentElement.style.setProperty('--right-w', savedW + 'px');
+    const leftW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--left-w')) || 228;
+    const safeW = Math.min(Math.max(savedW, 220), window.innerWidth - leftW - 320 - 5);
+    panel.style.width = safeW + 'px';
+    document.documentElement.style.setProperty('--right-w', safeW + 'px');
   }
 })();
 
@@ -2339,14 +2343,19 @@ function chip(el) {
 
 // ── Left sidebar drag-to-resize ──────────────────────────────────────────────────
 (function initSidebarResize() {
-  const MIN_W = 160, MAX_W = 420, DEFAULT_W = 228;
+  const MIN_W = 160, DEFAULT_W = 228, MIN_CHAT = 320;
   const sidebar = document.getElementById('sidebar');
   const handle  = document.getElementById('sidebar-resize-handle');
   if (!sidebar || !handle) return;
 
+  function maxW() {
+    const rightW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--right-w')) || 272;
+    return Math.max(MIN_W, window.innerWidth - rightW - MIN_CHAT - 5);
+  }
+
   // Restore saved width on load
   const saved = parseInt(localStorage.getItem('tiq-sidebar-w') || DEFAULT_W, 10);
-  const initW = (saved && !isNaN(saved)) ? saved : DEFAULT_W;
+  const initW = Math.min(Math.max((saved && !isNaN(saved)) ? saved : DEFAULT_W, MIN_W), maxW());
   sidebar.style.width = initW + 'px';
   document.documentElement.style.setProperty('--left-w', initW + 'px');
 
@@ -2361,7 +2370,7 @@ function chip(el) {
     document.body.style.userSelect = 'none';
 
     function onMove(ev) {
-      const newW = Math.min(MAX_W, Math.max(MIN_W, startW + ev.clientX - startX));
+      const newW = Math.min(maxW(), Math.max(MIN_W, startW + ev.clientX - startX));
       sidebar.style.width = newW + 'px';
       document.documentElement.style.setProperty('--left-w', newW + 'px');
     }
