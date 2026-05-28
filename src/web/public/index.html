@@ -176,23 +176,20 @@
       display: flex; flex-direction: column;
       flex-shrink: 0; overflow: hidden;
       transition: width .15s;
-      position: relative; /* needed for resize handle */
       min-width: 0;
     }
     .sidebar-left.collapsed { width: 0 !important; }
     .sidebar-left.resizing  { transition: none; user-select: none; }
 
-    /* Drag handle — right edge of left sidebar */
-    .sidebar-resize-handle {
-      position: absolute; top: 0; right: -3px;
-      width: 6px; height: 100%;
-      cursor: col-resize; z-index: 10;
-      background: transparent;
+    /* Left drag handle — fixed, tracks --left-w */
+    #sidebar-resize-handle {
+      position: fixed; left: calc(var(--left-w) - 3px); top: var(--header-h);
+      width: 6px; height: calc(100vh - var(--header-h));
+      cursor: col-resize; z-index: 25; background: transparent;
     }
-    .sidebar-resize-handle:hover,
-    .sidebar-resize-handle.dragging {
-      background: var(--accent);
-      opacity: .5;
+    #sidebar-resize-handle:hover,
+    #sidebar-resize-handle.dragging {
+      background: var(--accent); opacity: .4;
     }
 
     /* left panel toggle arrow — fixed, right edge of left sidebar */
@@ -453,12 +450,11 @@
       flex-shrink: 0; overflow: hidden;
       transition: width .2s ease;
     }
-    .sidebar-right.collapsed { width: 0; border-left: none; }
-    .sidebar-right.expanded  { width: min(580px, 45vw); }
+    .sidebar-right.collapsed { width: 0 !important; border-left: none; }
 
-    /* right panel toggle button (fixed, sits at left edge of right sidebar) */
+    /* right panel toggle button (fixed, left edge of right sidebar + 5px handle) */
     #right-panel-toggle {
-      position: fixed; right: var(--right-w); top: calc(var(--header-h) + 8px);
+      position: fixed; right: calc(var(--right-w) + 5px); top: calc(var(--header-h) + 8px);
       z-index: 30; background: var(--surface2);
       border: 1px solid var(--border); border-right: none;
       color: var(--text-dim); width: 18px; height: 48px;
@@ -468,7 +464,6 @@
       padding: 0;
     }
     #right-panel-toggle:hover { background: var(--surface3); color: var(--accent); }
-    /* when sidebar collapsed, button sits at viewport right edge */
     #right-panel-toggle.collapsed { right: 0; }
 
     .sidebar-tabs {
@@ -975,10 +970,11 @@
       .sidebar-right.mobile-open { transform: translateX(0); }
       .sidebar-right.collapsed   { transform: translateX(100%); }
 
-      #right-resize-handle { display: none; }
-      #right-panel-toggle  { display: none; }
-      #left-panel-toggle   { display: none; }
-      #sidebar-toggle      { display: flex !important; }
+      #right-resize-handle  { display: none; }
+      #right-panel-toggle   { display: none; }
+      #left-panel-toggle    { display: none; }
+      #sidebar-resize-handle { display: none; }
+      #sidebar-toggle        { display: flex !important; }
 
       .mobile-overlay {
         display: none; position: fixed; inset: 0;
@@ -1112,16 +1108,16 @@
   <span class="progress-task-type" id="progress-task-badge"></span>
 </div>
 
-<!-- PANEL TOGGLE BUTTONS (fixed, outside .body to avoid stacking issues) -->
-<button id="left-panel-toggle" onclick="toggleLeftPanel()" title="Toggle left panel">›</button>
-<button id="right-panel-toggle" onclick="toggleRightPanel()" title="Toggle right panel">‹</button>
+<!-- PANEL TOGGLE BUTTONS + RESIZE HANDLES (fixed, outside .body) -->
+<button id="left-panel-toggle" onclick="toggleLeftPanel()" title="Toggle left panel">‹</button>
+<div id="sidebar-resize-handle" title="Drag to resize"></div>
+<button id="right-panel-toggle" onclick="toggleRightPanel()" title="Toggle right panel">›</button>
 
 <!-- MAIN BODY -->
 <div class="body">
 
   <!-- LEFT SIDEBAR -->
   <aside class="sidebar-left" id="sidebar">
-    <div class="sidebar-resize-handle" id="sidebar-resize-handle" title="Drag to resize"></div>
     <div class="sidebar-section">
       <div class="sidebar-label">Quick Actions</div>
       <button class="sidebar-btn accent-btn" onclick="quickMaintenance()">
@@ -1970,14 +1966,15 @@ function toggleLeftPanel() {
     sidebar.classList.remove('collapsed');
     sidebar.style.width = savedW + 'px';
     document.documentElement.style.setProperty('--left-w', savedW + 'px');
-    btn.textContent = '‹';
+    btn.textContent = '‹';   // open = arrow points left (click to close)
     btn.classList.remove('collapsed');
     if (handle) handle.style.display = '';
   } else {
     localStorage.setItem('tiq-sidebar-w', sidebar.offsetWidth);
+    sidebar.style.width = '';  // remove inline so !important works
     sidebar.classList.add('collapsed');
     document.documentElement.style.setProperty('--left-w', '0px');
-    btn.textContent = '›';
+    btn.textContent = '›';   // closed = arrow points right (click to open)
     btn.classList.add('collapsed');
     if (handle) handle.style.display = 'none';
   }
@@ -1990,20 +1987,19 @@ function toggleRightPanel() {
   const handle = document.getElementById('right-resize-handle');
   const isCollapsed = panel.classList.contains('collapsed');
   if (isCollapsed) {
-    // expand: restore saved width or default
     const savedW = parseInt(localStorage.getItem('tiq-right-w') || '272', 10);
     panel.classList.remove('collapsed');
     panel.style.width = savedW + 'px';
     document.documentElement.style.setProperty('--right-w', savedW + 'px');
-    btn.textContent = '›';
+    btn.textContent = '›';   // open = arrow points right (click to close)
     btn.classList.remove('collapsed');
     if (handle) handle.style.display = '';
   } else {
-    // collapse: save current width
     localStorage.setItem('tiq-right-w', panel.offsetWidth);
+    panel.style.width = '';  // remove inline so !important works
     panel.classList.add('collapsed');
     document.documentElement.style.setProperty('--right-w', '0px');
-    btn.textContent = '‹';
+    btn.textContent = '‹';   // closed = arrow points left (click to open)
     btn.classList.add('collapsed');
     if (handle) handle.style.display = 'none';
   }
@@ -2264,43 +2260,40 @@ function chip(el) {
   const handle  = document.getElementById('sidebar-resize-handle');
   if (!sidebar || !handle) return;
 
-  // Restore saved width
+  // Restore saved width on load
   const saved = parseInt(localStorage.getItem('tiq-sidebar-w') || DEFAULT_W, 10);
-  if (saved && !isNaN(saved)) {
-    document.documentElement.style.setProperty('--left-w', saved + 'px');
-    sidebar.style.width = saved + 'px';
-  }
+  const initW = (saved && !isNaN(saved)) ? saved : DEFAULT_W;
+  sidebar.style.width = initW + 'px';
+  document.documentElement.style.setProperty('--left-w', initW + 'px');
 
-  let startX = 0, startW = 0, dragging = false;
+  let startX = 0, startW = 0;
 
   handle.addEventListener('mousedown', (e) => {
     e.preventDefault();
-    dragging  = true;
-    startX    = e.clientX;
-    startW    = sidebar.offsetWidth;
+    startX = e.clientX;
+    startW = sidebar.offsetWidth;
     handle.classList.add('dragging');
-    sidebar.classList.add('resizing');
     document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(ev) {
+      const newW = Math.min(MAX_W, Math.max(MIN_W, startW + ev.clientX - startX));
+      sidebar.style.width = newW + 'px';
+      document.documentElement.style.setProperty('--left-w', newW + 'px');
+    }
+    function onUp() {
+      handle.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      localStorage.setItem('tiq-sidebar-w', sidebar.offsetWidth);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   });
 
-  document.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    const delta = e.clientX - startX;
-    const newW  = Math.min(MAX_W, Math.max(MIN_W, startW + delta));
-    sidebar.style.width = newW + 'px';
-    document.documentElement.style.setProperty('--left-w', newW + 'px');
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    handle.classList.remove('dragging');
-    sidebar.classList.remove('resizing');
-    document.body.style.cursor = '';
-    localStorage.setItem('tiq-sidebar-w', sidebar.offsetWidth);
-  });
-
-  // Double-click handle to reset to default width
+  // Double-click to reset
   handle.addEventListener('dblclick', () => {
     sidebar.style.width = DEFAULT_W + 'px';
     document.documentElement.style.setProperty('--left-w', DEFAULT_W + 'px');
