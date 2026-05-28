@@ -791,6 +791,24 @@
       background: var(--surface2); border: 1px solid var(--border);
       border-radius: 5px; padding: 6px 8px;
     }
+    .admin-stat.clickable { cursor: pointer; transition: border-color .15s, background .15s; }
+    .admin-stat.clickable:hover { background: var(--surface3); border-color: var(--border-light); }
+    .admin-stat.clickable.active { border-color: var(--accent); background: var(--accent-dim); }
+    .admin-filter-label {
+      font-size: 10px; color: var(--accent); margin-bottom: 6px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .admin-filter-clear { cursor: pointer; color: var(--text-dim); font-size: 10px; }
+    .admin-filter-clear:hover { color: var(--text); }
+    .admin-stat.clickable { cursor: pointer; transition: border-color .15s, background .15s; }
+    .admin-stat.clickable:hover { background: var(--surface3); border-color: var(--border-light); }
+    .admin-stat.clickable.active { border-color: var(--accent); background: var(--accent-dim); }
+    .admin-filter-label {
+      font-size: 10px; color: var(--accent); margin-bottom: 6px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .admin-filter-clear { cursor: pointer; color: var(--text-dim); font-size: 10px; }
+    .admin-filter-clear:hover { color: var(--text); }
     .admin-stat-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }
     .admin-stat-value { font-size: 17px; font-weight: 700; margin-top: 2px; line-height: 1; }
     .admin-stat-value.red    { color: var(--red); }
@@ -844,6 +862,32 @@
       padding: 1px 5px; border-radius: 99px; font-size: 9px; font-weight: 600;
     }
     .admin-ts { font-size: 9px; color: var(--text-dim); white-space: nowrap; }
+
+    /* == MOBILE RESPONSIVE ========================================= */
+    @media (max-width: 900px) {
+      .sidebar-left  { display: none; }
+      .sidebar-right { display: none; }
+      .sidebar-right.mobile-open {
+        display: flex;
+        position: fixed; bottom: 0; left: 0; right: 0;
+        width: 100%; height: 260px;
+        border-top: 1px solid var(--border); border-left: none; z-index: 50;
+        background: var(--surface);
+      }
+    }
+    .mobile-sidebar-toggle {
+      display: none;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text); padding: 4px 9px; border-radius: 5px;
+      font-size: 11px; cursor: pointer; margin-left: 6px; flex-shrink: 0;
+    }
+    .mobile-sidebar-toggle:hover { background: var(--surface2); }
+    @media (max-width: 900px) {
+      .mobile-sidebar-toggle { display: inline-flex; align-items: center; gap: 4px; }
+      .chat-messages { padding: 12px 10px; }
+      .input-wrap { padding: 8px 10px; }
+      .header { padding: 0 10px; }
+    }
   </style>
 </head>
 <body>
@@ -1018,6 +1062,10 @@
   </main>
 
   <!-- RIGHT SIDEBAR -->
+  <button class="mobile-sidebar-toggle" id="mobile-right-toggle" onclick="toggleMobileRight()" title="Toggle panel">☰ Panel</button>
+
+  <button class="mobile-sidebar-toggle" id="mobile-right-toggle" onclick="toggleMobileRight()" title="Toggle panel">☰ Panel</button>
+
   <aside class="sidebar-right" id="ctx-panel">
     <div class="sidebar-tabs">
       <div class="sidebar-tab active" onclick="switchTab('approvals',this)">Approvals</div>
@@ -1060,14 +1108,14 @@
 
       <!-- Stat cards mini-grid -->
       <div class="admin-stats-grid">
-        <div class="admin-stat"><div class="admin-stat-label">Total Actions</div><div class="admin-stat-value" id="as-total">—</div></div>
-        <div class="admin-stat"><div class="admin-stat-label">Critical TODOs</div><div class="admin-stat-value red" id="as-todos">—</div></div>
-        <div class="admin-stat"><div class="admin-stat-label">Lint Errors</div><div class="admin-stat-value red" id="as-lint">—</div></div>
-        <div class="admin-stat"><div class="admin-stat-label">Dead Code</div><div class="admin-stat-value yellow" id="as-dead">—</div></div>
-        <div class="admin-stat"><div class="admin-stat-label">Uncommitted</div><div class="admin-stat-value yellow" id="as-uncommitted">—</div></div>
-        <div class="admin-stat"><div class="admin-stat-label">Missing Env</div><div class="admin-stat-value yellow" id="as-env">—</div></div>
-        <div class="admin-stat"><div class="admin-stat-label">File Writes</div><div class="admin-stat-value" id="as-writes">—</div></div>
-        <div class="admin-stat"><div class="admin-stat-label">Recent Commits</div><div class="admin-stat-value green" id="as-commits">—</div></div>
+        <div class="admin-stat clickable" onclick="filterAdminLog(null)" title="Show all"><div class="admin-stat-label">Total Actions</div><div class="admin-stat-value" id="as-total">—</div></div>
+        <div class="admin-stat clickable" onclick="filterAdminLog('find_todos')" title="TODO log"><div class="admin-stat-label">Critical TODOs</div><div class="admin-stat-value red" id="as-todos">—</div></div>
+        <div class="admin-stat clickable" onclick="filterAdminLog('lint')" title="Lint log"><div class="admin-stat-label">Lint Errors</div><div class="admin-stat-value red" id="as-lint">—</div></div>
+        <div class="admin-stat clickable" onclick="filterAdminLog('dead_code')" title="Dead code log"><div class="admin-stat-label">Dead Code</div><div class="admin-stat-value yellow" id="as-dead">—</div></div>
+        <div class="admin-stat clickable" onclick="filterAdminLog('git_status')" title="Git log"><div class="admin-stat-label">Uncommitted</div><div class="admin-stat-value yellow" id="as-uncommitted">—</div></div>
+        <div class="admin-stat clickable" onclick="filterAdminLog('check_env')" title="Env log"><div class="admin-stat-label">Missing Env</div><div class="admin-stat-value yellow" id="as-env">—</div></div>
+        <div class="admin-stat clickable" onclick="filterAdminLog('write_file')" title="Write log"><div class="admin-stat-label">File Writes</div><div class="admin-stat-value" id="as-writes">—</div></div>
+        <div class="admin-stat clickable" onclick="filterAdminLog('git_log')" title="Commit log"><div class="admin-stat-label">Recent Commits</div><div class="admin-stat-value green" id="as-commits">—</div></div>
       </div>
 
       <!-- Cron schedule -->
@@ -1424,9 +1472,9 @@ function sendMessage() {
   const url = `/api/chat?q=${encodeURIComponent(text)}&sessionId=${encodeURIComponent(sessionId)}`;
   eventSource = new EventSource(url);
 
-  eventSource.onmessage = (e) => {
+  function onMessage(e) {
+    if (e.data === '[DONE]') { done(); return; }
     const data = JSON.parse(e.data);
-    if (data === '[DONE]' || e.data === '[DONE]') { done(); return; }
 
     if (data.type === 'task_type') {
       taskType = data.raw;
@@ -1507,26 +1555,63 @@ function sendMessage() {
 
     scrollBottom();
     refreshMemory();
-  };
+  }
 
-  eventSource.onerror = async (e) => {
-    if (eventSource?.readyState === EventSource.CLOSED) {
-      // Try fetching the URL directly to get the HTTP status for user-friendly messaging
-      try {
-        const r = await fetch(`/api/chat?q=${encodeURIComponent(text)}&sessionId=${encodeURIComponent(sessionId)}`, { method: 'HEAD' });
-        if (r.status === 429) {
-          const err = document.createElement('div');
-          err.style.cssText = 'color:var(--yellow);font-size:12px;margin-top:6px;';
-          err.textContent = '⚠ Rate limit reached — please wait a moment before sending another message.';
-          bubble.appendChild(err);
-        }
-      } catch { /* network error, silent */ }
+  eventSource.onmessage = onMessage;
+
+  let _reconnAttempts = 0;
+  let _reconnTimer    = null;
+
+  function reconnect() {
+    if (eventSource) { eventSource.close(); eventSource = null; }
+    if (_reconnAttempts === 0) {
+      const notice = document.createElement('div');
+      notice.id = 'sse-reconnect-notice';
+      notice.style.cssText = 'color:var(--text-dim);font-size:11px;margin-top:4px;border-left:2px solid var(--border-light);padding-left:8px;';
+      notice.textContent = 'Connection interrupted — reconnecting…';
+      bubble.appendChild(notice);
     }
-    done();
-  };
+    if (_reconnAttempts >= 3) {
+      document.getElementById('sse-reconnect-notice')?.remove();
+      const errEl = document.createElement('div');
+      errEl.style.cssText = 'color:var(--red);font-size:12px;margin-top:6px;';
+      errEl.textContent = '⚠ Connection lost — please resend your message.';
+      bubble.appendChild(errEl);
+      done(); return;
+    }
+    const delay = Math.min(1000 * Math.pow(2, _reconnAttempts), 8000);
+    _reconnAttempts++;
+    const notice = document.getElementById('sse-reconnect-notice');
+    if (notice) notice.textContent = 'Reconnecting… (attempt ' + _reconnAttempts + '/3)';
+    _reconnTimer = setTimeout(() => {
+      eventSource = new EventSource(url);
+      eventSource.onmessage = onMessage;
+      eventSource.onerror   = handleError;
+    }, delay);
+  }
+
+  async function handleError() {
+    try {
+      const r = await fetch('/api/chat?q=' + encodeURIComponent(text) + '&sessionId=' + encodeURIComponent(sessionId), { method: 'HEAD' });
+      if (r.status === 429) {
+        if (eventSource) { eventSource.close(); eventSource = null; }
+        document.getElementById('sse-reconnect-notice')?.remove();
+        const errEl = document.createElement('div');
+        errEl.style.cssText = 'color:var(--yellow);font-size:12px;margin-top:6px;';
+        errEl.textContent = '⚠ Rate limit reached — please wait a moment.';
+        bubble.appendChild(errEl);
+        done(); return;
+      }
+    } catch { /* offline — still retry */ }
+    reconnect();
+  }
+
+  eventSource.onerror = handleError;
 
   function done() {
+    if (_reconnTimer) { clearTimeout(_reconnTimer); _reconnTimer = null; }
     thinkEl.remove();
+    document.getElementById('sse-reconnect-notice')?.remove();
     if (eventSource) { eventSource.close(); eventSource = null; }
     setSending(false);
     stopProgress();
@@ -1876,6 +1961,20 @@ function chip(el) {
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────────────
+function toggleMobileRight() {
+  const panel = document.getElementById('ctx-panel');
+  panel.classList.toggle('mobile-open');
+  const btn = document.getElementById('mobile-right-toggle');
+  if (btn) btn.textContent = panel.classList.contains('mobile-open') ? '✕ Panel' : '☰ Panel';
+}
+
+function toggleMobileRight() {
+  const panel = document.getElementById('ctx-panel');
+  panel.classList.toggle('mobile-open');
+  const btn = document.getElementById('mobile-right-toggle');
+  if (btn) btn.textContent = panel.classList.contains('mobile-open') ? '✕ Panel' : '☰ Panel';
+}
+
 function setSending(v) {
   sending = v;
   document.getElementById('send-btn').disabled = v || inputEl.value.trim().length === 0;
@@ -1917,6 +2016,8 @@ function renderMarkdown(text) {
     `<pre><code class="lang-${lang||''}">${escHtml(code.trimEnd())}</code></pre>`);
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  out = out.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
+  out = out.replace(/(?<![*])\*([^*\n]+)\*(?![*])/g, '<em>$1</em>');
   // file citations
   out = out.replace(/([\w./-]+\.(?:js|jsx|ts|tsx|mjs|py|json))(?::(\d+))?/g,
     (_, f, l) => `<span class="file-cite">${escHtml(f)}${l?':'+l:''}</span>`);
@@ -2083,6 +2184,7 @@ function renderAdminReports(reports) {
 }
 
 function renderAdminActivity(entries) {
+  if (_adminActiveFilter === null) _adminAllEntries = entries;
   const tbody = document.getElementById('admin-activity-body');
   if (!tbody) return;
   const rows = entries.slice(0, 20);
@@ -2110,6 +2212,42 @@ function renderAdminActivity(entries) {
       <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px;font-size:9px;color:var(--text-dim)">${escHtml(detail)}</td>
     </tr>`;
   }).join('');
+}
+
+let _adminAllEntries  = [];
+let _adminActiveFilter = null;
+
+function filterAdminLog(filterKey) {
+  if (_adminActiveFilter === filterKey) filterKey = null;
+  _adminActiveFilter = filterKey;
+  document.querySelectorAll('.admin-stat.clickable').forEach(el => el.classList.remove('active'));
+  if (filterKey !== null) {
+    document.querySelectorAll('.admin-stat.clickable').forEach(el => {
+      const oc = el.getAttribute('onclick') || '';
+      if (oc.includes(filterKey)) el.classList.add('active');
+    });
+  }
+  const filtered = filterKey === null
+    ? _adminAllEntries
+    : _adminAllEntries.filter(e =>
+        (e.action || '').includes(filterKey) ||
+        (e.tool   || '').includes(filterKey) ||
+        (e.q      || '').toLowerCase().includes(filterKey) ||
+        (e.file   || '').toLowerCase().includes(filterKey)
+      );
+  let labelEl = document.getElementById('admin-filter-label');
+  if (!labelEl) {
+    labelEl = document.createElement('div');
+    labelEl.id = 'admin-filter-label';
+    labelEl.className = 'admin-filter-label';
+    const tbl = document.querySelector('#tab-admin .admin-tbl-wrap:last-of-type');
+    if (tbl) tbl.parentNode.insertBefore(labelEl, tbl);
+  }
+  labelEl.innerHTML = filterKey === null
+    ? ''
+    : 'Showing: <strong>' + filterKey + '</strong> (' + filtered.length + ' entries) '
+      + '<span class="admin-filter-clear" onclick="filterAdminLog(null)">✕ Clear</span>';
+  renderAdminActivity(filtered);
 }
 
 function refreshAdminCountdowns() {
