@@ -4,6 +4,49 @@
 
 ---
 
+## May 27, 2026 (Session 4) — README fixed, full test suite verified, final state confirmed
+
+### What changed
+
+**README.md — 4 bugs fixed:**
+- Port `3000` → `3001` (actual config.js port)
+- `TIQ_CODEBASE_PATH` example: `C:/Users/.../TIQ` → `C:/Users/.../tiq_workplace`
+- Stack description: added tiq_workplace as TypeScript microservices (Fastify + PostgreSQL, 7 services + 2 frontends)
+- Admin URL: removed `localhost:3000/admin` (doesn't exist as a separate URL) — admin is the Admin tab in single-page UI at `localhost:3001`
+- New section added: **"Verify Commands (tiq_workplace microservices)"** — shows `npm --prefix backend/<service>` examples for tests, build, lint
+
+**Final test run:**
+- 6 unit test files, 75 unit tests — all passing
+- 28 e2e tests (Playwright) — all passing
+- 0 failures, 0 errors
+
+### Current state of the agent
+
+| Area | Status |
+|------|--------|
+| 24 tools | All wired, tested |
+| Per-session log isolation | Done (session.js Map) |
+| Tool call deduplication | Done (seenCalls Set) |
+| Bedrock timeout (AbortController) | Done, 60s default |
+| Context-aware diff | Done (3-line context + @@ headers) |
+| Rollback (gitBackup restore) | Fixed — was a no-op |
+| Test file safety gate | Done (HIGH_RISK_PATTERNS) |
+| Rate limiting + input cap | Done (express-rate-limit) |
+| Token usage SSE | Done (sidebar live update) |
+| Session TTL eviction | Done (2hr idle auto-cleanup) |
+| Approval timeout | Done (5min auto-reject) |
+| tiq_workplace alignment | Done (system prompt, commands, patterns) |
+| GitHub Actions CI | Created (.github/workflows/ci.yml) |
+| README | Fixed (port, path, stack, admin URL) |
+
+**Total tests: 75 unit + 28 e2e = 103 tests passing**
+
+### Ready for lead review
+
+Agent is in final pre-review state. All known production drawbacks fixed. Once lead approves, `TIQ_CODEBASE_PATH` is pointed at the real TIQ codebase and `NIGHT_MAINTENANCE_CRON` is set.
+
+---
+
 ## May 27, 2026 (Session 3) — Aligned agent with tiq_workplace (sample codebase)
 
 ### Context

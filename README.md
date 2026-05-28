@@ -8,6 +8,7 @@ Claude-powered AI agent embedded in the TIQ World engineering team. Not a chatbo
 - **AI:** Claude via AWS Bedrock (`us-east-2`)
 - **UI:** Express + SSE (no frontend build step)
 - **DB:** PostgreSQL read-only via SSM tunnel (localhost:5433)
+- **Target codebase:** `tiq_workplace` — TypeScript microservices (Fastify + PostgreSQL, 7 backend services + 2 React frontends)
 
 ## Setup
 
@@ -23,7 +24,7 @@ Required `.env` variables:
 AWS_REGION=us-east-2
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
-TIQ_CODEBASE_PATH=C:/Users/Shalini Mishra/TIQ
+TIQ_CODEBASE_PATH=C:/Users/Shalini Mishra/tiq_workplace
 DB_URL=postgresql://...@localhost:5433/tiqworld
 ```
 
@@ -32,8 +33,7 @@ DB_URL=postgresql://...@localhost:5433/tiqworld
 ```bash
 # Web UI (recommended)
 npm run web
-# → http://localhost:3000        Chat UI
-# → http://localhost:3000/admin  Admin panel
+# → http://localhost:3001        Chat UI (single-page: chat + admin tabs)
 
 # CLI (interactive terminal)
 npm run start
@@ -59,6 +59,30 @@ pm2 restart tiq-agent
 
 Once PM2 is set up, the agent stays alive through reboots. Night maintenance at 2 AM IST fires automatically.
 
+## Verify Commands (tiq_workplace microservices)
+
+The agent runs tests and builds **per service** — there is no top-level `npm test` in `tiq_workplace`.
+
+```bash
+# Run tests for a service
+npm --prefix backend/auth-service test
+npm --prefix backend/training-service test
+npm --prefix backend/assessment-service test
+
+# Build (TypeScript compile check)
+npm --prefix backend/auth-service run build
+
+# Frontend
+npm --prefix consumer-app test
+npm --prefix admin-app test
+
+# Lint
+npm --prefix backend/auth-service run lint
+npx eslint backend/auth-service/src
+```
+
+Services: `auth-service`, `training-service`, `assessment-service`, `inference-service`, `notification-service`, `job-posting-service`, `payment-service`
+
 ## Tools (24 total)
 
 | Group | Tools |
@@ -75,7 +99,7 @@ Once PM2 is set up, the agent stays alive through reboots. Night maintenance at 
 | `0 2 * * *` | 2:00 AM | Deep scan + auto-fix (confidence ≥ 55) |
 | `0 */2 * * *` | Every 2h | Light scan, no writes |
 
-Admin panel at `/admin` shows live progress, report history, and write approvals.
+Admin panel is embedded in the main UI at `http://localhost:3001` (Admin tab) — shows live progress, report history, and write approvals.
 
 ## Admin Panel
 

@@ -29,7 +29,7 @@ export function listReports(limit = 50) {
       const data   = JSON.parse(raw);
       const s      = data.scan?.summary ?? {};
       return {
-        file,
+        file:          f,
         mode:          data.mode,
         started_at:    data.started_at,
         duration_sec:  data.duration_sec,

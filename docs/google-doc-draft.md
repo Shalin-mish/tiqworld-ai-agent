@@ -268,3 +268,47 @@ Every day I work, I commit and push. Every day I commit, I update this Google Do
 - Week 2 priority: implement real tool-use loop in agent.py
 
 ---
+
+## May 27, 2026 — UI Polish & Responsive Design
+
+**What I did:**
+Focused entirely on the web UI — no backend changes, purely front-end improvements.
+
+Three things I tackled:
+
+**1. Welcome screen cleanup**
+The welcome screen had "TIQ WORLD" showing twice — once in the logo image, and again as a text heading below it. Removed the duplicate heading. Now the logo is the brand mark and "AI AGENT" sits cleanly beside it as a tag. Also rewrote the tagline to be product-language rather than a feature list.
+
+Before: *"Ask anything about the codebase. I'll read files, trace errors, review code, and suggest fixes — with your approval before any change."*
+After: *"Your AI-powered engineering teammate for the TIQ World codebase. You review and approve every change before it happens."*
+
+The first version reads like a documentation sentence. The second is a product value proposition.
+
+**2. Right panel — resizable and collapsible**
+The Approvals / Writes / Tools / Maint / Admin panel on the right was a fixed 272px. Two problems: too narrow for Admin stats when you want to read them properly, and no way to hide it when you just want to chat.
+
+Added:
+- A drag handle on the left edge of the panel. Drag left to expand (up to 55% of viewport), drag right to shrink (minimum 220px).
+- A `‹ ›` toggle button that collapses the panel completely so the chat area goes full-width.
+
+This is the pattern used in most professional IDEs — VS Code, JetBrains, etc. Resize when you need detail, collapse when you don't.
+
+**3. Mobile responsive layout**
+The app had no mobile handling at all — everything was fixed-width, sidebars overlapped on small screens. 
+
+Added a full responsive breakpoint at 768px:
+- Left sidebar becomes a drawer (slides in from left)
+- Right panel becomes a drawer (slides in from right)
+- Both panels are triggered by a bottom navigation bar with five buttons: Menu, Approvals, Tools, Maint, Admin
+- A dark overlay appears behind open drawers, tap to close
+- Header simplifies — model badge and maintenance button hidden on mobile to save space
+
+Tested on 390×844 (iPhone 14 viewport).
+
+**Why this matters:**
+The agent is used during code reviews and maintenance checks, which often happen on the go. A UI that only works on desktop is a tool that only gets used when you're at your desk.
+
+**What I didn't touch:**
+All backend logic, API routes, tool execution, and maintenance engine are unchanged. This was purely visual.
+
+---

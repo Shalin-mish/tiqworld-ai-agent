@@ -72,6 +72,11 @@
       letter-spacing: -.3px;
       white-space: nowrap;
     }
+    .header-logo img {
+      height: 28px;
+      width: auto;
+      display: block;
+    }
     .header-logo .dot {
       color: var(--accent);
       font-size: 18px;
@@ -161,7 +166,7 @@
     .task-feature     { background: var(--green-dim);  color: var(--green); }
 
     /* ── BODY LAYOUT ─────────────────────────────────────────── */
-    .body { display: flex; flex: 1; overflow: hidden; }
+    .body { display: flex; flex: 1; overflow: hidden; position: relative; }
 
     /* ── LEFT SIDEBAR ────────────────────────────────────────── */
     .sidebar-left {
@@ -189,6 +194,20 @@
       background: var(--accent);
       opacity: .5;
     }
+
+    /* left panel toggle arrow — fixed, right edge of left sidebar */
+    #left-panel-toggle {
+      position: fixed; left: var(--left-w); top: calc(var(--header-h) + 8px);
+      z-index: 30; background: var(--surface2);
+      border: 1px solid var(--border); border-left: none;
+      color: var(--text-dim); width: 18px; height: 48px;
+      border-radius: 0 6px 6px 0; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; transition: left .15s ease, color .15s, background .15s;
+      padding: 0;
+    }
+    #left-panel-toggle:hover { background: var(--surface3); color: var(--accent); }
+    #left-panel-toggle.collapsed { left: 0; }
     .sidebar-section { padding: 12px; border-bottom: 1px solid var(--border); }
     .tool-item {
       padding: 5px 8px; border-radius: 5px; cursor: pointer;
@@ -432,34 +451,42 @@
       border-left: 1px solid var(--border);
       display: flex; flex-direction: column;
       flex-shrink: 0; overflow: hidden;
+      transition: width .2s ease;
     }
-    .sidebar-mobile-close {
-      display: none;
-      align-items: center; justify-content: space-between;
-      padding: 8px 12px; border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+    .sidebar-right.collapsed { width: 0; border-left: none; }
+    .sidebar-right.expanded  { width: min(580px, 45vw); }
+
+    /* right panel toggle button (fixed, sits at left edge of right sidebar) */
+    #right-panel-toggle {
+      position: fixed; right: var(--right-w); top: calc(var(--header-h) + 8px);
+      z-index: 30; background: var(--surface2);
+      border: 1px solid var(--border); border-right: none;
+      color: var(--text-dim); width: 18px; height: 48px;
+      border-radius: 6px 0 0 6px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; transition: right .2s ease, color .15s, background .15s;
+      padding: 0;
     }
-    .sidebar-right.mobile-open .sidebar-mobile-close { display: flex; }
-    .smc-title { font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
-    .smc-close {
-      background: var(--surface3); border: none; color: var(--text-dim);
-      width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
-      font-size: 12px; display: flex; align-items: center; justify-content: center;
+    #right-panel-toggle:hover { background: var(--surface3); color: var(--accent); }
+    /* when sidebar collapsed, button sits at viewport right edge */
+    #right-panel-toggle.collapsed { right: 0; }
+
+    .sidebar-tabs {
+      display: flex; border-bottom: 1px solid var(--border);
+      flex-shrink: 0; background: var(--surface2);
     }
-    .smc-close:hover { background: var(--red-dim); color: var(--red); }
-    .sidebar-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
-    .sidebar-tabs::-webkit-scrollbar { display: none; }
     .sidebar-tab {
-      flex: 1; padding: 8px 2px;
-      font-size: 9.5px; font-weight: 600; text-align: center;
+      flex: 1; padding: 7px 2px 5px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
       cursor: pointer; color: var(--text-dim);
       border-bottom: 2px solid transparent;
-      transition: color .15s, border-color .15s;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      transition: color .15s, border-color .15s, background .15s;
+      position: relative;
     }
-    .sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .sidebar-tab:hover { background: var(--surface3); color: var(--text); }
+    .sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--surface); }
+    .tab-icon { font-size: 14px; line-height: 1; }
+    .tab-label { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
     .sidebar-tab-panel { display: none; flex: 1; overflow-y: auto; padding: 12px; }
     .sidebar-tab-panel::-webkit-scrollbar { width: 3px; }
     .sidebar-tab-panel::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
@@ -641,8 +668,29 @@
       text-align: center; padding: 40px;
     }
     .welcome-logo {
-      font-size: 48px; line-height: 1;
+      line-height: 1;
       animation: float 4s ease-in-out infinite;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .welcome-logo img {
+      height: 52px;
+      width: auto;
+    }
+    .welcome-logo-text {
+      display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15;
+    }
+    .welcome-logo-text .wlt-brand {
+      font-size: 22px; font-weight: 800; letter-spacing: -.5px; color: var(--text);
+    }
+    .welcome-logo-text .wlt-tag {
+      font-size: 13px; font-weight: 700; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--accent);
+    }
+    @media (max-width: 480px) {
+      .welcome-logo { flex-direction: column; gap: 8px; }
+      .welcome-logo img { height: 44px; }
+      .welcome-logo-text { align-items: center; }
+      .welcome-logo-text .wlt-brand { font-size: 20px; }
     }
     @keyframes float {
       0%,100% { transform: translateY(0); }
@@ -896,54 +944,89 @@
     }
     .admin-ts { font-size: 9px; color: var(--text-dim); white-space: nowrap; }
 
-    /* == MOBILE RESPONSIVE ========================================= */
-    /* Toggle button — hidden on desktop, shown on mobile only */
-    .mobile-sidebar-toggle { display: none; }
+    /* ── RIGHT PANEL RESIZE HANDLE ──────────────────────────────── */
+    #right-resize-handle {
+      width: 5px; flex-shrink: 0;
+      background: transparent; cursor: col-resize;
+      border-left: 2px solid var(--border);
+      transition: border-color .15s, background .15s;
+      z-index: 5; order: 3;
+    }
+    #right-resize-handle:hover,
+    #right-resize-handle.dragging { border-color: var(--accent); background: rgba(240,146,71,.08); }
 
-    @media (max-width: 900px) {
-      /* Hide sidebars by default on mobile */
-      .sidebar-left  { display: none !important; }
-      .sidebar-right { display: none !important; }
-
-      /* When panel toggled open — slide up from bottom */
-      .sidebar-right.mobile-open {
-        display: flex !important;
-        position: fixed; bottom: 0; left: 0; right: 0;
-        width: 100%; height: 300px;
-        border-top: 2px solid var(--accent);
-        border-left: none;
-        z-index: 100;
-        background: var(--surface);
-        box-shadow: 0 -4px 24px rgba(0,0,0,.5);
-        flex-direction: column;
+    /* ── MOBILE & RESPONSIVE ────────────────────────────────────── */
+    @media (max-width: 768px) {
+      :root {
+        --left-w: 0px;
+        --right-w: 0px;
+        --header-h: 48px;
       }
+      .sidebar-left  { position: fixed; left: 0; top: var(--header-h); bottom: 0;
+                        width: 260px; z-index: 50; transform: translateX(-100%);
+                        transition: transform .25s ease; box-shadow: 4px 0 20px rgba(0,0,0,.4); }
+      .sidebar-left.mobile-open { transform: translateX(0); }
+      .sidebar-left.collapsed   { transform: translateX(-100%); width: 260px; }
 
-      /* Show toggle button only on mobile */
-      .mobile-sidebar-toggle {
-        display: inline-flex !important;
-        align-items: center; gap: 5px;
-        background: var(--accent-dim); border: 1px solid var(--accent);
-        color: var(--accent); padding: 4px 10px; border-radius: 5px;
-        font-size: 11px; font-weight: 600; cursor: pointer; margin-left: 8px;
-        flex-shrink: 0;
+      .sidebar-right { position: fixed; right: 0; top: var(--header-h); bottom: 0;
+                        width: 88vw !important; max-width: 340px; z-index: 50;
+                        transform: translateX(100%); transition: transform .25s ease;
+                        box-shadow: -4px 0 20px rgba(0,0,0,.4); }
+      .sidebar-right.mobile-open { transform: translateX(0); }
+      .sidebar-right.collapsed   { transform: translateX(100%); }
+
+      #right-resize-handle { display: none; }
+      #right-panel-toggle  { display: none; }
+      #left-panel-toggle   { display: none; }
+      #sidebar-toggle      { display: flex !important; }
+
+      .mobile-overlay {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0,0,0,.5); z-index: 45;
       }
-      .mobile-sidebar-toggle:hover { background: var(--accent); color: #fff; }
+      .mobile-overlay.open { display: block; }
 
-      /* Overlay backdrop when panel open */
-      .mobile-panel-backdrop {
-        display: block;
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,.45);
-        z-index: 99;
+      /* mobile bottom bar */
+      .mobile-bottom-bar {
+        display: flex; position: fixed; bottom: 0; left: 0; right: 0;
+        height: 48px; background: var(--surface); border-top: 1px solid var(--border);
+        z-index: 40; align-items: stretch;
       }
+      .mobile-bottom-bar button {
+        flex: 1; background: transparent; border: none; border-right: 1px solid var(--border);
+        color: var(--text-dim); font-size: 11px; font-weight: 600; cursor: pointer;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 2px; padding: 4px 2px;
+        transition: color .15s, background .15s;
+      }
+      .mobile-bottom-bar button:last-child { border-right: none; }
+      .mobile-bottom-bar button.active { color: var(--accent); }
+      .mobile-bottom-bar button:hover  { background: var(--surface2); }
+      .mobile-bottom-bar .mbb-icon { font-size: 15px; line-height: 1; }
 
-      .chat-messages { padding: 12px 10px; }
-      .input-wrap { padding: 8px 10px; }
-      .header { padding: 0 10px; }
+      .chat-area { padding-bottom: 0; }
+      .input-wrap { padding: 8px 12px 10px; margin-bottom: 48px; }
+      .chat-messages { padding: 12px; }
+
+      .header { padding: 0 10px; gap: 6px; }
+      .header-badge.model { display: none; }
+      #hdr-maint-btn { display: none; }
+
+      .welcome { padding: 20px 16px; gap: 12px; }
+      .welcome h2 { font-size: 20px; }
+      .welcome-chips { gap: 6px; }
+      .welcome-chip { font-size: 11px; padding: 5px 10px; }
     }
 
-    /* Backdrop element — hidden on desktop */
-    .mobile-panel-backdrop { display: none; }
+    @media (max-width: 480px) {
+      .welcome h2 { font-size: 17px; }
+      .welcome-sub { font-size: 12px; }
+    }
+
+    @media (min-width: 769px) {
+      .mobile-bottom-bar { display: none; }
+      .mobile-overlay    { display: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -993,10 +1076,11 @@
 
 <!-- HEADER -->
 <header class="header">
-  <button id="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')" title="Toggle sidebar" style="background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;padding:4px 6px;border-radius:4px;">☰</button>
+  <button id="sidebar-toggle" onclick="toggleLeftPanel()" title="Toggle sidebar" style="background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;padding:4px 6px;border-radius:4px;display:none">☰</button>
   <div class="header-logo logo">
-    <span class="dot">◆</span>
-    TIQ Agent
+    <img src="https://tiqworld.com/logos/tiq-logo.png" alt="TIQ World" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
+    <span style="display:none"><span class="dot">◆</span> TIQ Agent</span>
+    <span style="font-size:11px;font-weight:500;color:var(--accent);letter-spacing:.8px;text-transform:uppercase;background:var(--accent-dim);padding:2px 7px;border-radius:4px;margin-left:2px;">Agent</span>
   </div>
   <div class="header-spacer"></div>
   <span class="header-badge model" id="hdr-model">claude-sonnet</span>
@@ -1010,7 +1094,6 @@
     <span id="notif-badge"></span>
   </button>
   <button id="header-user-btn">👤 <span id="user-label">Identify</span></button>
-  <button class="mobile-sidebar-toggle" id="mobile-right-toggle" onclick="toggleMobileRight()" title="Toggle right panel">&#9776; Panel</button>
 </header>
 
 <!-- Notification panel -->
@@ -1028,6 +1111,10 @@
   <div class="progress-steps" id="progress-steps"></div>
   <span class="progress-task-type" id="progress-task-badge"></span>
 </div>
+
+<!-- PANEL TOGGLE BUTTONS (fixed, outside .body to avoid stacking issues) -->
+<button id="left-panel-toggle" onclick="toggleLeftPanel()" title="Toggle left panel">›</button>
+<button id="right-panel-toggle" onclick="toggleRightPanel()" title="Toggle right panel">‹</button>
 
 <!-- MAIN BODY -->
 <div class="body">
@@ -1057,10 +1144,10 @@
       <div class="session-stat"><span>Files read</span><span id="stat-files">0</span></div>
       <div class="session-stat"><span>Tool calls</span><span id="stat-tools">0</span></div>
       <div class="session-stat"><span>Writes</span><span id="stat-writes">0</span></div>
-      <div class="session-stat"><span>Task type</span><span id="stat-task">—</span></div>
-      <div class="session-stat"><span>Tokens in</span><span id="stat-tokens-in">—</span></div>
-      <div class="session-stat"><span>Tokens out</span><span id="stat-tokens-out">—</span></div>
-      <div class="session-stat"><span>Cache hits</span><span id="stat-tokens-cache">—</span></div>
+      <div class="session-stat" id="row-task" style="display:none"><span>Task type</span><span id="stat-task"></span></div>
+      <div class="session-stat" id="row-tokens-in" style="display:none"><span>Tokens in</span><span id="stat-tokens-in"></span></div>
+      <div class="session-stat" id="row-tokens-out" style="display:none"><span>Tokens out</span><span id="stat-tokens-out"></span></div>
+      <div class="session-stat" id="row-tokens-cache" style="display:none"><span>Cache hits</span><span id="stat-tokens-cache"></span></div>
     </div>
     <div class="sidebar-scroll">
       <div class="sidebar-label">Memory — Files Read</div>
@@ -1080,10 +1167,14 @@
   <main class="chat-area">
     <div class="chat-messages" id="chat-messages">
       <div class="welcome" id="welcome">
-        <div class="welcome-logo">◆</div>
+        <div class="welcome-logo">
+          <img src="https://tiqworld.com/logos/tiq-logo.png" alt="TIQ World" onerror="this.style.display=’none’">
+          <div class="welcome-logo-text">
+            <span class="wlt-tag">AI Agent</span>
+          </div>
+        </div>
         <div>
-          <h2>TIQ World AI Agent</h2>
-          <p class="welcome-sub">Ask anything about the codebase. I’ll read files, trace errors, review code, and suggest fixes — with your approval before any change.</p>
+          <p class="welcome-sub" style="font-size:14px;color:var(--text-mid);">Your AI-powered engineering teammate for the TIQ World codebase.<br><span style="font-size:12px;color:var(--text-dim);">You review and approve every change before it happens.</span></p>
         </div>
         <div class="welcome-chips">
           <span class="welcome-chip qa-chip" data-q="Run full scan" onclick="fillInput(this.dataset.q)">Run full scan</span>
@@ -1119,21 +1210,17 @@
     </div>
   </main>
 
-  <!-- Mobile backdrop (closes panel on tap outside) -->
-  <div class="mobile-panel-backdrop" id="mobile-backdrop" onclick="toggleMobileRight()" style="display:none"></div>
+  <!-- RIGHT PANEL RESIZE HANDLE -->
+  <div id="right-resize-handle" title="Drag to resize panel"></div>
 
   <!-- RIGHT SIDEBAR -->
   <aside class="sidebar-right" id="ctx-panel">
-    <div class="sidebar-mobile-close">
-      <span class="smc-title">Panel</span>
-      <button class="smc-close" onclick="toggleMobileRight()" title="Close panel">✕</button>
-    </div>
     <div class="sidebar-tabs">
-      <div class="sidebar-tab active" onclick="switchTab('approvals',this)">Approvals</div>
-      <div class="sidebar-tab" onclick="switchTab('writes',this)">Writes</div>
-      <div class="sidebar-tab" onclick="switchTab('tools',this)">Tools</div>
-      <div class="sidebar-tab" onclick="switchTab('maintenance',this)">⚡ Maint</div>
-      <div class="sidebar-tab" onclick="switchTab('admin',this)">📊 Admin</div>
+      <div class="sidebar-tab active" onclick="switchTab('approvals',this)" title="Approvals"><span class="tab-icon">✅</span><span class="tab-label">Approve</span></div>
+      <div class="sidebar-tab" onclick="switchTab('writes',this)" title="File Writes"><span class="tab-icon">✏️</span><span class="tab-label">Writes</span></div>
+      <div class="sidebar-tab" onclick="switchTab('tools',this)" title="Tool Calls"><span class="tab-icon">🔧</span><span class="tab-label">Tools</span></div>
+      <div class="sidebar-tab" onclick="switchTab('maintenance',this)" title="Maintenance"><span class="tab-icon">⚡</span><span class="tab-label">Maint</span></div>
+      <div class="sidebar-tab" onclick="switchTab('admin',this)" title="Admin Dashboard"><span class="tab-icon">📊</span><span class="tab-label">Admin</span></div>
     </div>
     <div class="sidebar-tab-panel active" id="tab-approvals">
       <div id="approval-list"><div class="empty-state">No pending approvals</div></div>
@@ -1214,6 +1301,33 @@
 
     </div><!-- /tab-admin -->
   </aside>
+</div>
+
+<!-- MOBILE OVERLAY (backdrop) -->
+<div class="mobile-overlay" id="mobile-overlay" onclick="closeMobilePanels()"></div>
+
+<!-- MOBILE BOTTOM NAV BAR -->
+<div class="mobile-bottom-bar" id="mobile-bottom-bar">
+  <button onclick="toggleMobileLeft()" id="mbb-left" title="Menu">
+    <span class="mbb-icon">☰</span>
+    <span>Menu</span>
+  </button>
+  <button onclick="toggleMobileRight('approvals')" id="mbb-approvals" title="Approvals">
+    <span class="mbb-icon">✅</span>
+    <span>Approvals</span>
+  </button>
+  <button onclick="toggleMobileRight('tools')" id="mbb-tools" title="Tools">
+    <span class="mbb-icon">🔧</span>
+    <span>Tools</span>
+  </button>
+  <button onclick="toggleMobileRight('maintenance')" id="mbb-maint" title="Maintenance">
+    <span class="mbb-icon">⚡</span>
+    <span>Maint</span>
+  </button>
+  <button onclick="toggleMobileRight('admin')" id="mbb-admin" title="Admin">
+    <span class="mbb-icon">📊</span>
+    <span>Admin</span>
+  </button>
 </div>
 
 <!-- COMMAND PALETTE -->
@@ -1540,7 +1654,7 @@ function sendMessage() {
     if (data.type === 'task_type') {
       taskType = data.raw;
       startProgress(data.label, 'task-' + data.raw);
-      document.getElementById('stat-task').textContent = data.label;
+      document.getElementById('stat-task').textContent = data.label; document.getElementById('row-task').style.display = '';
       thinkEl.remove();
     }
 
@@ -1571,9 +1685,9 @@ function sendMessage() {
 
     if (data.type === 'token_usage') {
       const s = data.session ?? data.turn ?? {};
-      document.getElementById('stat-tokens-in').textContent    = s.in        != null ? s.in.toLocaleString()        : '—';
-      document.getElementById('stat-tokens-out').textContent   = s.out       != null ? s.out.toLocaleString()       : '—';
-      document.getElementById('stat-tokens-cache').textContent = s.cacheRead != null ? s.cacheRead.toLocaleString() : '—';
+      if (s.in != null)        { document.getElementById('stat-tokens-in').textContent    = s.in.toLocaleString();        document.getElementById('row-tokens-in').style.display    = ''; }
+      if (s.out != null)       { document.getElementById('stat-tokens-out').textContent   = s.out.toLocaleString();       document.getElementById('row-tokens-out').style.display   = ''; }
+      if (s.cacheRead != null) { document.getElementById('stat-tokens-cache').textContent = s.cacheRead.toLocaleString(); document.getElementById('row-tokens-cache').style.display = ''; }
     }
 
     if (data.type === 'answer') {
@@ -1845,6 +1959,126 @@ function buildApprovalCard(data) {
   return card;
 }
 
+// ── left panel toggle ───────────────────────────────────────────────────────────────
+function toggleLeftPanel() {
+  const sidebar = document.getElementById('sidebar');
+  const btn     = document.getElementById('left-panel-toggle');
+  const handle  = document.getElementById('sidebar-resize-handle');
+  const isCollapsed = sidebar.classList.contains('collapsed');
+  if (isCollapsed) {
+    const savedW = parseInt(localStorage.getItem('tiq-sidebar-w') || '228', 10);
+    sidebar.classList.remove('collapsed');
+    sidebar.style.width = savedW + 'px';
+    document.documentElement.style.setProperty('--left-w', savedW + 'px');
+    btn.textContent = '‹';
+    btn.classList.remove('collapsed');
+    if (handle) handle.style.display = '';
+  } else {
+    localStorage.setItem('tiq-sidebar-w', sidebar.offsetWidth);
+    sidebar.classList.add('collapsed');
+    document.documentElement.style.setProperty('--left-w', '0px');
+    btn.textContent = '›';
+    btn.classList.add('collapsed');
+    if (handle) handle.style.display = 'none';
+  }
+}
+
+// ── right panel toggle ──────────────────────────────────────────────────────────────
+function toggleRightPanel() {
+  const panel  = document.getElementById('ctx-panel');
+  const btn    = document.getElementById('right-panel-toggle');
+  const handle = document.getElementById('right-resize-handle');
+  const isCollapsed = panel.classList.contains('collapsed');
+  if (isCollapsed) {
+    // expand: restore saved width or default
+    const savedW = parseInt(localStorage.getItem('tiq-right-w') || '272', 10);
+    panel.classList.remove('collapsed');
+    panel.style.width = savedW + 'px';
+    document.documentElement.style.setProperty('--right-w', savedW + 'px');
+    btn.textContent = '›';
+    btn.classList.remove('collapsed');
+    if (handle) handle.style.display = '';
+  } else {
+    // collapse: save current width
+    localStorage.setItem('tiq-right-w', panel.offsetWidth);
+    panel.classList.add('collapsed');
+    document.documentElement.style.setProperty('--right-w', '0px');
+    btn.textContent = '‹';
+    btn.classList.add('collapsed');
+    if (handle) handle.style.display = 'none';
+  }
+}
+
+// ── right panel resize ──────────────────────────────────────────────────────────────
+(function initResize() {
+  const handle = document.getElementById('right-resize-handle');
+  const panel  = document.getElementById('ctx-panel');
+  if (!handle || !panel) return;
+  let startX, startW;
+  handle.addEventListener('mousedown', e => {
+    startX = e.clientX;
+    startW = panel.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    function onMove(ev) {
+      const delta = startX - ev.clientX;
+      const newW  = Math.min(Math.max(startW + delta, 220), window.innerWidth * 0.55);
+      panel.style.width = newW + 'px';
+      document.documentElement.style.setProperty('--right-w', newW + 'px');
+    }
+    function onUp() {
+      handle.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      localStorage.setItem('tiq-right-w', panel.offsetWidth);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Restore saved right-panel width on load
+  const savedW = parseInt(localStorage.getItem('tiq-right-w') || '272', 10);
+  if (savedW && !isNaN(savedW)) {
+    panel.style.width = savedW + 'px';
+    document.documentElement.style.setProperty('--right-w', savedW + 'px');
+  }
+})();
+
+// ── mobile panels ───────────────────────────────────────────────────────────────────
+function toggleMobileLeft() {
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('mobile-overlay');
+  const rp  = document.getElementById('ctx-panel');
+  rp.classList.remove('mobile-open');
+  const open = sb.classList.toggle('mobile-open');
+  ov.classList.toggle('open', open);
+}
+function toggleMobileRight(tab) {
+  const rp  = document.getElementById('ctx-panel');
+  const ov  = document.getElementById('mobile-overlay');
+  const sb  = document.getElementById('sidebar');
+  sb.classList.remove('mobile-open');
+  const alreadyOpen = rp.classList.contains('mobile-open');
+  const activeTab   = document.querySelector('.sidebar-tab.active');
+  const currentTab  = activeTab ? activeTab.getAttribute('onclick').match(/'(\w+)'/)?.[1] : null;
+  if (alreadyOpen && currentTab === tab) {
+    rp.classList.remove('mobile-open');
+    ov.classList.remove('open');
+  } else {
+    rp.classList.add('mobile-open');
+    ov.classList.add('open');
+    switchTab(tab);
+  }
+}
+function closeMobilePanels() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('ctx-panel').classList.remove('mobile-open');
+  document.getElementById('mobile-overlay').classList.remove('open');
+}
+
 // ── right sidebar ───────────────────────────────────────────────────────────────────
 function switchTab(name, el) {
   document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
@@ -1915,7 +2149,9 @@ async function clearSession() {
   document.getElementById('chat-messages').innerHTML = '';
   document.getElementById('memory-list').innerHTML = '<div class="empty-state">Nothing read yet</div>';
   ['stat-files','stat-tools','stat-writes'].forEach(id => document.getElementById(id).textContent = '0');
-  document.getElementById('stat-task').textContent = '—';
+  document.getElementById('stat-task').textContent = ''; document.getElementById('row-task').style.display = 'none';
+  ['row-tokens-in','row-tokens-out','row-tokens-cache'].forEach(id => document.getElementById(id).style.display = 'none');
+  ['stat-tokens-in','stat-tokens-out','stat-tokens-cache'].forEach(id => document.getElementById(id).textContent = '');
   document.getElementById('tool-call-list').innerHTML = '<div class="empty-state">No tool calls yet</div>';
   taskType = null;
 }
@@ -2019,16 +2255,6 @@ function fillInput(text) {
 function chip(el) {
   document.getElementById('input').value = el.dataset.q ?? el.textContent;
   sendMessage();
-}
-
-// ── helpers ─────────────────────────────────────────────────────────────────────────
-function toggleMobileRight() {
-  const panel    = document.getElementById('ctx-panel');
-  const backdrop = document.getElementById('mobile-backdrop');
-  const btn      = document.getElementById('mobile-right-toggle');
-  const isOpen   = panel.classList.toggle('mobile-open');
-  if (backdrop) backdrop.style.display = isOpen ? 'block' : 'none';
-  if (btn) btn.textContent = isOpen ? '✕ Panel' : '☰ Panel';
 }
 
 // ── Left sidebar drag-to-resize ──────────────────────────────────────────────────
