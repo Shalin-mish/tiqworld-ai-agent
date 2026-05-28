@@ -16,7 +16,7 @@ export const config = {
   nightMaintenanceCron:  process.env.NIGHT_MAINTENANCE_CRON || '0 2 * * *',
   dayLightScanCron:      process.env.DAY_LIGHT_SCAN_CRON    || '0 */2 * * *',
   autoFixEnabled:        process.env.AUTO_FIX_ENABLED !== 'false',
-  autoFixMinConfidence:  parseInt(process.env.AUTO_FIX_MIN_CONFIDENCE, 10) || 55,
+  autoFixMinConfidence:  parseInt(process.env.AUTO_FIX_MIN_CONFIDENCE, 10) || 80,
   notificationWebhookUrl:  process.env.NOTIFICATION_WEBHOOK_URL ?? null,
   healthMonitorUrls:       process.env.HEALTH_MONITOR_URLS ?? '',
   githubClientId:        process.env.GITHUB_CLIENT_ID     ?? null,

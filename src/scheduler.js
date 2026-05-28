@@ -51,15 +51,36 @@ export function getLastScan() { return { result: lastScanResult, scannedAt: last
 // IMPORTANT: tests/ and *.test.* are here so the agent cannot overwrite
 // test files to make itself appear green — an agent must not be its own judge.
 const HIGH_RISK_PATTERNS = [
-  // Original MERN patterns
+  // ── Agent self-protection (CRITICAL) ──────────────────────────────────────
+  // The agent must NEVER modify its own source, tools, scheduler, or config.
+  // A self-modifying agent could bypass every safety gate below.
+  'tiqworld-ai-agent/src/',   // absolute guard on this agent's own source tree
+  '/src/tools/',              // individual tool files
+  '/src/agent.js',
+  '/src/scheduler.js',
+  '/src/config.js',
+  '/src/web/server.js',
+  '/src/web/router.js',
+  'ecosystem.config',         // PM2 config — changing this affects process management
+
+  // ── DB migrations (CRITICAL — wrong migration = data loss) ────────────────
+  'migrations/', 'migration.',
+  '.migration.ts', '.migration.js',
+  'schema.prisma', 'prisma/schema',
+  'seeds/', 'seeders/',
+  'knexfile', 'typeorm-config',
+
+  // ── Original MERN patterns ────────────────────────────────────────────────
   '/routes/', '/models/', '/middleware/',
   'config.js', 'index.js', 'server.js', 'app.js',
-  // tiq_workplace microservice patterns (TypeScript)
+
+  // ── tiq_workplace microservice patterns (TypeScript) ─────────────────────
   'config.ts', 'server.ts', 'app.ts',
   '/config/', 'database.config', 'env.ts', 'env.js',
-  'auth-service/src/modules/auth/',    // core auth logic — never auto-touch
+  'auth-service/src/modules/auth/',
   'auth-service/src/config/',
-  // Test files — agent must never be its own judge
+
+  // ── Test files — agent must never be its own judge ───────────────────────
   'tests/', '__tests__/', '.test.', '.spec.',
 ];
 
@@ -67,9 +88,23 @@ export function isHighRisk(filePath) {
   return HIGH_RISK_PATTERNS.some(p => filePath.toLowerCase().includes(p));
 }
 
-const SAFE_COMMAND_PREFIXES = ['npm test', 'npm run test', 'npx eslint', 'node --check'];
+// Exact allowlist — prefix match is NOT enough (e.g. "npm run deploy" starts with "npm run")
+const SAFE_COMMANDS_EXACT = new Set([
+  'npm test',
+  'npm run test',
+  'npx eslint',
+  'node --check',
+]);
+// Prefix allowlist for commands that take a path argument (e.g. "npx eslint src/foo.js")
+const SAFE_COMMAND_PREFIXES = ['npx eslint ', 'node --check '];
+
 function commandApprovalFn({ command = '' }) {
-  return SAFE_COMMAND_PREFIXES.some(p => command.trim().startsWith(p));
+  const cmd = command.trim();
+  if (SAFE_COMMANDS_EXACT.has(cmd)) return true;
+  if (SAFE_COMMAND_PREFIXES.some(p => cmd.startsWith(p))) return true;
+  // Allow "npm --prefix <service> test" pattern for monorepo per-service tests
+  if (/^npm --prefix \S+ (test|run test)$/.test(cmd)) return true;
+  return false;
 }
 
 function makeWriteApprovalFn(writeLog) {

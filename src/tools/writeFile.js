@@ -101,8 +101,38 @@ function gitCommit(fullPath, reason) {
 
 // _approvalFn: optional async (filePath, diff, reason, isNew) => 'yes'|'no'
 // Injected by web server; CLI falls back to readline.
+// Paths the agent must never write to — regardless of who calls write_file.
+// This is a hard block at the tool level, independent of scheduler safety gates.
+// Patterns checked with includes() after normalising to lowercase forward-slashes.
+// Deliberately no leading slash so both "src/tools/x" and "/src/tools/x" match.
+const SELF_PROTECT_PATTERNS = [
+  'tiqworld-ai-agent/src/',
+  'src/tools/', 'src/agent.js', 'src/scheduler.js',
+  'src/config.js', 'src/web/server.js', 'src/web/router.js',
+  'ecosystem.config',
+  'migrations/', 'migration.', '.migration.ts', '.migration.js',
+  'schema.prisma', 'prisma/schema', 'seeds/', 'seeders/',
+];
+
+function isSelfProtected(filePath) {
+  const fp = filePath.toLowerCase().replace(/\\/g, '/');
+  return SELF_PROTECT_PATTERNS.some(p => fp.includes(p));
+}
+
 export async function writeFile({ file_path, new_content, reason, _user = 'unknown', _approvalFn = null }) {
   try {
+    // ── Self-protection gate — highest priority ────────────────────────────
+    if (isSelfProtected(file_path)) {
+      logEvent({ user: _user, action: 'write_blocked_self_protect', detail: { file: file_path } });
+      console.error(`\n🔒 SELF-PROTECT: Write blocked for "${file_path}" — agent source and DB migrations are immutable.`);
+      return {
+        status:     'blocked',
+        file_path,
+        blocked_by: 'self_protect',
+        message:    `Write BLOCKED. "${file_path}" is in the agent self-protection list. Agent source files and DB migrations cannot be modified autonomously.`,
+      };
+    }
+
     // ── Credential Guard — block before anything else ──────────────────────
     const guard = guardCheck(new_content, file_path);
     if (guard.blocked) {
