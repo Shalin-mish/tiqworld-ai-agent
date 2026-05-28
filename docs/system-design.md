@@ -1,472 +1,401 @@
 # TIQ World AI Agent — System Design & Documentation
 
-**Version:** 2.0 (Planned)
-**Date:** April 2026
+**Version:** 3.0 (Production-Hardened)
+**Last Updated:** May 28, 2026
 **Author:** Shalini Mishra
-**Purpose:** Prototype AI agent powered by Claude that acts as a tech team member — maintaining, reviewing, and improving the TIQ World codebase autonomously.
+**Purpose:** Claude-powered AI agent that acts as a senior engineer on the TIQ World team — maintaining, reviewing, and monitoring the codebase autonomously and safely.
 
 ---
 
 ## 1. What Is This?
 
-A **Claude-powered AI agent** that behaves like a senior software engineer on the TIQ World team.
+A **Claude-powered AI agent** (AWS Bedrock) that behaves like a senior software engineer on the TIQ World team.
 
-Instead of a human developer manually reviewing code, writing docs, checking git history, or querying the database — this agent does it automatically when asked, or on its own schedule.
+Instead of a human developer manually reviewing code, writing docs, checking git history, querying the database, or monitoring for production issues — this agent does it automatically when asked, or on its own schedule.
 
-**Lead Requirement (exact):**
+**Lead Requirement:**
 > "Create a prototype AI agent, powered by Claude, that can help maintain and improve our codebase and act like it is part of our tech team."
 
 ---
 
-## 2. The Problem It Solves
-
-Right now, TIQ World's tech team has to manually:
-
-| Manual Task Today | Time Cost | Agent Will Handle It |
-|---|---|---|
-| Review every PR for bugs | 30-60 min per PR | Automatic on every commit |
-| Answer "how does X work?" | 10-20 min per question | Instant codebase Q&A |
-| Write/update documentation | Hours | Auto-generated |
-| Check git for risky changes | Manual grep/search | Daily automated report |
-| Find security vulnerabilities | Periodic manual audit | Every review, every time |
-| Write test cases | Developer time | Auto-suggested per function |
-| Query DB for intern stats | Developer writes SQL | Natural language → SQL |
-
-**The agent eliminates most of this toil.**
-
----
-
-## 3. High-Level Architecture
+## 2. Architecture (Current — v3.0)
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   USER / DEVELOPER                   │
-│         (CLI terminal or future web interface)       │
-└──────────────────────┬──────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│              ORCHESTRATOR (agent.py)                 │
-│                                                      │
-│  Receives task → decides which tools Claude needs    │
-│  → calls Claude API with tool use → returns result  │
-└──────┬───────────┬──────────┬───────────┬───────────┘
-       │           │          │           │
-       ▼           ▼          ▼           ▼
-  ┌─────────┐ ┌────────┐ ┌────────┐ ┌─────────┐
-  │  File   │ │  Git   │ │  DB    │ │ GitHub  │
-  │  Tools  │ │ Tools  │ │ Tools  │ │  Tools  │
-  └─────────┘ └────────┘ └────────┘ └─────────┘
-  read_file   git_log    db_query   get_pr
-  list_files  git_diff   db_schema  post_review
-  search      git_blame             create_issue
-```
-
-**The key difference from v0.1:**
-Claude does NOT just receive dumped text. Claude is given **tools** and decides itself:
-- "I need to read this file first"
-- "Let me check the git diff"
-- "Let me search for all uses of this function"
-
-This is called **tool use / function calling** — Claude acts like a developer using a terminal.
-
----
-
-## 4. What the Agent Can Do — Full Feature List
-
-### 4.1 Code Review (`--review`)
-**What happens:**
-1. User gives a file path
-2. Claude reads the file using `read_file` tool
-3. Claude analyzes it and reports:
-   - **Critical:** bugs, crashes, security holes
-   - **Warnings:** bad practices, performance issues
-   - **Suggestions:** readability, maintainability
-
-**Example:**
-```bash
-python agent.py --review server.js
-```
-**Output:**
-```
-CRITICAL: SQL query on line 42 is not parameterized — SQL injection risk
-WARNING:  No input validation on /api/interns POST route
-SUGGESTION: Function registerIntern() is 120 lines — split into smaller functions
+┌─────────────────────────────────────────────────────────────┐
+│                    User (Web UI / CLI)                       │
+│                  http://localhost:3001                       │
+└────────────────────────┬────────────────────────────────────┘
+                         │ query / chat
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Express Web Server (src/web/server.js)          │
+│   SSE streaming │ session management │ OAuth │ rate limiting │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│               Dispatcher (src/dispatcher.js)                 │
+│   classify query → task type (query/review/maintenance)      │
+│   → restrict tool set for this task type                     │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│            Agent Core (src/agent.js)                         │
+│   runAgent() → Bedrock ConverseCommand loop                  │
+│   Claude decides which tools to call                         │
+│   Tool budget: 8 (user queries), 20 (maintenance)           │
+│   Result truncation: 3000 chars per tool result              │
+│   Prompt caching: system prompt cached on Bedrock            │
+└────────┬──────────┬──────────┬──────────┬───────────────────┘
+         │          │          │          │
+         ▼          ▼          ▼          ▼
+   ┌──────────┐ ┌────────┐ ┌──────┐ ┌──────────┐
+   │ 26 Tools │ │ Write  │ │  DB  │ │ Monitor  │
+   │(read-only│ │ Gates  │ │Query │ │  Tools   │
+   │ + write) │ │        │ │      │ │          │
+   └──────────┘ └────────┘ └──────┘ └──────────┘
+                     │
+          ┌──────────┴──────────┐
+          │   TWO-LAYER GATE    │
+          │ 1. self_protect     │
+          │ 2. credential_guard │
+          └─────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│           Scheduler (src/scheduler.js)                       │
+│   Night 2am IST: deep scan + auto-fix (confidence ≥ 80)     │
+│   Every 2h: light scan + health monitor + notify            │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### 4.2 Codebase Q&A (`--ask`)
-**What happens:**
-1. User asks a natural language question
-2. Claude uses `search_codebase` tool to find relevant files
-3. Claude reads those files with `read_file`
-4. Claude answers with full context
+## 3. All 26 Tools
 
-**Example:**
-```bash
-python agent.py --ask "How does authentication work in this project?"
+### Exploration (4)
+| Tool | What it does |
+|------|-------------|
+| `list_files` | List directory contents by glob pattern |
+| `read_file` | Read file with import resolution |
+| `search_code` | Regex or text search across codebase |
+| `recall_session` | This session's files read, tool calls, writes |
+
+### Analysis (14)
+| Tool | What it does |
+|------|-------------|
+| `health_check` | File counts, TODOs, git status, env gaps — one call |
+| `full_scan` | All 10 checks in parallel — the "opening move" |
+| `trace_error` | Parse stack trace → read all files in trace |
+| `fix_error` | Confidence-scored bug fix pipeline (0–100) |
+| `map_dependencies` | Import graph: who imports what |
+| `explain_route` | Route → middleware → controller → service chain |
+| `find_todos` | TODO/FIXME/BUG scan with severity |
+| `check_env_usage` | `.env.example` vs `process.env` diff |
+| `detect_dead_code` | Files with zero importers |
+| `schema_to_api` | Model → CRUD completeness check |
+| `summarize_diff` | Git diff summarization |
+| `git_log` | Commit history, scoped to file or date |
+| `lint_file` | ESLint structured output (file:line:rule) |
+| `db_query` | Read-only PostgreSQL SELECT via SSM tunnel |
+
+### Security + Deps (3)
+| Tool | What it does |
+|------|-------------|
+| `secret_scanner` | Scan for leaked API keys, passwords, private keys |
+| `dep_updater` | npm outdated by risk: patch/minor/major |
+| `credential_guard` | Scan file content for hardcoded credentials |
+
+### Monitoring (1)
+| Tool | What it does |
+|------|-------------|
+| `health_monitor` | HTTP probes + log anomaly scan + process vitals |
+
+### Write + Verify (4)
+| Tool | What it does |
+|------|-------------|
+| `git_backup` | Create/restore checkpoint branch |
+| `show_diff` | Display context-aware diff before writing |
+| `write_file` | Write with approval gate + two safety layers |
+| `run_command` | Execute from exact-match allowlist only |
+
+---
+
+## 4. Safety Architecture
+
+Every write goes through **four sequential gates**:
+
 ```
-**Output:**
+write_file called
+      │
+      ▼
+[Gate 1] self_protect
+      Is this agent source / migration / schema.prisma?
+      YES → BLOCKED immediately, logged
+      │
+      ▼
+[Gate 2] credential_guard
+      Does content contain hardcoded secrets?
+      HIGH severity → BLOCKED, agent told why
+      MEDIUM/LOW → warning logged, proceed
+      │
+      ▼
+[Gate 3] HIGH_RISK_PATTERNS (scheduler only)
+      Is this a high-risk file (routes, models, auth, config)?
+      YES → skipped by safety gate, logged
+      │
+      ▼
+[Gate 4] human approval (web UI) / readline (CLI)
+      User sees diff → approves or rejects
+      5-minute timeout → auto-reject
 ```
-Authentication uses JWT tokens. Here's the flow:
-1. POST /api/auth/login (routes/auth.js:23) — validates credentials
-2. bcryptjs compares password hash (models/User.js:45)
-3. JWT token returned, expires in 7 days (config/settings.py:12)
-4. Middleware verifies token on protected routes (middleware/auth.js:8)
+
+### Self-Protect List (Gate 1 — absolute, can never be overridden)
+- `src/tools/`, `src/agent.js`, `src/scheduler.js`, `src/config.js`
+- `src/web/server.js`, `src/web/router.js`, `ecosystem.config`
+- `migrations/`, `migration.*`, `schema.prisma`, `prisma/schema`
+- `seeds/`, `seeders/`
+
+### Credential Guard Rules (Gate 2)
+Blocks writes containing:
+- AWS Access Key ID (`AKIA...` pattern)
+- PEM / SSH private keys
+- Hardcoded password assignments
+- DB connection strings with embedded credentials
+- JWT secret literals
+- GCP service account JSON, Azure storage keys
+- Slack/Discord webhook URLs in source
+- Generic API key/token hardcoded values
+
+Protected filenames: `.env`, `.env.*`, `secrets.json`, `credentials.json`, `id_rsa`, `private.key`
+
+Smart exclusions: `process.env.X` usage, comment lines, test mock values.
+
+### Command Approval (run_command)
+Exact allowlist only — prefix match is insufficient:
+```
+Allowed: npm test | npm run test | npx eslint | node --check
+With path: npx eslint <path> | node --check <path>
+Monorepo: npm --prefix <service> test
+Everything else: BLOCKED
+```
+
+### Auto-Fix Confidence: 80%
+Agent only auto-applies fixes when `fix_error` confidence ≥ 80. Anything below requires human decision. Pre-existing test failures skip auto-fix entirely (don't compound broken state).
+
+---
+
+## 5. Maintenance Scheduler
+
+### Night Deep Maintenance (2:00 AM IST daily)
+```
+fullScan() — parallel: lint + todos + env + dead code + git log + secrets + deps
+    │
+    ▼
+runTests() — pre-fix baseline
+    If failing → skip auto-fix (don't compound)
+    │
+    ▼
+For each issue where confidence ≥ 80:
+    git_backup → show_diff → write_file → run_command (verify)
+    If tests fail after write → git_backup restore → stop
+    │
+    ▼
+saveMaintenanceReport() → logs/maintenance-{ISO}.json
+notify() → in-app + Slack/Discord webhook
+```
+
+### Day Light Scan (Every 2 hours IST)
+```
+Parallel: lint + findTodos + healthCheck + healthMonitor
+    │
+    ▼
+If health DEGRADED/UNHEALTHY → notify() immediately
+No writes in day scan
+```
+
+### Manual Trigger
+```
+POST /api/maintenance/trigger { mode: 'deep' | 'light' }
+→ streams live progress via SSE to Admin tab
 ```
 
 ---
 
-### 4.3 Git Intelligence (`--git-summary`)
-**What happens:**
-1. Agent reads recent git commits using `git_log` tool
-2. Reads diffs for flagged commits using `git_diff` tool
-3. Claude analyzes and reports risky changes
+## 6. Health Monitor
 
-**Example:**
-```bash
-python agent.py --git-summary --days 7
-```
-**Output:**
-```
-Last 7 days: 23 commits by 4 authors
+Agent monitors the live platform without touching platform code.
 
-RISKY CHANGES DETECTED:
-- commit a3f92b1 (April 21): Modified auth middleware — security-sensitive file
-- commit 9d2c441 (April 20): Deleted validation.js — was it used elsewhere?
+**Three signal layers:**
 
-SUMMARY:
-Most active: routes/interns.js (8 changes)
-New files: TrainingPlan.js, trainingPlans.js
-Deleted: none
-```
+1. **HTTP Synthetic Probes**
+   - GET each URL in `HEALTH_MONITOR_URLS` env var
+   - Checks: status code (non-2xx = fail), response time (>3s = warn)
+   - Default URL: `http://localhost:3001/api/status`
 
----
+2. **Log Anomaly Scan**
+   - Scans `logs/activity.jsonl` for ERROR/CRITICAL/FATAL lines
+   - Configurable time window (`last_minutes`, default 60)
 
-### 4.4 Health Check (`--health-check`)
-**What happens:**
-1. Agent scans entire codebase directory
-2. Lists all files, languages, structure
-3. Claude analyzes and reports structural problems
+3. **Process Vitals**
+   - Node heap used/total, RSS
+   - Uptime
+   - Event-loop lag (setImmediate measurement)
 
-**Example:**
-```bash
-python agent.py --health-check ./tiq-intern-mern
-```
-**Output:**
-```
-FILES: 47 source files | JS: 31, Python: 8, CSS: 8
+**Scoring:** Each check contributes to 0–100 score.
+- HEALTHY = 100 (all pass)
+- DEGRADED = warnings present (score 70–90)
+- UNHEALTHY = any fail (score ≤ 75)
 
-STRUCTURAL CONCERNS:
-- No /tests directory found — zero test coverage
-- README.md exists but has no API documentation
-- .env.example missing from tiq-intern-system
-
-MISSING STANDARD FILES:
-- .eslintrc (no linting config)
-- .prettierrc (no formatting config)
-- /docs folder empty
-
-RECOMMENDATIONS:
-1. Add Jest tests for routes/auth.js (highest risk file)
-2. Add input validation to all POST endpoints
-3. Split server.js (currently 340 lines) into route modules
-```
+Runs on every day scan cycle. On-demand via `GET /api/health-monitor` or Admin tab `▶ Run Now`.
 
 ---
 
-### 4.5 Documentation Generator (`--generate-docs`)
-**What happens:**
-1. Agent reads a file or whole directory
-2. Claude writes proper documentation for every function/class
-3. Optionally writes a full README
+## 7. Web UI
 
-**Example:**
-```bash
-python agent.py --generate-docs routes/auth.js
+Single-page app at `http://localhost:3001`. No build step — one HTML file.
+
+### Layout (3-column)
 ```
-**Output:** Full JSDoc comments for every function, written directly into the file or as a separate doc.
+┌─────────────────┬───────────────────────┬──────────────────┐
+│  Left Sidebar   │     Chat Area         │  Right Sidebar   │
+│                 │                       │                  │
+│  Quick Actions  │  Message stream       │  Tabs:           │
+│  ⚡ Maintenance │  + thinking animation │  ✅ Approve      │
+│  🔍 Full Scan   │  + tool call chips    │  ✏️ Writes        │
+│  📊 Admin       │  + copy buttons       │  🔧 Tools        │
+│  ⌘ Palette     │                       │  ⚡ Maint        │
+│  🗑 Clear       │  Input (SSE stream)   │  📊 Admin        │
+│                 │                       │                  │
+│  Session Stats  │  ← bilateral ‹/›      │  Platform Health │
+│  Memory         │    toggle arrows →    │  Reports         │
+│  Quick Queries  │                       │  Activity log    │
+└─────────────────┴───────────────────────┴──────────────────┘
+```
+
+### Key UI features
+- `‹/›` bilateral toggle buttons — collapse/expand either sidebar
+- Drag-to-resize both sidebars (localStorage persists width)
+- Admin tab opens by default on page load
+- SSE auto-reconnect with exponential backoff (1s → 30s max)
+- Write approval modal — full diff view with approve/deny
+- Live tool call chips — pulse while running, green when done
+- Mobile layout — slide-in panels, bottom nav bar (`@media max-width: 768px`)
 
 ---
 
-### 4.6 Database Query (`--db-ask`) *(TIQ World specific)*
-**What happens:**
-1. User asks a natural language question about TIQ World data
-2. Agent uses `db_schema` tool to get the database schema
-3. Claude writes the SQL query
-4. Agent runs it via `db_query` tool
-5. Result returned in readable format
+## 8. Data Persistence
 
-**Example:**
-```bash
-python agent.py --db-ask "How many interns submitted daily progress today?"
-```
-**Output:**
-```
-SQL Generated:
-  SELECT COUNT(*) FROM daily_progress WHERE DATE(created_at) = CURRENT_DATE;
+All logs are files in `logs/` (gitignored):
 
-Result: 14 interns submitted progress today out of 31 active interns.
-Missing submissions: 17 interns have not logged progress today.
-```
+| File | Content |
+|------|---------|
+| `logs/activity.jsonl` | All events: queries, tool calls, writes, approvals |
+| `logs/maintenance-{ISO}.json` | Per-run maintenance reports |
+| `logs/notifications.json` | In-app notifications (with read state) |
+| `logs/writes/{ISO}___{path}.diff` | Before/after for every file write |
 
 ---
 
-### 4.7 Interactive Chat Mode (default)
-**What happens:**
-When no flags given, agent enters a loop — developer can have a full conversation:
+## 9. Configuration (`.env`)
 
-```bash
-python agent.py
-```
-```
-TIQ World AI Agent — Your tech team member.
-Type 'exit' to quit.
-
-You: Why is the login failing for new interns?
-Agent: Let me check the auth flow...
-[reads routes/auth.js, models/User.js, middleware/auth.js]
-Most likely cause: new interns have role='intern' but the JWT middleware
-on line 34 checks role === 'Intern' (capital I). Case mismatch.
-Fix: Change line 34 to: req.user.role.toLowerCase() === 'intern'
-
-You: Can you write a test for the login route?
-Agent: [writes complete Jest test for the login endpoint]
-```
-
----
-
-## 5. How Claude Tool Use Works (Technical)
-
-### v0.1 (current — dumb approach)
-```
-User asks question
-  → Agent does keyword search in files
-  → Dumps all matching text into prompt
-  → Claude reads it and answers
-```
-Problem: Claude gets irrelevant text, misses important files, can't go deeper.
-
-### v0.2 (planned — tool use)
-```
-User asks question
-  → Claude receives the question + list of available tools
-  → Claude decides: "I need to call search_codebase('authentication')"
-  → Agent runs that tool, returns results to Claude
-  → Claude decides: "Now I need read_file('routes/auth.js')"
-  → Agent runs that, returns file content
-  → Claude decides: "I have enough — here's my answer"
-  → Final answer returned to user
-```
-
-Claude is in control of what it reads. This is like a developer who has access to a terminal and decides what commands to run.
+| Variable | Default | What |
+|----------|---------|------|
+| `AWS_REGION` | `us-east-2` | Bedrock region |
+| `AWS_ACCESS_KEY_ID` | — | Required |
+| `AWS_SECRET_ACCESS_KEY` | — | Required |
+| `TIQ_CODEBASE_PATH` | `C:/Users/Shalini Mishra/TIQ` | Target codebase |
+| `DB_URL` | — | PostgreSQL via SSM tunnel |
+| `WEB_PORT` | `3001` | Web server port |
+| `ENABLE_PROMPT_CACHE` | `true` | Bedrock prompt caching |
+| `BEDROCK_TIMEOUT_MS` | `60000` | Per-call timeout |
+| `SCAN_INTERVAL_MINUTES` | `0` | 0 = use cron, >0 = interval |
+| `NIGHT_MAINTENANCE_CRON` | `0 2 * * *` | 2am IST daily |
+| `DAY_LIGHT_SCAN_CRON` | `0 */2 * * *` | Every 2h IST |
+| `AUTO_FIX_ENABLED` | `true` | Enable autonomous fixes |
+| `AUTO_FIX_MIN_CONFIDENCE` | `80` | Minimum confidence for auto-fix |
+| `NOTIFICATION_WEBHOOK_URL` | — | Slack or Discord webhook |
+| `HEALTH_MONITOR_URLS` | — | Comma-separated URLs to probe |
+| `GITHUB_CLIENT_ID` | — | Optional GitHub OAuth |
+| `GITHUB_CLIENT_SECRET` | — | Optional GitHub OAuth |
+| `SESSION_SECRET` | `change-me` | Express session secret |
 
 ---
 
-## 6. Tools Claude Will Have Access To
+## 10. What the Agent Does NOT Do (Hard Limits)
 
-```python
-tools = [
-    {
-        "name": "read_file",
-        "description": "Read the contents of a file in the codebase",
-        "input": { "filepath": "string" }
-    },
-    {
-        "name": "list_files",
-        "description": "List all source files in a directory",
-        "input": { "directory": "string" }
-    },
-    {
-        "name": "search_codebase",
-        "description": "Search all files for a keyword or phrase",
-        "input": { "query": "string", "directory": "string" }
-    },
-    {
-        "name": "git_log",
-        "description": "Get recent git commits",
-        "input": { "days": "number", "max_commits": "number" }
-    },
-    {
-        "name": "git_diff",
-        "description": "Get the diff for a specific commit",
-        "input": { "commit_hash": "string" }
-    },
-    {
-        "name": "git_blame",
-        "description": "See who wrote each line of a file",
-        "input": { "filepath": "string" }
-    },
-    {
-        "name": "db_query",
-        "description": "Run a read-only SQL query on TIQ World database",
-        "input": { "sql": "string" }
-    },
-    {
-        "name": "db_schema",
-        "description": "Get the database schema (tables and columns)",
-        "input": {}
-    },
-    {
-        "name": "write_file",
-        "description": "Write content to a file (for docs generation only)",
-        "input": { "filepath": "string", "content": "string" }
-    }
-]
-```
-
----
-
-## 7. Example: Full Agent Loop (Tool Use Flow)
-
-**User asks:** `"Is there any security issue in the authentication code?"`
-
-**What happens internally:**
-
-```
-Step 1: Claude receives question + available tools
-
-Step 2: Claude calls → search_codebase("authentication")
-        Agent returns → [auth.js, middleware/auth.js, User.js, Login.js]
-
-Step 3: Claude calls → read_file("routes/auth.js")
-        Agent returns → [full file content]
-
-Step 4: Claude calls → read_file("middleware/auth.js")
-        Agent returns → [full file content]
-
-Step 5: Claude calls → read_file("models/User.js")
-        Agent returns → [full file content]
-
-Step 6: Claude analyzes all 3 files together
-
-Step 7: Claude returns final answer:
-        "CRITICAL: JWT secret is hardcoded on line 12 of auth.js
-         ('secret123' should be process.env.JWT_SECRET)
-         
-         WARNING: No rate limiting on /api/auth/login — 
-         brute force attack possible
-         
-         WARNING: Password reset token has no expiry time set"
-```
-
----
-
-## 8. Project File Structure (v0.2 Plan)
-
-```
-tiqworld-ai-agent/
-│
-├── agent/
-│   ├── agent.py          ← Main orchestrator, runs tool-use loop
-│   ├── tools.py          ← All tool functions (file, git, db)
-│   ├── prompts.py        ← All system/user prompts
-│   └── __init__.py
-│
-├── config/
-│   └── settings.py       ← API keys, model name, excluded dirs
-│
-├── docs/
-│   ├── devlog.md         ← Daily progress log
-│   └── system-design.md  ← This file
-│
-├── tests/
-│   └── test_tools.py     ← Unit tests for tool functions
-│
-├── requirements.txt      ← anthropic, rich, gitpython
-├── .env.example          ← ANTHROPIC_API_KEY=your_key_here
-├── .gitignore
-└── README.md
-```
-
----
-
-## 9. What This Agent Does NOT Do (Intentional Limits)
-
-| Out of Scope (v0.2) | Why |
+| Out of Scope | Why |
 |---|---|
-| Auto-push code to production | Too risky without human review |
-| Delete files automatically | Destructive — needs human approval |
-| Merge PRs without review | Human must always approve merges |
-| Write new features from scratch | Agent assists, not replaces developer judgment |
-| Access external systems beyond DB/GitHub | Security boundary |
-
-**Rule:** Agent can **read everything**, **suggest anything**, but only **write** to docs files. All code changes are suggestions — human applies them.
-
----
-
-## 10. Technology Stack
-
-| Component | Technology | Why |
-|---|---|---|
-| AI Model | Claude (claude-sonnet-4-6) | Best for code reasoning, tool use |
-| Language | Python 3.11+ | Best SDK support, clean tooling |
-| AI SDK | `anthropic` Python SDK | Official, supports tool use |
-| Terminal UI | `rich` | Clean formatted output |
-| Git Access | `gitpython` | Read commits, diffs, blame |
-| Database | PostgreSQL via `psycopg2` | TIQ World dev DB (SSM tunnel) |
-| CLI | `argparse` | Standard Python CLI |
+| Modify its own source code | Self-protect gate — absolute block |
+| Touch DB migrations / schema.prisma | Migration guard — absolute block |
+| Write hardcoded credentials to any file | Credential guard — absolute block |
+| Auto-push to remote git | Human must always push |
+| Run `npm run deploy`, `npm run build:prod` | Not in exact command allowlist |
+| Auto-fix when pre-existing tests fail | Don't compound a broken state |
+| Auto-fix with confidence < 80% | Too risky for production code |
+| Access external APIs beyond Bedrock + DB | Security boundary |
 
 ---
 
-## 11. How to Run (Once Built)
+## 11. Technology Stack
+
+| Component | Technology |
+|-----------|-----------|
+| AI Model | Claude Sonnet (AWS Bedrock, `us-east-2`) |
+| Runtime | Node.js 20+ (ES modules) |
+| Web server | Express 4 + SSE |
+| Frontend | Single HTML file (no build) |
+| DB | PostgreSQL read-only via SSM tunnel (localhost:5433) |
+| Scheduling | `node-cron` (Asia/Kolkata timezone) |
+| Testing | Vitest (unit) + Playwright (e2e) |
+| CI | GitHub Actions (independent test judge) |
+| Process manager | PM2 |
+
+---
+
+## 12. Running the Agent
 
 ```bash
-# Setup
-pip install -r requirements.txt
-export ANTHROPIC_API_KEY=your_key_here
+npm install
+cp .env.example .env
+# Fill in AWS credentials and TIQ_CODEBASE_PATH
 
-# Review a file
-python agent/agent.py --review routes/auth.js
+# Web UI (recommended)
+npm run web
+# → http://localhost:3001
 
-# Ask a question  
-python agent/agent.py --ask "Where is user password validated?"
+# Development (auto-reload)
+npm run web:dev
 
-# Git summary of last 7 days
-python agent/agent.py --git-summary --days 7
+# CLI (interactive terminal)
+npm run start
 
-# Health check
-python agent/agent.py --health-check .
+# Run tests
+npx vitest run          # unit tests
+npx playwright test     # e2e tests
 
-# Ask about database
-python agent/agent.py --db-ask "Which interns completed all courses?"
-
-# Interactive chat
-python agent/agent.py
+# Always-on with PM2
+pm2 start ecosystem.config.cjs
+pm2 save && pm2 startup
 ```
 
 ---
 
-## 12. Why This Qualifies as "Part of the Tech Team"
+## 13. Deployment Checklist (Before Pointing at Real Codebase)
 
-A tech team member does these things. So does this agent:
-
-| Team Member Behavior | Agent Equivalent |
-|---|---|
-| Reviews code before merge | `--review` on any file |
-| Knows the whole codebase | Tool use across all files |
-| Remembers past decisions | Git history + devlog |
-| Answers questions instantly | `--ask` with codebase context |
-| Flags security problems | Every review checks security |
-| Writes documentation | `--generate-docs` |
-| Checks database for data | `--db-ask` natural language |
-| Reports what changed this week | `--git-summary` |
-| Never takes a day off | Runs any time, any file |
+- [ ] `TIQ_CODEBASE_PATH` set to real tiq_workplace path
+- [ ] `DB_URL` set to production read-only DB user
+- [ ] `AUTO_FIX_ENABLED=false` for first week (observe-only mode)
+- [ ] `NOTIFICATION_WEBHOOK_URL` set to team Slack channel
+- [ ] `HEALTH_MONITOR_URLS` set to real platform endpoints
+- [ ] `SESSION_SECRET` changed from default
+- [ ] `GITHUB_CLIENT_ID/SECRET` set (optional but recommended for audit trail)
+- [ ] PM2 configured for always-on operation
+- [ ] First week: review every maintenance report manually
+- [ ] After week 1: enable `AUTO_FIX_ENABLED=true` with `AUTO_FIX_MIN_CONFIDENCE=80`
 
 ---
 
-## 13. Next Steps After This Prototype
-
-Once lead approves v0.2 prototype:
-
-1. **GitHub Actions hook** — auto-review every PR automatically
-2. **Scheduled reports** — nightly codebase health email
-3. **Web interface** — instead of CLI, a simple chat UI
-4. **Multi-agent** — separate specialized agents for each task
-5. **Memory** — remember past conversations and decisions
-
----
-
-*This document will be updated as each phase is built.*
 *For daily progress, see: `docs/devlog.md`*
+*For Google Doc version, see: `docs/google-doc-content.md`*
