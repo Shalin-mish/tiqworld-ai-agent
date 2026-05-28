@@ -417,14 +417,31 @@
       display: flex; flex-direction: column;
       flex-shrink: 0; overflow: hidden;
     }
-    .sidebar-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .sidebar-mobile-close {
+      display: none;
+      align-items: center; justify-content: space-between;
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sidebar-right.mobile-open .sidebar-mobile-close { display: flex; }
+    .smc-title { font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
+    .smc-close {
+      background: var(--surface3); border: none; color: var(--text-dim);
+      width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
+      font-size: 12px; display: flex; align-items: center; justify-content: center;
+    }
+    .smc-close:hover { background: var(--red-dim); color: var(--red); }
+    .sidebar-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
+    .sidebar-tabs::-webkit-scrollbar { display: none; }
     .sidebar-tab {
-      flex: 1; padding: 10px 4px;
-      font-size: 10.5px; font-weight: 600; text-align: center;
+      flex: 1; padding: 8px 2px;
+      font-size: 9.5px; font-weight: 600; text-align: center;
       cursor: pointer; color: var(--text-dim);
       border-bottom: 2px solid transparent;
       transition: color .15s, border-color .15s;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
     .sidebar-tab-panel { display: none; flex: 1; overflow-y: auto; padding: 12px; }
@@ -877,13 +894,14 @@
     }
     .mobile-sidebar-toggle {
       display: none;
-      background: transparent; border: 1px solid var(--border);
-      color: var(--text); padding: 4px 9px; border-radius: 5px;
-      font-size: 11px; cursor: pointer; margin-left: 6px; flex-shrink: 0;
+      background: var(--accent-dim); border: 1px solid var(--accent);
+      color: var(--accent); padding: 4px 9px; border-radius: 5px;
+      font-size: 11px; font-weight: 600; cursor: pointer; margin-left: 6px; flex-shrink: 0;
+      align-items: center; gap: 4px;
     }
-    .mobile-sidebar-toggle:hover { background: var(--surface2); }
+    .mobile-sidebar-toggle:hover { background: var(--accent); color: #fff; }
     @media (max-width: 900px) {
-      .mobile-sidebar-toggle { display: inline-flex; align-items: center; gap: 4px; }
+      .mobile-sidebar-toggle { display: inline-flex; }
       .chat-messages { padding: 12px 10px; }
       .input-wrap { padding: 8px 10px; }
       .header { padding: 0 10px; }
@@ -954,6 +972,7 @@
     <span id="notif-badge"></span>
   </button>
   <button id="header-user-btn">👤 <span id="user-label">Identify</span></button>
+  <button class="mobile-sidebar-toggle" id="mobile-right-toggle" onclick="toggleMobileRight()" title="Toggle right panel">&#9776; Panel</button>
 </header>
 
 <!-- Notification panel -->
@@ -1062,11 +1081,11 @@
   </main>
 
   <!-- RIGHT SIDEBAR -->
-  <button class="mobile-sidebar-toggle" id="mobile-right-toggle" onclick="toggleMobileRight()" title="Toggle panel">☰ Panel</button>
-
-  <button class="mobile-sidebar-toggle" id="mobile-right-toggle" onclick="toggleMobileRight()" title="Toggle panel">☰ Panel</button>
-
   <aside class="sidebar-right" id="ctx-panel">
+    <div class="sidebar-mobile-close">
+      <span class="smc-title">Panel</span>
+      <button class="smc-close" onclick="toggleMobileRight()" title="Close panel">✕</button>
+    </div>
     <div class="sidebar-tabs">
       <div class="sidebar-tab active" onclick="switchTab('approvals',this)">Approvals</div>
       <div class="sidebar-tab" onclick="switchTab('writes',this)">Writes</div>
@@ -1961,13 +1980,6 @@ function chip(el) {
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────────────
-function toggleMobileRight() {
-  const panel = document.getElementById('ctx-panel');
-  panel.classList.toggle('mobile-open');
-  const btn = document.getElementById('mobile-right-toggle');
-  if (btn) btn.textContent = panel.classList.contains('mobile-open') ? '✕ Panel' : '☰ Panel';
-}
-
 function toggleMobileRight() {
   const panel = document.getElementById('ctx-panel');
   panel.classList.toggle('mobile-open');
