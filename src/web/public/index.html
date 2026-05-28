@@ -207,38 +207,13 @@
     #left-panel-toggle.collapsed { left: 0; }
     .sidebar-section { padding: 12px; border-bottom: 1px solid var(--border); }
 
-    /* ── LEFT SIDEBAR ADMIN WIDGET ───────────────────────────────── */
-    .sb-admin-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 5px; margin-bottom: 8px;
+    /* left sidebar scrollable wrapper */
+    .sidebar-body {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      display: flex; flex-direction: column;
     }
-    .sb-admin-stat {
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 5px; padding: 5px 7px; cursor: pointer;
-      transition: background .15s, border-color .15s;
-    }
-    .sb-admin-stat:hover { background: var(--surface3); border-color: var(--border-light); }
-    .sb-admin-stat-label { font-size: 8.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
-    .sb-admin-stat-val { font-size: 16px; font-weight: 700; line-height: 1.2; margin-top: 1px; }
-    .sb-admin-stat-val.red    { color: var(--red); }
-    .sb-admin-stat-val.yellow { color: var(--yellow); }
-    .sb-admin-stat-val.green  { color: var(--green); }
-    .sb-admin-cron {
-      display: flex; gap: 5px; margin-bottom: 5px;
-    }
-    .sb-admin-cron-card {
-      flex: 1; background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 5px; padding: 5px 7px;
-    }
-    .sb-admin-cron-label { font-size: 8px; color: var(--text-dim); text-transform: uppercase; }
-    .sb-admin-cron-next  { font-size: 9px; color: var(--green); margin-top: 1px; font-weight: 600; }
-    .sb-admin-open-btn {
-      width: 100%; text-align: center; background: transparent;
-      border: 1px solid var(--border); color: var(--text-dim);
-      padding: 5px; border-radius: 5px; font-size: 10px; font-weight: 600;
-      cursor: pointer; transition: all .15s; letter-spacing: .03em;
-    }
-    .sb-admin-open-btn:hover { background: var(--surface3); color: var(--accent); border-color: var(--accent); }
+    .sidebar-body::-webkit-scrollbar { width: 3px; }
+    .sidebar-body::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
     .tool-item {
       padding: 5px 8px; border-radius: 5px; cursor: pointer;
       font-size: 12px; color: var(--text-dim);
@@ -264,9 +239,6 @@
     }
     .sidebar-btn.accent-btn:hover { background: var(--accent); color: #fff; }
     .sidebar-btn .btn-icon { font-size: 13px; }
-    .sidebar-scroll { flex: 1; overflow-y: auto; padding: 12px; }
-    .sidebar-scroll::-webkit-scrollbar { width: 3px; }
-    .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
     .session-stat {
       display: flex; justify-content: space-between;
       font-size: 12px; margin-bottom: 6px; color: var(--text-dim);
@@ -1151,87 +1123,55 @@
 
   <!-- LEFT SIDEBAR -->
   <aside class="sidebar-left" id="sidebar">
-    <div class="sidebar-section">
-      <div class="sidebar-label">Quick Actions</div>
-      <button class="sidebar-btn accent-btn" onclick="quickMaintenance()">
-        <span class="btn-icon">⚡</span> Start Maintenance
-        <span style="margin-left:auto;font-size:10px;opacity:.7">Ctrl+M</span>
-      </button>
-      <button class="sidebar-btn" onclick="triggerScan()">
-        <span class="btn-icon">🔍</span> Full Scan
-      </button>
-      <button class="sidebar-btn" onclick="openPalette()">
-        <span class="btn-icon">⌘</span> Command Palette
-        <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">Ctrl+K</span>
-      </button>
-      <button class="sidebar-btn danger" onclick="clearSession()">
-        <span class="btn-icon">🗑</span> Clear Session
-      </button>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-label">Session Stats</div>
-      <div class="session-stat"><span>Files read</span><span id="stat-files">0</span></div>
-      <div class="session-stat"><span>Tool calls</span><span id="stat-tools">0</span></div>
-      <div class="session-stat"><span>Writes</span><span id="stat-writes">0</span></div>
-      <div class="session-stat" id="row-task" style="display:none"><span>Task type</span><span id="stat-task"></span></div>
-      <div class="session-stat" id="row-tokens-in" style="display:none"><span>Tokens in</span><span id="stat-tokens-in"></span></div>
-      <div class="session-stat" id="row-tokens-out" style="display:none"><span>Tokens out</span><span id="stat-tokens-out"></span></div>
-      <div class="session-stat" id="row-tokens-cache" style="display:none"><span>Cache hits</span><span id="stat-tokens-cache"></span></div>
-    </div>
-    <div class="sidebar-scroll">
-      <div class="sidebar-label">Memory — Files Read</div>
-      <div id="memory-list"><div class="empty-state">Nothing read yet</div></div>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-label">Quick Queries</div>
-      <div class="tool-item" data-q="Run full scan" onclick="fillInput(this.dataset.q)">Run full scan</div>
-      <div class="tool-item" data-q="Find all TODOs" onclick="fillInput(this.dataset.q)">Find all TODOs</div>
-      <div class="tool-item" data-q="Health check" onclick="fillInput(this.dataset.q)">Health check</div>
-      <div class="tool-item" data-q="Detect dead code" onclick="fillInput(this.dataset.q)">Detect dead code</div>
-      <div class="tool-item" data-q="Check env usage" onclick="fillInput(this.dataset.q)">Check env usage</div>
-    </div>
+    <div class="sidebar-body">
 
-    <!-- Admin overview widget -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">📊 Admin Overview</div>
-      <div class="sb-admin-grid">
-        <div class="sb-admin-stat" onclick="openAdminTab()" title="Total actions">
-          <div class="sb-admin-stat-label">Total Actions</div>
-          <div class="sb-admin-stat-val" id="sb-as-total">—</div>
-        </div>
-        <div class="sb-admin-stat" onclick="openAdminTab()" title="File writes">
-          <div class="sb-admin-stat-label">File Writes</div>
-          <div class="sb-admin-stat-val" id="sb-as-writes">—</div>
-        </div>
-        <div class="sb-admin-stat" onclick="openAdminTab()" title="Critical TODOs">
-          <div class="sb-admin-stat-label">Critical TODOs</div>
-          <div class="sb-admin-stat-val red" id="sb-as-todos">—</div>
-        </div>
-        <div class="sb-admin-stat" onclick="openAdminTab()" title="Lint errors">
-          <div class="sb-admin-stat-label">Lint Errors</div>
-          <div class="sb-admin-stat-val red" id="sb-as-lint">—</div>
-        </div>
-        <div class="sb-admin-stat" onclick="openAdminTab()" title="Uncommitted files">
-          <div class="sb-admin-stat-label">Uncommitted</div>
-          <div class="sb-admin-stat-val yellow" id="sb-as-uncommitted">—</div>
-        </div>
-        <div class="sb-admin-stat" onclick="openAdminTab()" title="Recent commits">
-          <div class="sb-admin-stat-label">Commits</div>
-          <div class="sb-admin-stat-val green" id="sb-as-commits">—</div>
-        </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Quick Actions</div>
+        <button class="sidebar-btn accent-btn" onclick="quickMaintenance()">
+          <span class="btn-icon">⚡</span> Start Maintenance
+          <span style="margin-left:auto;font-size:10px;opacity:.7">Ctrl+M</span>
+        </button>
+        <button class="sidebar-btn" onclick="triggerScan()">
+          <span class="btn-icon">🔍</span> Full Scan
+        </button>
+        <button class="sidebar-btn" onclick="openAdminTab()">
+          <span class="btn-icon">📊</span> Admin Dashboard
+        </button>
+        <button class="sidebar-btn" onclick="openPalette()">
+          <span class="btn-icon">⌘</span> Command Palette
+          <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">Ctrl+K</span>
+        </button>
+        <button class="sidebar-btn danger" onclick="clearSession()">
+          <span class="btn-icon">🗑</span> Clear Session
+        </button>
       </div>
-      <div class="sb-admin-cron">
-        <div class="sb-admin-cron-card">
-          <div class="sb-admin-cron-label">Night Deep</div>
-          <div class="sb-admin-cron-next" id="sb-cron-night-next">—</div>
-        </div>
-        <div class="sb-admin-cron-card">
-          <div class="sb-admin-cron-label">Day Light</div>
-          <div class="sb-admin-cron-next" id="sb-cron-day-next">—</div>
-        </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Session Stats</div>
+        <div class="session-stat"><span>Files read</span><span id="stat-files">0</span></div>
+        <div class="session-stat"><span>Tool calls</span><span id="stat-tools">0</span></div>
+        <div class="session-stat"><span>Writes</span><span id="stat-writes">0</span></div>
+        <div class="session-stat" id="row-task" style="display:none"><span>Task type</span><span id="stat-task"></span></div>
+        <div class="session-stat" id="row-tokens-in" style="display:none"><span>Tokens in</span><span id="stat-tokens-in"></span></div>
+        <div class="session-stat" id="row-tokens-out" style="display:none"><span>Tokens out</span><span id="stat-tokens-out"></span></div>
+        <div class="session-stat" id="row-tokens-cache" style="display:none"><span>Cache hits</span><span id="stat-tokens-cache"></span></div>
       </div>
-      <button class="sb-admin-open-btn" onclick="openAdminTab()">Open Admin Dashboard →</button>
-    </div>
+
+      <div class="sidebar-section" style="flex:1">
+        <div class="sidebar-label">Memory — Files Read</div>
+        <div id="memory-list"><div class="empty-state">Nothing read yet</div></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Quick Queries</div>
+        <div class="tool-item" data-q="Run full scan" onclick="fillInput(this.dataset.q)">Run full scan</div>
+        <div class="tool-item" data-q="Find all TODOs" onclick="fillInput(this.dataset.q)">Find all TODOs</div>
+        <div class="tool-item" data-q="Health check" onclick="fillInput(this.dataset.q)">Health check</div>
+        <div class="tool-item" data-q="Detect dead code" onclick="fillInput(this.dataset.q)">Detect dead code</div>
+        <div class="tool-item" data-q="Check env usage" onclick="fillInput(this.dataset.q)">Check env usage</div>
+      </div>
+
+    </div><!-- /sidebar-body -->
   </aside>
 
   <!-- CHAT -->
@@ -2559,8 +2499,6 @@ async function loadAdminTab() {
     setAdminStat('as-total',  stats.total);
     setAdminStat('as-writes', stats.byAction?.['write_file'] ?? 0);
     // mirror to left sidebar widget
-    setAdminStat('sb-as-total',  stats.total);
-    setAdminStat('sb-as-writes', stats.byAction?.['write_file'] ?? 0);
 
     if (scanRes?.ok && scanRes.result?.summary) {
       const s = scanRes.result.summary;
@@ -2571,10 +2509,6 @@ async function loadAdminTab() {
       setAdminStat('as-env',         s.missing_env_vars);
       setAdminStat('as-commits',     s.recent_commits);
       // mirror to left sidebar widget
-      setAdminStat('sb-as-todos',       s.critical_todos);
-      setAdminStat('sb-as-lint',        s.lint_errors);
-      setAdminStat('sb-as-uncommitted', s.uncommitted_files);
-      setAdminStat('sb-as-commits',     s.recent_commits);
     }
 
     refreshAdminCountdowns();
@@ -2712,15 +2646,11 @@ function refreshAdminCountdowns() {
     const n = nextRunFromCron(nightEl.textContent);
     const nightNext = document.getElementById('admin-cron-night-next');
     if (nightNext && n) nightNext.textContent = 'Next: ' + n;
-    const sbNight = document.getElementById('sb-cron-night-next');
-    if (sbNight && n) sbNight.textContent = 'Next: ' + n;
   }
   if (dayEl) {
     const d = nextRunFromCron(dayEl.textContent);
     const dayNext = document.getElementById('admin-cron-day-next');
     if (dayNext && d) dayNext.textContent = 'Next: ' + d;
-    const sbDay = document.getElementById('sb-cron-day-next');
-    if (sbDay && d) sbDay.textContent = 'Next: ' + d;
   }
 }
 
