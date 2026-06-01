@@ -145,7 +145,7 @@ Project-level CLAUDE.md updated with explicit rules: feature branch → PR → h
 
 ### Gap analysis summary
 
-Agent is solid for internship prototype + dev environment use. Three things matter most before live production:
+Three things matter most before live production:
 1. PR-based write flow (instead of direct working tree writes)
 2. Session persistence across restarts
 3. External verification of fix_error confidence score
@@ -335,7 +335,7 @@ Smart false-positive avoidance: `process.env.X` usage NOT blocked. Comment lines
 
 ## May 27, 2026 (Session 3) — Aligned agent with tiq_workplace microservices
 
-**Context:** `tiq_workplace` is the dev/review codebase. Agent will point at real TIQ codebase once lead approves.
+**Context:** `tiq_workplace` is the dev/review codebase. Agent will point at real TIQ codebase once approved.
 
 **System prompt** — rewritten: TypeScript microservices (Fastify, PostgreSQL, BetterAuth), 7 backend services, 2 React frontends.
 
@@ -388,139 +388,611 @@ Full audit against real TIQ codebase.
 
 ---
 
-## May 26, 2026 — Secret scanner, dep updater, admin panel, full UI overhaul
+## May 26, 2026 — Secret scanner, dep updater, notifications, admin panel, UI overhaul
 
-**New tools:**
-- `secret_scanner` — scans codebase for leaked API keys, JWT secrets, passwords, private keys
-- `dep_updater` — npm outdated by risk (patch/minor/major), `safe_update_command` for patches
+### What changed
 
-**Notification system** (`src/notifications.js`) — persistent notifications, bell icon, webhook support.
+**New tool: `secret_scanner` (src/tools/secretScanner.js)**
 
-**Admin panel** merged into `index.html` — stats grid, cron display, maintenance reports, activity log, manual trigger.
+Scans codebase for leaked credentials — 9 regex patterns covering AWS access keys, JWT secrets, PEM private keys, DB connection strings, Slack/Discord webhook URLs, and generic API key assignments. Reports by file with line numbers and match previews.
 
-**UI overhaul** — thinking animation, live tool call chips, copy buttons, maintenance header banner, write history tab, diff viewer with approve/deny.
+**New tool: `dep_updater` (src/tools/depUpdater.js)**
+
+Checks npm outdated across services, categorises results by risk: patch (safe), minor (review), major (breaking). Returns a `safe_update_command` for patch-only updates. Prevents blind `npm update` across all packages.
+
+**Notification system (`src/notifications.js`)**
+
+Persistent ring buffer (last 100), bell icon with unread count, Slack/Discord webhook support. `notify(level, title, body)` called from scheduler on every maintenance result. Previously the scheduler ran silently — no visibility unless you manually checked logs.
+
+**Admin panel merged into single-page UI**
+
+Removed separate `/admin` route. Admin is now a tab in the right panel — stats grid, cron schedule display, maintenance reports, activity log, manual trigger button. Eliminates context switching between chat and admin views.
+
+**Major UI overhaul (src/web/index.html)**
+- Thinking animation while agent is processing
+- Live tool call chips — pulse while running, green tick on completion
+- Copy buttons on all code blocks and agent responses
+- Maintenance header banner with last-run status
+- Write history tab showing all approved/rejected write operations
+- Diff viewer with approve/deny buttons integrated inline
+
+### Commits
+| SHA | What |
+|-----|------|
+| `ec73f91` | feat: secret scanner, dependency updater, notification system |
+| `b69cbb5` | feat: wire secret_scanner + dep_updater into agent |
+| `bc05628` | feat: admin panel — notifications bell, auto-refresh, countdown |
+| `09f8d1b` | feat: major UI overhaul |
+| `b41c4c7` | feat: one-click maintenance, parallel sessions, PM2 config |
+| `6163511` | fix: resolve 8 bugs, pass all 67 tests |
+| `7f7fd0f` | feat: merge admin panel into single-page UI |
 
 ---
 
 ## May 23, 2026 — Semi-autonomous maintenance system
 
-`src/scheduler.js` — autonomous maintenance loop.
+### What changed
 
-**Night (2am):** Full scan → issues → confidence ≥ threshold → git backup → diff → write → test → rollback if fail.
+**`src/scheduler.js` — autonomous maintenance loop**
 
-**Day (every 2h):** Health check only, no writes.
+Two cron cycles:
 
-**`fix_error` tool** — parse error → read files → root cause → confidence score (0–100) + fix + verification command.
+**Night deep scan (2am IST):**
+- `fullScan()` — all checks in parallel
+- Pre-fix test run — skip auto-fix if tests already failing (don't compound broken state)
+- For each issue with confidence ≥ threshold: `git_backup → show_diff → write_file → run_command`
+- Post-fix test run — if failing, `git_backup restore` and stop
+- Save `logs/maintenance-{ISO}.json` + notify
 
-**`full_scan` tool** — 10 checks in parallel, one call instead of 10.
+**Day light scan (every 2h IST):**
+- Lint, TODOs, health check, health monitor in parallel
+- No writes — observation only during working hours
+
+**`fix_error` tool** — now the standard entry point for bug fixing. Takes an error message, reads the relevant files, identifies root cause, returns a confidence score (0–100) + proposed fix + verification command.
+
+**`full_scan` tool** — runs all 10 maintenance checks in parallel in a single call. Replaces calling each tool individually.
+
+### Commit
+| SHA | What |
+|-----|------|
+| `2e2b55a` | feat: semi-autonomous maintenance system |
 
 ---
 
-## May 22, 2026 — fix_error tool + UI redesign
+## May 22, 2026 — fix_error meta-tool + UI redesign
 
-`fix_error` wired into agent. Decision tree: error → confidence ≥ 55 → full pipeline; < 55 → ask user.
+### What changed
 
-UI: TIQ brand palette (dark orange + teal), left sidebar tool list, right sidebar session memory, real-time progress strip.
+**`fix_error` meta-tool (src/tools/fixError.js)**
+
+End-to-end pipeline: error input → trace files → root cause analysis → confidence scoring → proposed fix → verification command. Registered across all dispatcher scopes.
+
+Decision gate in agent prompt: confidence ≥ threshold → full auto-fix pipeline; below threshold → surface to user for decision. Confidence is a composite score based on stack trace file coverage, keyword matches, and function complexity.
+
+**UI redesign (src/web/index.html)**
+
+Moved from flat layout to 3-column: left sidebar (tool list + quick actions), centre (chat), right (session memory + admin). TIQ brand palette: dark orange `#E85D26` + teal `#0D9488`. Real-time progress strip shows tool calls as they fire. Session memory sidebar shows files read, writes made, tool call count.
+
+### Commits
+| SHA | What |
+|-----|------|
+| `17bc35a` | feat: add fix_error meta-tool — end-to-end error→fix→verify pipeline |
+| `e88972d` | feat: wire fix_error tool, add tool budget + confidence rules |
+| `1c33ded` | feat: add fix_error to dispatcher scopes + redesign index.html UI |
 
 ---
 
 ## May 21, 2026 — GitHub OAuth + audit trail + approval gates
 
-**GitHub OAuth** — Passport.js, real GitHub username on every action.
+### What changed
 
-**Audit trail** (`src/activityLog.js`) — every action logged to `logs/activity.jsonl`.
+**GitHub OAuth (src/web/server.js)**
 
-**Write archive** (`src/writeArchive.js`) — before/after content for every `write_file`.
+Passport.js + `passport-github2`. Users sign in with real GitHub accounts. Session stores `login`, `name`, `avatarUrl`, `githubId`. Every write, approval, and tool call is attributed to a verified GitHub username. Before this, all actions were anonymous.
 
-**Approval gates** — `approval_needed` SSE → browser diff modal → `/api/approve` → resolves async Promise. Bedrock call paused until human decides.
+**Audit trail (`src/activityLog.js`)**
 
----
+Append-only JSONL at `logs/activity.jsonl`. Every event written: user query, tool call (name + input summary), write (path + status), approval (approved/rejected + by whom), error. JSONL chosen over a database — no schema, no setup, grep-able, pipeable to `jq`.
 
-## May 20, 2026 — Week 4: Web UI, DB access, 4 new tools (16 → 20 tools)
+**Write archive (`src/writeArchive.js`)**
 
-**New tools:** `git_log`, `health_check`, `lint_file`, `db_query` (read-only PostgreSQL via SSM tunnel).
+Before/after content saved for every accepted `write_file` to `logs/archives/{ISO}___{path}.diff`. Audit log says a write happened; write archive shows exactly what changed. Together they provide full traceability.
 
-**Web UI (`src/web/`):**
-- `server.js` — Express + SSE
-- `index.html` — single file, no build step, dark theme, live tool chips, markdown
-- `npm run web` → `http://localhost:3001`
+**Approval gates**
 
-**Bedrock prompt caching** — system prompt cached, ~60% input token reduction on cached portion.
+`approval_needed` SSE event → browser renders diff modal with approve/deny buttons → POST `/api/approve` with decision → resolves the async Promise in the tool loop → agent continues or stops. Bedrock call is paused (not polling) until the Promise resolves. 5-minute timeout → auto-reject.
 
----
+**Week 4 complete — v0.6.0**
 
-## May 18, 2026
+All Week 4 goals achieved: Web UI, approval gates, session memory, audit trail, GitHub OAuth.
 
-Tools `trace_error`, `map_dependencies`, `explain_route` built. Tool count: 6 → 9.
-
----
-
-## May 11, 2026
-
-Pushed all local commits. Commit trail discipline fixed going forward.
+### Commits
+| SHA | What |
+|-----|------|
+| `057ae61` | feat: GitHub OAuth login |
+| `9606707` | feat: audit trail — activity log, write archive, user identity, admin panel |
+| `446e935` | feat: complete Week 4 — UI redesign, approval gates, session memory, v0.6.0 |
+| `be06105` | refactor: final system prompt tuning based on real usage patterns |
 
 ---
 
-## May 9, 2026 (Leave)
+## May 20, 2026 — Week 4: Web UI, DB access, 11 new tools, dispatcher refactor (9 → 24 tools)
 
-Key insight: Claude must control the tool loop, not the orchestrator.
+### What changed
+
+**Web UI (`src/web/`)**
+
+- `server.js` — Express server, session management, OAuth scaffold, rate limiting
+- `router.js` — `/api/chat` SSE endpoint, `/api/scan`, `/api/approve`, session CRUD
+- `index.html` — single file, no build step, dark theme, live tool call chips, markdown rendering, copy buttons, timestamps
+
+Why SSE over WebSockets: streaming is one-directional (server → browser). SSE is simpler, works over plain HTTP, no protocol upgrade needed.
+
+Why no build step: developer tool for one team. Vite/webpack adds deployment friction with no benefit here.
+
+**4 Week 4 tools:**
+
+- `git_log` — commit history with file/date filters
+- `health_check` — full codebase snapshot in one call (file counts, TODOs, git status, env gaps)
+- `lint_file` — ESLint structured output (file:line:rule)
+- `db_query` — read-only SQL against PostgreSQL via SSM tunnel (localhost:5433)
+
+**7 additional tools built same day:**
+
+- `find_todos` — TODO/FIXME/BUG/HACK scan with severity classification
+- `check_env_usage` — diff `.env.example` vs `process.env.*` calls in code
+- `summarize_diff` — git diff for staged/unstaged/branch comparison
+- `detect_dead_code` — find files with zero importers
+- `schema_to_api` — check CRUD route completeness for a given model
+- `recall_session` — surface all tool calls + files read + writes from current session
+- In-memory session store (`src/session.js`)
+
+The rapid expansion was possible because shared fs utilities (`getAllFiles`, `toRel`, `readSafe`) were extracted first — each new tool reuses the same file traversal logic.
+
+**Dispatcher refactor (src/dispatcher.js)**
+
+Rebuilt from an `ALL_TOOLS` registry. Previously: add a tool → update import + switch case + tool list (3 places). Now: add one entry to the registry. Tool scope assignment (READ_ONLY / REVIEW_EXTRA / WRITE) is declarative.
+
+**Bedrock prompt caching**
+
+System prompt marked `cache_control: ephemeral`. In the multi-turn tool loop, the system prompt is sent on every round trip. Caching saves ~60% of input tokens on the cached portion across a full conversation.
+
+**Bedrock prompt caching added** — system prompt marked `cache_control: ephemeral`, ~60% input token reduction on cached portion.
+
+### Commits
+| SHA | What |
+|-----|------|
+| `6de36fc` | feat: add git_log tool |
+| `6863a69` | feat: add health_check tool |
+| `24e721a` | feat: add lint_file tool |
+| `c6ea8e7` | feat: add db_query tool |
+| `4b56826` | feat: add shared fs utils |
+| `61f9c2d` | feat: add find_todos tool |
+| `5873e0e` | feat: add check_env_usage tool |
+| `529bf3c` | feat: add summarize_diff tool |
+| `364a2ae` | feat: add detect_dead_code tool |
+| `97f3e4d` | feat: add schema_to_api tool |
+| `3f9241a` | feat: add in-memory session store |
+| `83b7014` | feat: add recall_session tool |
+| `bf3b500` | refactor: rebuild dispatcher from ALL_TOOLS registry |
+| `71b213e` | feat: wire Week 4 tools, Bedrock prompt caching |
+| `b177a06` | feat: redesign Web UI |
+| `c439fe7` | feat: full_scan tool + scheduler — v0.5.0 |
 
 ---
 
-## May 8, 2026
+## May 18, 2026 — Week 3 complete: trace_error, map_dependencies, explain_route (6 → 9 tools)
 
-Week 1 retro. Week 2 goals set. Approval gate flow designed.
+### What changed
 
----
+**`trace_error` tool (src/tools/traceError.js)**
 
-## May 7, 2026
+Takes a stack trace string, extracts every file path mentioned, reads each file, and returns a structured analysis with all relevant code in context. The manual process of opening each file from a stack trace is replaced with a single tool call.
 
-End-of-week cleanup. Search truncation noted. EXCLUDE_DIRS confirmed.
+**`map_dependencies` tool (src/tools/mapDependencies.js)**
 
----
+Given a file path, returns:
+- Outgoing imports — what this file depends on (forward, depth configurable)
+- Incoming importers — what files import this file (reverse)
 
-## May 6, 2026
+Both directions matter: forward shows blast radius of a change; reverse shows what breaks if this file is modified.
 
-System prompt updated with TIQ-specific context. Hallucination reduced.
+**`explain_route` tool (src/tools/explainRoute.js)**
 
----
+Given a route path + method, traces the full request lifecycle: route definition → middleware chain → controller → service calls → DB queries. Outputs a structured map of every file in the chain.
 
-## May 5, 2026
+Why this is high-value: tracing a route manually (route → controller → service → model) takes 15-30 minutes for unfamiliar code. `explain_route` does it in one call.
 
-First real test against TIQ codebase. Fixed import path bug, hallucination guard, search overload.
-
----
-
-## May 2, 2026
-
-config/settings.py built. Configuration centralized.
-
----
-
-## May 1, 2026
-
-First day. Built agent.py, tools.py, prompts.py. Left out write_file intentionally.
+### Commit
+| SHA | What |
+|-----|------|
+| `6005ff9` | feat: add Week 3 tools — trace_error, map_dependencies, explain_route |
 
 ---
 
-## April 28–30, 2026
+## May 17, 2026 — Dispatcher layer + git_backup + per-task tool scoping
 
-Research: Anthropic tool use docs, gitpython, psycopg2. Decision: no auto-push, no delete without human.
+### What changed
+
+**Dispatcher (`src/dispatcher.js`)**
+
+Routes queries to task types and restricts which tools Claude can access per task:
+
+| Task type | Tool scope | Use case |
+|-----------|-----------|----------|
+| `query` | READ_ONLY | Answering questions about the codebase |
+| `review` | READ_ONLY + show_diff + fix_error | Code review, security audit |
+| `maintenance` | Full WRITE set | Scheduled auto-fix runs |
+| `feature` | Full WRITE set | New feature work (propose only) |
+
+Without scoping, Claude could call `write_file` when asked a simple question. Scoping prevents this by category. Smaller tool set per call also reduces context noise.
+
+**`git_backup` tool (src/tools/gitBackup.js)**
+
+Creates a checkpoint branch `backup/maint-{ISO}-{slug}` before any write. Also handles restore (`action: 'restore'`). Implemented as an explicit tool (not hidden logic) so Claude can invoke it in its own reasoning chain — the backup step appears in the tool call log and is visible in the UI.
+
+### Commit
+| SHA | What |
+|-----|------|
+| `d24d2bc` | feat: add dispatcher layer, git_backup tool, and per-task tool scoping |
 
 ---
 
-## April 25–27, 2026
+## May 15, 2026 — Week 3 start: registry dispatcher, error_tracer, explain_route scaffolding
 
-Tool list design. DB access identified as the unique differentiator.
+### What changed
+
+**Registry-based dispatcher** replaced the if-elif chain
+
+Before:
+```javascript
+if (taskType === 'query') return queryTools;
+else if (taskType === 'review') return reviewTools;
+// ...
+```
+
+After:
+```javascript
+const TASK_REGISTRY = { query: [...], review: [...], maintenance: [...] };
+return TASK_REGISTRY[taskType] ?? TASK_REGISTRY.query;
+```
+
+Adding a new task type now means one dict entry, zero changes to routing logic. Open for extension, closed for modification.
+
+**`error_tracer` tool scaffolded (src/tools/traceError.js)**
+
+Initial implementation: parse stack trace → identify originating file and line → read that file and its imports → return structured root cause candidates.
+
+**`explain_route` tool scaffolded (src/tools/explainRoute.js)**
+
+Initial implementation: given a route string, search for its definition, read the handler, extract middleware references.
+
+### Commits
+| SHA | What |
+|-----|------|
+| `34a7df1` | feat(week3): add error_tracer + explain_route tools, registry dispatcher |
+| `7aac789` | refactor(week3): replace if-elif dispatcher with registry pattern |
+| `862e653` | feat(week3): add error trace and route explanation prompts |
 
 ---
 
-## April 23–24, 2026
+## May 13, 2026 — Recursive auto-context loader + structured error format
 
-Architecture planning. system-design.md written. Tool-use over text-dumping chosen.
+### What changed
+
+**Recursive auto-context loader — depth 2 with circular guard (src/tools/readFile.js)**
+
+Extended from depth 1 (May 11) to depth 2 — when reading a file, also read its imports' imports. Added a `visited` Set to detect circular dependencies and break the recursion.
+
+Why depth 2: most debugging paths span two hops. Component → utility → config is the common pattern. Depth 1 frequently missed the actual source of an issue. Depth 2 covers the large majority of real cases without the token overhead of unlimited recursion.
+
+The circular guard is essential: without it, codebases with circular imports (A → B → A) would cause infinite recursion. The `visited` Set breaks any cycle.
+
+**Structured error format for `show_diff` (src/tools/showDiff.js)**
+
+Error returns now use `{ error, path, suggestion }` instead of a plain string.
+
+Why structured: a string error gives Claude nothing actionable. A structured object lets Claude reason: "the file wasn't found at this path, the suggestion says to check if the path is relative to project root" — leading to a more accurate follow-up action.
+
+### Commits
+| SHA | What |
+|-----|------|
+| `740d104` | feat: recursive auto-context loader (depth 2) with circular import guard |
+| `58b5894` | fix: standardize error format in showDiff (add path + suggestion) |
 
 ---
 
-## April 22, 2026
+## May 12, 2026 — AWS Bedrock migration + show_diff tool
 
-Project assigned. GitHub repo created. v0.1 foundation built.
+### What changed
+
+**Migrated from Anthropic SDK to AWS Bedrock (`src/agent.js`)**
+
+Replaced `Anthropic` client with `BedrockRuntimeClient` + `ConverseCommand` from `@aws-sdk/client-bedrock-runtime`.
+
+Why Bedrock: TIQ's infrastructure is AWS. Bedrock keeps API traffic within the AWS network — no data leaving the cloud provider, same IAM credential model used by the rest of the stack, no separate API key to manage. AWS instance profile credentials work directly.
+
+Trade-off: adds an AWS dependency. Running outside AWS requires credentials setup. Acceptable for an internal tool tied to TIQ infrastructure.
+
+Model ID: `us.anthropic.claude-sonnet-4-5-20250929-v1:0` on region `us-east-2`.
+
+**`show_diff` tool (src/tools/showDiff.js)**
+
+Generates a context-aware diff between current file content and proposed new content. Uses `@@ line N @@` headers with 3 lines of context around each change — not the full file.
+
+Why context-aware: if a 1-line change is made in a 300-line file, showing 300 lines is noise. `git diff` uses 3-line context for exactly this reason. This tool matches that behaviour.
+
+Also fixed pending issues in `write_file` and `run_command` from May 11.
+
+### Commits
+| SHA | What |
+|-----|------|
+| `c082fb9` | feat: migrate from Anthropic SDK to AWS Bedrock (BedrockRuntimeClient) |
+| `951f9d5` | fix: resolve pending issues in write_file, run_command, and add show_diff tool |
+
+---
+
+## May 11, 2026 — v0.2: Real tool-use loop, write_file, run_command, auto-context loader
+
+### What changed
+
+**Real tool-use loop — v0.2 agent core (`src/index.js`, `src/agent.js`)**
+
+Replaced the v0.1 text-dumping approach with a proper Anthropic tool-use loop:
+
+1. Send Claude the `tools` array + conversation history
+2. Claude returns `stop_reason: "tool_use"` with function name + arguments
+3. Agent executes the function locally
+4. Agent sends back `tool_result` message
+5. Loop continues until `stop_reason: "end_turn"` or tool budget exhausted
+
+Before this: the agent called Python functions itself and passed results as text context. Claude made one call. In the new architecture, Claude controls the loop — it decides what to read, in what order, and when it has enough information to answer. This is the distinction between a script wrapper and an agent.
+
+**`write_file` tool with approval gate and git backup (`src/tools/writeFile.js`)**
+
+Flow:
+1. `git_backup` — checkpoint branch created before any write
+2. `show_diff` — before/after displayed to user
+3. User confirms yes/no via readline prompt
+4. Write only proceeds on explicit approval
+
+Gate lives in the orchestrator, not inside `write_file`. Tools are pure — no user-facing I/O inside the tool itself. Approval logic belongs to the caller.
+
+**`run_command` tool with exact allowlist (`src/tools/runCommand.js`)**
+
+Executes shell commands from a defined whitelist. Everything not in the list returns a blocked error.
+
+Allowlist approach over blacklist: a blacklist is always incomplete. Whitelist is complete by definition — if it's not listed, it cannot run.
+
+**Auto-context loader — depth 1 (`src/tools/readFile.js`)**
+
+When reading a file, automatically detects and reads its direct `import`/`require` statements. Returns both the file and its immediate dependencies in one tool call.
+
+Why: most questions about a function require reading both the function and what it calls. Auto-loading depth 1 imports eliminates the round trip of "now read file B" after reading file A.
+
+### Commits
+| SHA | What |
+|-----|------|
+| `d067032` | feat: add write_file tool with diff view, approval gate, and git backup |
+| `f5fed21` | feat: add run_command tool with whitelist for safe command execution |
+| `2027157` | feat: auto-context loader — readFile parses and returns imported local files |
+| `5da6321` | feat: wire write_file + run_command into agent, make executeTool async |
+| `1e67b05` | feat: implement real tool-use loop (v0.2 agent core) |
+| `5c6f12c` | Add v0.1 agent implementation and full project documentation |
+
+---
+
+## May 9, 2026 — Leave day
+
+Architecture notes written: Claude must control the tool loop, not the orchestrator. v0.2 refactor plan finalised.
+
+---
+
+## May 8, 2026 — Week 1 retro, Week 2 planning, approval gate design
+
+### What changed
+
+**Week 1 retrospective**
+
+| Goal | Status |
+|------|--------|
+| CLI working | Done |
+| read tools working | Done |
+| Q&A working | Done |
+| System prompt with TIQ context | Done |
+| Structured tool response format | Deferred to Week 2 |
+| Prompt caching | Researched, intentionally deferred |
+
+Prompt caching deferred: caching saves tokens on repeated calls with the same system prompt. In v0.1 (single API call per query), caching saves almost nothing. The multi-turn tool-use loop in v0.2 — where each tool call round trip resends the system prompt — is where caching pays off.
+
+**Approval gate design**
+
+Flow: agent proposes change → `show_diff` (proposed vs current) → user confirms yes/no → `write_file` only if yes.
+
+Decision: gate logic lives in the orchestrator (`agent.py`), not inside `write_file`. Tools are pure functions — inputs in, outputs out, no side effects, no user-facing I/O. The orchestrator owns the confirmation loop.
+
+**Week 2 goals set:** `show_diff`, approval gate, `git_backup`, `run_command`, structured tool response format.
+
+---
+
+## May 7, 2026 — Structured tool responses + prompt caching
+
+### What changed
+
+**Structured response format — all 3 tools**
+
+| Tool | Before | After |
+|------|--------|-------|
+| `read_file` | Raw file string | `{ file_path, line_count, language, content, truncated }` |
+| `list_files` | Raw array | `{ entries: [{name, path, type, size}], total_count, filtered_count }` |
+| `search_code` | Raw match list | `{ matches: [{file, line, column, text}], match_count, files_searched }` |
+
+Why structured: raw strings give Claude no metadata. Structured responses enable precise answers: "Line 47 of `src/middleware/auth.js`" instead of "somewhere in auth.js."
+
+**Prompt caching added (`src/agent.py`)**
+
+System prompt block marked `cache_control: ephemeral`. First call populates the cache. Subsequent calls with the same system prompt get ~90% token reduction on that block.
+
+Why add now: structured tool responses and the TIQ-specific system prompt mean the system prompt block is now large and stable — a good caching target. Also, this prepares for the v0.2 multi-turn loop where the same prompt is sent on every round trip.
+
+### Commits
+| SHA | What |
+|-----|------|
+| `cb4d9a0` | feat: structured response format for read_file tool |
+| `6cfb9af` | feat: structured response format for list_files tool |
+| `6516109` | feat: structured response format for search_code tool |
+| `bc2036b` | feat: add prompt caching to system prompt (cache_control: ephemeral) |
+
+---
+
+## May 6, 2026 — TIQ-specific system prompt
+
+### What changed
+
+**`SYSTEM_PROMPT` updated with TIQ World codebase context (`config/prompts.py`)**
+
+Added explicit context: MERN stack, module structure (Tracks, Tasks, Submissions, Assessments, Certificates), key file locations, route naming conventions, database patterns.
+
+Before: Claude gave generic output — "add input validation", "use environment variables for secrets." Technically correct, not specific.
+
+After: Claude references actual module names, route patterns, and file paths from the TIQ codebase. Reviews become actionable rather than textbook advice.
+
+Key insight: a language model is only as useful as the context it receives. Generic context → generic output. Codebase-specific context → codebase-specific output. Every token invested in the system prompt pays off on every subsequent call.
+
+---
+
+## May 5, 2026 — First test against TIQ codebase, 3 bugs fixed
+
+### What changed
+
+**First real run against `C:/Users/Shalini Mishra/TIQ`**
+
+Results: auth Q&A worked, health check correctly identified structure, code review found real issues.
+
+**Bug 1 — Import path resolution (`agent.py`)**
+
+`from prompts import ...` breaks when running from outside the `agent/` directory. Fixed: `sys.path.insert(0, os.path.dirname(__file__))` at the top of `agent.py`. Forces Python to look relative to the script file, not the working directory. A broken import means a tool nobody uses.
+
+**Bug 2 — Hallucination guard (`config/prompts.py`)**
+
+Claude was referencing code that wasn't in the provided files — filling in gaps from training data. Fixed: explicit instruction added to `QUESTION_PROMPT`: "Only reference code from the context provided. Do not invent or assume code that was not shown to you."
+
+**Bug 3 — Search relevance (noted, not fixed)**
+
+When a keyword appears in many files, all results are weighted equally. A file with 20 surface matches gets the same weight as one with a deep, relevant match. Proper relevance ranking deferred to v0.2.
+
+---
+
+## May 2, 2026 — Configuration module + bug fix
+
+### What changed
+
+**`config/settings.py` — centralised configuration**
+
+Extracted all hardcoded values from `agent.py`:
+- `MODEL` — reads from environment first, falls back to default
+- `EXCLUDE_DIRS` — `node_modules`, `__pycache__`, `.venv`, `dist`, `build`
+- `MAX_FILE_SIZE` — 100KB cap (skips minified/generated files)
+- API key — `os.environ.get('ANTHROPIC_API_KEY')` only, never hardcoded. Exits with clear error if not set.
+
+Why centralise: model name and API settings were hardcoded in `agent.py`. When the model name changes, a single file to update beats finding every hardcoded reference.
+
+**Bug fix — `get_file_summary()` over-counting files**
+
+`.git/` internals were being counted as source files, inflating the codebase file count to thousands. Fixed by applying `EXCLUDE_DIRS` filter inside `list_files`.
+
+---
+
+## May 1, 2026 — Project foundation: CLI agent, 3 tools (v0.1)
+
+### What changed
+
+**`agent/agent.py` — CLI orchestrator**
+
+`argparse` for CLI (auto-generates `--help`, makes each mode independently testable). `rich` library for terminal output (renders Claude's markdown responses instead of raw symbols). Four modes: `--review`, `--ask`, `--health-check`, interactive default.
+
+**`agent/tools.py` — 3 read-only tools**
+
+- `read_file` — read any file under `TIQ_CODEBASE_PATH`
+- `list_files` — directory listing with file type breakdown
+- `search_codebase` — plain string search across all non-excluded files
+
+`write_file` deliberately excluded: the system design requires a human approval gate before writes. The gate isn't built yet. Including write without the gate risks accidental modification. It will be added in Week 2 once the gate is ready.
+
+**`agent/prompts.py` — prompt templates**
+
+Separated from `agent.py` so prompts can be tuned independently without touching orchestration logic. `REVIEW_PROMPT` uses Critical / Warning / Suggestion severity tiers — unstructured review output is hard to prioritise. Structured tiers make it immediately clear what needs immediate attention.
+
+### Commit
+| SHA | What |
+|-----|------|
+| `d1b2271` | project foundation — CLI agent with read/list/search tools |
+
+---
+
+## April 28–30, 2026 — Research phase
+
+### What was explored
+
+- **Anthropic tool use documentation** — full message flow: `tools` array → `stop_reason: tool_use` → `tool_result` → loop. Understanding this was prerequisite to designing v0.2.
+- **gitpython** — programmatic access to git log, diff, blame for the planned git tools.
+- **psycopg2** — PostgreSQL connectivity for the planned `db_query` tool via SSM tunnel.
+
+**Constraints decided upfront:**
+- No auto-push to git remote — human always controls pushes
+- No delete operations without explicit confirmation
+- No merging PRs autonomously
+- Write access scoped to documentation files only (initially)
+
+Rationale: trust is earned incrementally. Starting constrained and expanding is safer than starting permissive and adding restrictions after something goes wrong.
+
+---
+
+## April 25–27, 2026 — Tool list design
+
+### What was decided
+
+Defined the full tool set for v0.2. Key decision: include `db_query` as a first-class tool.
+
+Why DB access is the differentiator: generic AI coding tools (Copilot, Devin, Cursor) have no knowledge of TIQ World's data. An agent with database access can answer questions no off-the-shelf tool can answer for this specific context. This was identified as the highest-value capability to build.
+
+Final tool list: `read_file`, `list_files`, `search_codebase`, `git_log`, `git_diff`, `git_blame`, `db_query`, `db_schema`, `write_file` (with gate).
+
+---
+
+## April 23–24, 2026 — Architecture planning
+
+### What was decided
+
+**`docs/system-design.md` written before any v0.2 code.**
+
+Core architectural decision: v0.2 must be a real tool-use agent, not a text-dumping wrapper.
+
+v0.1 approach: code searches for files, dumps content as text context into a prompt, Claude answers. Claude has no agency — it responds to whatever the code passes it.
+
+v0.2 approach: Claude receives a `tools` array, decides which tools to call, the agent executes them, Claude continues. Claude controls the loop. This is the difference between a script that uses Claude and an agent.
+
+**Human-in-the-loop for writes:** Agent can read everything and suggest anything. All code changes require human approval before being applied. Trust is built incrementally — read-only first, write access only after the safety mechanisms are proven.
+
+---
+
+## April 22, 2026 — Project start
+
+### What changed
+
+**GitHub repository created: `tiqworld-ai-agent`**
+
+**v0.1 built — four modes:**
+- `--review <file>` — structured feedback (Critical / Warning / Suggestion)
+- `--ask <question>` — codebase search + answer
+- `--health-check <dir>` — structural overview
+- Default — interactive chat
+
+**Why Python for v0.1:** Fastest path to something working. Official Anthropic SDK, `rich` for terminal output, `gitpython` for later git integration. Agent migrated to Node.js in Week 2 to match TIQ's stack.
+
+**Why not start with tool use in v0.1:** Tool use is the right architecture but adds significant complexity. v0.1 validates the concept with something testable. v0.2 refactors to proper tool use once the idea is proven.
+
+### Commit
+| SHA | What |
+|-----|------|
+| `920c240` | Initial commit |
