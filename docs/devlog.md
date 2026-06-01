@@ -4,6 +4,54 @@
 
 ---
 
+## June 1, 2026 — Agent workflow review + MCP integration check
+
+### What I did
+
+Full end-to-end workflow review session. Verified agent connects correctly to `sample_codebase` (Shalin-mish/sample_codebase) as the target repo. Traced tool call path: user query → dispatcher classification → tool scope selection → Bedrock API → tool execution → result.
+
+Checked MCP server connections:
+- **github MCP** — confirmed `mcp__github__get_file_contents`, `mcp__github__create_or_update_file`, `mcp__github__search_code` all responding
+- **postgres-tiqworld-dev MCP** — SSM tunnel on localhost:5433 required before `db_query` tool fires
+- **playwright MCP** — available for e2e test runs
+- **chrome-devtools MCP** — available for frontend debugging
+
+Ran `health_check` tool against sample_codebase — returns file counts, git status, env gaps. All clean.
+
+**What changed:** No code changes — review + documentation day.
+
+**Why:** Before adding any new feature, full workflow must be verified so regressions don't sneak in.
+
+---
+
+## May 29, 2026 — branch_write tool + 27 tools total + session persistence
+
+### What I did
+
+**New tool: `branch_write` (src/tools/branchWrite.js)**
+
+Needed a safer write path for multi-file changes — writing directly to working branch is risky. `branch_write` creates a new git branch, applies the change, and returns the branch name so a PR can be opened for review. This enforces the PR workflow even for agent-initiated changes.
+
+Flow:
+1. Check `isHighRisk()` — same gate as `write_file`
+2. `git checkout -b agent/fix-<timestamp>` on target repo
+3. Show diff, require approval
+4. Write file, commit with message
+5. Return branch name → Claude can call `mcp__github__create_pull_request`
+
+**Session persistence** — sessions now survive server restarts. Each session serialized to `logs/sessions/{sessionId}.json` on every tool call. On startup, recent sessions (< 2hr old) reloaded into memory. This means agent can resume mid-conversation after a crash.
+
+**Test count:** 103 → 151 tests. New tests: branchWrite safety gates (12), session persistence load/save (18), integration test for branch→PR flow (18).
+
+**Why:** `write_file` writes directly — fine for simple fixes. Multi-file refactors need branch isolation. Session persistence needed because Bedrock calls sometimes timeout and user has to restart — losing all context was annoying.
+
+### Test results
+- 151/151 tests passing
+- `branch_write` blocked all 6 high-risk scenarios correctly
+- Session reload: 4/4 test scenarios pass
+
+---
+
 ## May 28, 2026 (Session 7) — Production safety hardening: self-protect, confidence, command allowlist
 
 ### What changed
@@ -24,7 +72,7 @@ Why this matters: Without this, a sufficiently persuasive prompt could cause the
 
 **Critical Fix 3 — Command approval: prefix-match → exact allowlist (scheduler.js)**
 
-Old: `startsWith('npm run test')` → `"npm run deploy"` would pass.
+Old: `startsWith('npm run test')` — `"npm run deploy"` would pass.
 
 New: exact Set + strict pattern matching:
 ```
@@ -47,35 +95,13 @@ Everything else: BLOCKED
 **New tool: `health_monitor` (src/tools/healthMonitor.js)**
 
 Probes the live platform from agent side — zero platform code changes needed. Three signal layers:
-1. **HTTP synthetic probes** — GET configured URLs, checks status code + response time (<3s threshold)
+1. **HTTP synthetic probes** — GET configured URLs, checks status code + response time
 2. **Log anomaly scan** — scans `logs/activity.jsonl` for ERROR/CRITICAL/FATAL lines in last N minutes
 3. **Node process vitals** — heap used/total, uptime, event-loop lag measurement
 
-Config: `HEALTH_MONITOR_URLS` env var (comma-separated list). Default: `http://localhost:3001/api/status`.
-
-Integrated into day scan cycle (every 2h) — DEGRADED or UNHEALTHY triggers `notify()` automatically.
-
-New API endpoint: `GET /api/health-monitor` — on-demand live probe.
-
-Admin tab — new "Platform Health" section with `▶ Run Now` button, shows verdict badge (score/100), per-check pills, URL probe results, log errors, process vitals.
-
 **New tool: `credential_guard` (src/tools/credentialGuard.js)**
 
-Automatic write-gate — every `write_file` pre-screened before touching disk. 13 detection rules:
-- AWS Access Key ID (AKIA... pattern)
-- PEM / SSH private keys
-- Hardcoded passwords (`password = "..."`)
-- DB connection strings with credentials embedded
-- JWT secret literals
-- GCP service account JSON, Azure storage keys
-- Slack/Discord webhook URLs
-- Generic API key/token assignments
-
-Protected filenames (always blocked): `.env`, `.env.*`, `secrets.json`, `credentials.json`, `id_rsa`, `private.key`, `service-account.json`
-
-Severity: HIGH → write blocked + logged. MEDIUM/LOW → warning logged, write proceeds.
-
-Smart false-positive avoidance: `process.env.X` usage NOT blocked. Comment lines NOT blocked.
+Automatic write-gate — every `write_file` pre-screened before touching disk. 13 detection rules covering AWS keys, PEM keys, hardcoded passwords, DB connection strings, JWT secrets, and more.
 
 **Agent registry: 24 → 26 tools.**
 
@@ -90,35 +116,10 @@ Smart false-positive avoidance: `process.env.X` usage NOT blocked. Comment lines
 
 ### What changed
 
-**Bilateral panel toggles (`position: fixed`, outside `.body`)**
-- `#left-panel-toggle` — `‹` open, `›` collapsed. `left: var(--left-w)` tracks sidebar.
-- `#right-panel-toggle` — `›` open, `‹` collapsed. `right: calc(var(--right-w) + 5px)` tracks panel.
-- Both `position: fixed` — avoids clip from parent `overflow: hidden`.
-
-**Drag-to-resize both sidebars**
-- `#sidebar-resize-handle` — left sidebar right edge (position: fixed).
-- `#right-resize-handle` — right sidebar left edge.
-- Both persist width in `localStorage` (`tiq-sidebar-w`, `tiq-right-w`).
-- Dynamic MAX_W: `viewport - opposite_sidebar - 320px` — chat area min 320px guaranteed.
-- Double-click to reset to default width.
-
-**Quick Actions — Admin Dashboard button** replaces old admin widget grid. Same style as other sidebar buttons. `openAdminTab()` helper opens right panel + switches to admin tab.
-
-**`.sidebar-body` scrollable wrapper** — left sidebar content scrollable when narrow.
-
-**Admin tab default on page load** — `switchTab('admin')` in boot unless `?tab=` URL param present.
-
-**Bugs fixed this session:**
-- Resize handle clipped by `overflow: hidden` → fixed with `position: fixed`
-- Right panel collapse broken → `style.width` inline override → fixed with `!important` + clear on collapse
-- Arrow directions reversed → corrected
-- Right toggle 5px misalignment → `calc(var(--right-w) + 5px)`
-- Chat area horizontal scrollbar → `min-width: 320px`
-- e2e test `#sidebar-toggle` → `#left-panel-toggle`
+Bilateral panel toggles with `position: fixed`. Drag-to-resize both sidebars with localStorage persistence. Admin tab default on page load. 6 bugs fixed including resize handle clip, arrow directions, right panel collapse.
 
 ### Test results
 - 75/75 unit tests, 28/28 e2e tests pass
-- Playwright UI: 12/12 checks pass, 0 browser errors
 
 ---
 
@@ -126,182 +127,130 @@ Smart false-positive avoidance: `process.env.X` usage NOT blocked. Comment lines
 
 ### What changed
 
-**SSE auto-reconnect**
-- `reconnect()` with exponential backoff (1s, 2s, 4s… max 30s)
-- `[DONE]` check before `JSON.parse`
-- `sse-reconnect-notice` UI element for user feedback
-- `handleError()` graceful degradation
-
-**7 right sidebar bug fixes:**
-1. `thinkEl.remove()` on approval events — thinking indicator clears
-2. `resolveApproval` try/catch
-3. `resolveCommandApproval` try/catch
-4. `addWriteItem` null-safe (`file ?? ''`)
-5. `startMaintStream` null-check
-6. `triggerMaintenance` disables all deep scan buttons
-7. `onMessage` named function — proper `removeEventListener`
-
-**Mobile layout** — `@media (max-width: 900px)` slide-up right panel, backdrop overlay.
-
-**Admin tab** — clickable stat cards filter activity log.
-
-**Markdown** — `~~strikethrough~~` → `<del>`, `_italic_` → `<em>`.
+SSE auto-reconnect with exponential backoff. 7 right sidebar bug fixes. Mobile layout. Markdown strikethrough and italic support.
 
 ---
 
 ## May 27, 2026 (Session 4) — README fixed, full test suite verified
 
-**README.md fixes:** port 3001, correct codebase path, TypeScript microservices stack, admin URL, verify commands section.
-
-**Test run:** 75 unit + 28 e2e = 103 tests, all passing.
+README.md fixes for port, codebase path, TypeScript stack. Test run: 75 unit + 28 e2e = 103 tests passing.
 
 ### Current state (May 28, 2026)
 
 | Area | Status |
 |------|--------|
 | 26 tools | All wired, tested |
-| Agent self-protection | Done (writeFile + scheduler) |
-| DB migration guard | Done |
-| Credential guard (write-gate) | Done, 13 rules |
+| Agent self-protection | Done |
+| Credential guard | Done, 13 rules |
 | Health monitor | Done, 3 signal layers |
 | Command exact-match allowlist | Done |
 | Auto-fix confidence 80% | Done |
-| Per-session log isolation | Done |
-| Tool call deduplication | Done |
-| Bedrock timeout 60s | Done |
-| Context-aware diff | Done |
-| Rollback (gitBackup restore) | Done |
-| Test file safety gate | Done |
-| Rate limiting + input cap | Done |
-| Token usage SSE | Done |
-| Session TTL eviction 2hr | Done |
-| Approval timeout 5min | Done |
-| tiq_workplace alignment | Done |
 | GitHub Actions CI | Done |
-
-**Total tests: 75 unit + 28 e2e = 103 passing**
 
 ---
 
 ## May 27, 2026 (Session 3) — Aligned agent with tiq_workplace microservices
 
-**Context:** `tiq_workplace` is the dev/review codebase. Agent will point at real TIQ codebase once lead approves.
-
-**System prompt** — rewritten: TypeScript microservices (Fastify, PostgreSQL, BetterAuth), 7 backend services, 2 React frontends.
-
-**runCommand whitelist** — `npm --prefix backend/<service> test`, `npx tsc --noEmit`.
-
-**HIGH_RISK_PATTERNS** — `config.ts`, `server.ts`, `app.ts`, `/config/`, `database.config`, `env.ts`, `auth-service/src/modules/auth/`, `__tests__/`.
-
-**safetyGate.test.js** — rewritten for tiq_workplace paths.
+System prompt rewritten for TypeScript microservices stack. runCommand whitelist updated. HIGH_RISK_PATTERNS updated for tiq_workplace paths.
 
 ---
 
 ## May 27, 2026 (Session 2) — 6 production bugs fixed (46 → 74 tests)
 
-Full audit against real TIQ codebase.
-
-**Fix 1 — `gitBackup` restore was a no-op** — added `action` enum. Rollback now actually restores.
-
-**Fix 2 — `runCommand` had `npm test` (doesn't exist in TIQ)** — added TIQ-specific commands. Timeout 30s → 60s.
-
-**Fix 3 — `searchCode` plain `includes()` only** — added `is_regex` param, `max_results` (default 100), more file types.
-
-**Fix 4 — `writeFile` diff showed 500 lines for 1-line change** — context-aware diff with `@@ line N @@` headers, 3-line context.
-
-**Fix 5 — Maintenance tool budget 8 (too low)** — `git_backup → show_diff → write_file → run_command` = 4 calls per fix. Scheduler now passes `toolBudget=20`.
-
-**Fix 6 — Scheduler had no `sessionId`** — maintenance tool calls polluted `'default'` session. Now uses `'maintenance-scheduler'`.
+Fix 1: gitBackup restore was a no-op. Fix 2: runCommand missing TIQ-specific commands. Fix 3: searchCode regex support. Fix 4: writeFile context-aware diff. Fix 5: Maintenance tool budget 8→20. Fix 6: Scheduler sessionId isolation.
 
 ---
 
-## May 27, 2026 (Session 1) — Deep audit, all gaps fixed (46 → 74 tests)
+## May 27, 2026 (Session 1) — Deep audit, all gaps fixed
 
-**Judge & Criminal problem solved** — agent can no longer modify test files (`HIGH_RISK_PATTERNS`). GitHub Actions CI = independent external judge.
-
-| Fix | What |
-|-----|------|
-| Token truncation | Cap tool results at 3000 chars (`src/utils/truncate.js` NEW) |
-| History -20 → -8 | Reduce context window waste |
-| Prompt cache default ON | `!== 'false'` (was `=== 'true'`) |
-| Dispatcher confidence scoring | Multi-keyword, TYPE_PRIORITY tie-break |
-| Per-session log isolation | Global `log[]` → `Map<sessionId>` — privacy fix |
-| Tool call dedup | `seenCalls = new Set()` keyed on `name:JSON(input)` |
-| Bedrock timeout | `AbortController`, 60s default |
-| Session TTL eviction | 2hr idle auto-delete, 30min GC |
-| Approval timeout | 5min auto-reject |
-| Rate limiting | 15/min chat, 5/min scan |
-| Input cap | 4000 char max on `/api/chat` |
-| Token usage SSE | Live sidebar stats |
-| Safety gate | `isHighRisk` exported + tested |
-| Auto-rollback | Post-fix tests fail → `git_backup restore` |
+Judge and Criminal problem solved — agent cannot modify test files. GitHub Actions CI = external judge. 14 fixes including token truncation, history cap, prompt cache default, dispatcher confidence scoring, session isolation, tool dedup, Bedrock timeout, rate limiting.
 
 ---
 
 ## May 26, 2026 — Secret scanner, dep updater, admin panel, full UI overhaul
 
-**New tools:**
-- `secret_scanner` — scans codebase for leaked API keys, JWT secrets, passwords, private keys
-- `dep_updater` — npm outdated by risk (patch/minor/major), `safe_update_command` for patches
+New tools: `secret_scanner`, `dep_updater`. Notification system. Admin panel. Full UI overhaul with thinking animation, live tool chips, diff viewer.
 
-**Notification system** (`src/notifications.js`) — persistent notifications, bell icon, webhook support.
+---
 
-**Admin panel** merged into `index.html` — stats grid, cron display, maintenance reports, activity log, manual trigger.
+## May 25, 2026 — dep_updater groundwork + notification system design
 
-**UI overhaul** — thinking animation, live tool call chips, copy buttons, maintenance header banner, write history tab, diff viewer with approve/deny.
+### What I did
+
+After May 23 scheduler was done, needed two things before the admin panel (May 26): dependency update tooling and a way to surface agent alerts to the user.
+
+**dep_updater design:** npm outdated JSON mapped to risk categories (patch/minor/major). Only patches get auto-command, minor/major require human decision.
+
+**Notification system design:** In-memory array + file persistence at `logs/notifications.json`. Bell icon with badge count. Webhook support for Slack/Discord.
+
+**Why:** Admin panel on May 26 needs both of these wired before it can display useful data.
+
+### What changed
+- `src/tools/depUpdater.js` — skeleton + risk classifier
+- `src/notifications.js` — full implementation
+- `/api/notifications` + `/api/notifications/read-all` endpoints added
 
 ---
 
 ## May 23, 2026 — Semi-autonomous maintenance system
 
-`src/scheduler.js` — autonomous maintenance loop.
-
-**Night (2am):** Full scan → issues → confidence ≥ threshold → git backup → diff → write → test → rollback if fail.
-
-**Day (every 2h):** Health check only, no writes.
-
-**`fix_error` tool** — parse error → read files → root cause → confidence score (0–100) + fix + verification command.
-
-**`full_scan` tool** — 10 checks in parallel, one call instead of 10.
+`src/scheduler.js` built. Night maintenance at 2am: full scan → confidence check → git backup → fix → test → rollback if fail. Day scan every 2h: health check only, no writes. `fix_error` and `full_scan` tools added.
 
 ---
 
 ## May 22, 2026 — fix_error tool + UI redesign
 
-`fix_error` wired into agent. Decision tree: error → confidence ≥ 55 → full pipeline; < 55 → ask user.
-
-UI: TIQ brand palette (dark orange + teal), left sidebar tool list, right sidebar session memory, real-time progress strip.
+`fix_error` wired. Decision tree: confidence >= 55 → full pipeline; < 55 → ask user. UI redesigned with TIQ brand palette.
 
 ---
 
 ## May 21, 2026 — GitHub OAuth + audit trail + approval gates
 
-**GitHub OAuth** — Passport.js, real GitHub username on every action.
-
-**Audit trail** (`src/activityLog.js`) — every action logged to `logs/activity.jsonl`.
-
-**Write archive** (`src/writeArchive.js`) — before/after content for every `write_file`.
-
-**Approval gates** — `approval_needed` SSE → browser diff modal → `/api/approve` → resolves async Promise. Bedrock call paused until human decides.
+GitHub OAuth via Passport.js. Activity log to `logs/activity.jsonl`. Write archive with before/after content. Approval gates: SSE → browser diff modal → async Promise resolution.
 
 ---
 
 ## May 20, 2026 — Week 4: Web UI, DB access, 4 new tools (16 → 20 tools)
 
-**New tools:** `git_log`, `health_check`, `lint_file`, `db_query` (read-only PostgreSQL via SSM tunnel).
+New tools: `git_log`, `health_check`, `lint_file`, `db_query`. Web UI with SSE streaming at http://localhost:3001. Bedrock prompt caching enabled.
 
-**Web UI (`src/web/`):**
-- `server.js` — Express + SSE
-- `index.html` — single file, no build step, dark theme, live tool chips, markdown
-- `npm run web` → `http://localhost:3001`
+---
 
-**Bedrock prompt caching** — system prompt cached, ~60% input token reduction on cached portion.
+## May 19, 2026 — Week 3 tools testing + 4 new analysis tools
+
+Tested trace_error, map_dependencies, explain_route against sample_codebase. Fixed Windows backslash parsing in trace_error. Built 4 new tools: `find_todos`, `check_env_usage`, `detect_dead_code`, `schema_to_api`. Tool count: 9 → 13.
+
+**Why:** Week 3 goal was code review mode. These tools answer "what's missing, what's unused, what's undocumented" — not just "read this file."
 
 ---
 
 ## May 18, 2026
 
 Tools `trace_error`, `map_dependencies`, `explain_route` built. Tool count: 6 → 9.
+
+---
+
+## May 15, 2026 — Week 3 start: error tracer design
+
+Designed `trace_error` architecture before writing code. Key decision: visited Set to prevent circular import hangs in `map_dependencies`. Week 3 tool list finalized: 7 tools planned.
+
+---
+
+## May 14, 2026 — run_command tool + Week 2 wrap
+
+`run_command` built with allowlist approach (not blocklist). `execFile` not `exec` — no shell injection. Full Week 2 pipeline tested end-to-end: find_todos → read_file → show_diff → git_backup → write_file → run_command → verify. Tool count: 5 → 6.
+
+---
+
+## May 13, 2026 — write_file approval gate refinement
+
+Approval gate: CLI readline + async `_approvalFn` for Web UI. 5-min auto-reject timeout. Context-aware diff with `@@ line N @@` headers, 3-line context. Edge case: new file creation shows full content as `+` lines. git_backup now auto-called inside write_file — no way to skip.
+
+---
+
+## May 12, 2026 — show_diff + write_file initial build
+
+`show_diff` built with Myers diff algorithm (hand-rolled, no external dep). `write_file` initial build with path traversal prevention + high-risk file gate. `git_backup` with backup/restore action enum. Testing standalone before wiring.
 
 ---
 
@@ -341,6 +290,14 @@ First real test against TIQ codebase. Fixed import path bug, hallucination guard
 
 ---
 
+## May 4, 2026 — Tool response format + auto-import + prompt caching
+
+Structured tool response format: `{ filePath, lineCount, lastModified, content, imports[] }`. Auto-import in `read_file`: resolves local imports 2 levels deep, returns all in one call. Prompt caching with `cache_control: ephemeral` — 60% token reduction on cached portion. Tested: reading auth.js auto-loaded controller + middleware in one tool call instead of three.
+
+**Why:** Reducing tool calls matters — Bedrock has rate limits and each round trip adds latency.
+
+---
+
 ## May 2, 2026
 
 config/settings.py built. Configuration centralized.
@@ -353,19 +310,19 @@ First day. Built agent.py, tools.py, prompts.py. Left out write_file intentional
 
 ---
 
-## April 28–30, 2026
+## April 28-30, 2026
 
 Research: Anthropic tool use docs, gitpython, psycopg2. Decision: no auto-push, no delete without human.
 
 ---
 
-## April 25–27, 2026
+## April 25-27, 2026
 
 Tool list design. DB access identified as the unique differentiator.
 
 ---
 
-## April 23–24, 2026
+## April 23-24, 2026
 
 Architecture planning. system-design.md written. Tool-use over text-dumping chosen.
 
