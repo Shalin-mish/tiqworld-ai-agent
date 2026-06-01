@@ -58,7 +58,7 @@ const READ_ONLY = new Set([
 
 const REVIEW_EXTRA = new Set([...READ_ONLY, 'show_diff', 'fix_error']);
 
-const WRITE = new Set([...REVIEW_EXTRA, 'git_backup', 'write_file', 'run_command']);
+const WRITE = new Set([...REVIEW_EXTRA, 'git_backup', 'write_file', 'branch_write', 'run_command']);
 
 function scopeTools(allowedNames) {
   return {

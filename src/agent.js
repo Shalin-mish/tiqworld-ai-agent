@@ -29,6 +29,7 @@ import { secretScannerDefinition,    secretScanner    } from './tools/secretScan
 import { depUpdaterDefinition,       depUpdater       } from './tools/depUpdater.js';
 import { healthMonitorDefinition,    healthMonitor    } from './tools/healthMonitor.js';
 import { credentialGuardDefinition,  credentialGuard  } from './tools/credentialGuard.js';
+import { branchWriteDefinition,       branchWrite      } from './tools/branchWrite.js';
 
 const client = new BedrockRuntimeClient({
   region: config.awsRegion,
@@ -39,7 +40,7 @@ const client = new BedrockRuntimeClient({
 });
 
 // ---------------------------------------------------------------------------
-// Tool registry — 26 tools
+// Tool registry — 27 tools
 // ---------------------------------------------------------------------------
 
 export const ALL_TOOLS = {
@@ -75,6 +76,7 @@ export const ALL_TOOLS = {
     showDiffDefinition,
     gitBackupDefinition,
     writeFileDefinition,
+    branchWriteDefinition,
     runCommandDefinition,
   ],
   executors: {
@@ -103,6 +105,7 @@ export const ALL_TOOLS = {
     show_diff:         showDiff,
     git_backup:        gitBackup,
     write_file:        writeFile,
+    branch_write:      branchWrite,
     run_command:       runCommand,
   },
 };

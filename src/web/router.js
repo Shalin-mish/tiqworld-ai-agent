@@ -9,6 +9,7 @@ import { logEvent, readLog, logStats } from '../activityLog.js';
 import { listArchives } from '../writeArchive.js';
 import { unreadCount } from '../notifications.js';
 import { healthMonitor } from '../tools/healthMonitor.js';
+import { saveSession, loadSession, deleteSession, listPersistedSessions } from '../sessionPersistence.js';
 
 // ---------------------------------------------------------------------------
 // Session store  { history, taskType, user, github, memory, lastActiveAt, tokens }
@@ -27,19 +28,24 @@ setInterval(() => {
 
 export function getSession(id) {
   if (!sessions.has(id)) {
-    sessions.set(id, {
-      history:      [],
-      taskType:     null,
-      user:         'unknown',
-      github:       null,
-      lastActiveAt: Date.now(),
-      tokens:       { in: 0, out: 0, cacheRead: 0 },
-      memory: {
-        filesRead: new Map(),
-        toolCalls: [],
-        writes:    [],
-      },
-    });
+    // Try to hydrate from disk (survives server restarts)
+    const persisted = loadSession(id);
+    sessions.set(id, persisted
+      ? { ...persisted, lastActiveAt: Date.now() }
+      : {
+          history:      [],
+          taskType:     null,
+          user:         'unknown',
+          github:       null,
+          lastActiveAt: Date.now(),
+          tokens:       { in: 0, out: 0, cacheRead: 0 },
+          memory: {
+            filesRead: new Map(),
+            toolCalls: [],
+            writes:    [],
+          },
+        }
+    );
   }
   const s = sessions.get(id);
   s.lastActiveAt = Date.now();
@@ -131,7 +137,7 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
     res.json({
       ok:                   true,
       tool_count:           TOOL_COUNT,
-      version:              '0.9.0',
+      version:              '1.0.0',
       model:                config.model,
       last_scan:            scannedAt ?? null,
       scan_summary:         result?.summary ?? null,
@@ -197,8 +203,14 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
     const user = getSession(id).user ?? 'unknown';
     sessions.delete(id);
     clearLog(id);
+    deleteSession(id);
     logEvent({ user, action: 'session_clear', sessionId: id });
     res.json({ ok: true, sessionId: id });
+  });
+
+  // GET /api/sessions — list persisted sessions (restart-survivable)
+  router.get('/api/sessions', (_req, res) => {
+    res.json({ ok: true, sessions: listPersistedSessions() });
   });
 
   // GET /api/activity
@@ -324,6 +336,8 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
       );
       // Keep last 8 messages (4 turns) — matches CLI cap, saves tokens
       session.history = messages.slice(-8);
+      // Persist session to disk so history survives server restarts
+      saveSession(sessionId, session);
       send('answer', { text: answer });
     } catch (err) {
       send('error', { message: err.message });

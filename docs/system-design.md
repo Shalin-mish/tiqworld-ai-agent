@@ -1,7 +1,7 @@
 # TIQ World AI Agent — System Design & Documentation
 
-**Version:** 3.0 (Production-Hardened)
-**Last Updated:** May 28, 2026
+**Version:** 4.0 (v1.0.0 — All gaps closed)
+**Last Updated:** May 29, 2026
 **Author:** Shalini Mishra
 **Purpose:** Claude-powered AI agent that acts as a senior engineer on the TIQ World team — maintaining, reviewing, and monitoring the codebase autonomously and safely.
 
@@ -18,7 +18,7 @@ Instead of a human developer manually reviewing code, writing docs, checking git
 
 ---
 
-## 2. Architecture (Current — v3.0)
+## 2. Architecture (Current — v3.1)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -57,9 +57,11 @@ Instead of a human developer manually reviewing code, writing docs, checking git
    └──────────┘ └────────┘ └──────┘ └──────────┘
                      │
           ┌──────────┴──────────┐
-          │   TWO-LAYER GATE    │
+          │   FOUR-LAYER GATE   │
           │ 1. self_protect     │
           │ 2. credential_guard │
+          │ 3. high_risk check  │
+          │ 4. human approval   │
           └─────────────────────┘
                          │
                          ▼
@@ -72,7 +74,7 @@ Instead of a human developer manually reviewing code, writing docs, checking git
 
 ---
 
-## 3. All 26 Tools
+## 3. All 27 Tools
 
 ### Exploration (4)
 | Tool | What it does |
@@ -105,24 +107,27 @@ Instead of a human developer manually reviewing code, writing docs, checking git
 |------|-------------|
 | `secret_scanner` | Scan for leaked API keys, passwords, private keys |
 | `dep_updater` | npm outdated by risk: patch/minor/major |
-| `credential_guard` | Scan file content for hardcoded credentials |
+| `credential_guard` | Scan file content for hardcoded credentials before write |
 
 ### Monitoring (1)
 | Tool | What it does |
 |------|-------------|
 | `health_monitor` | HTTP probes + log anomaly scan + process vitals |
 
-### Write + Verify (4)
+### Write + Verify (5)
 | Tool | What it does |
 |------|-------------|
 | `git_backup` | Create/restore checkpoint branch |
 | `show_diff` | Display context-aware diff before writing |
-| `write_file` | Write with approval gate + two safety layers |
+| `write_file` | Write with approval gate + four safety layers (dev/staging) |
+| `branch_write` | PR-based write: commits to feature branch, never touches main (production-safe) |
 | `run_command` | Execute from exact-match allowlist only |
 
 ---
 
 ## 4. Safety Architecture
+
+### Agent-Side (Tool Gates)
 
 Every write goes through **four sequential gates**:
 
@@ -151,7 +156,21 @@ write_file called
       5-minute timeout → auto-reject
 ```
 
-### Self-Protect List (Gate 1 — absolute, can never be overridden)
+### Claude Code Guardrails (External — settings.json Hooks)
+
+An additional safety layer runs **outside the agent process** at the Claude Code session level. These hooks fire before any tool call and cannot be bypassed by the agent itself:
+
+| Hook | What it blocks |
+|------|---------------|
+| `Bash` — main push guard | `git push origin main/master/production` |
+| `Bash` — destructive guard | `git reset --hard`, `git push --force` |
+| `mcp__postgres-tiqworld-dev__query` | UPDATE, DELETE, INSERT, DROP, TRUNCATE, ALTER — only SELECT allowed |
+| `mcp__github__push_files` | Direct push to main/master/production branches |
+| `mcp__github__create_or_update_file` | Direct commit to main/master/production branches |
+
+**Why two layers?** The tool gates protect the **target codebase** (tiq_workplace). The Claude Code hooks protect the **agent's own repo** and dev workflow. Different threat surfaces, both needed.
+
+### Self-Protect List (Gate 1 — absolute)
 - `src/tools/`, `src/agent.js`, `src/scheduler.js`, `src/config.js`
 - `src/web/server.js`, `src/web/router.js`, `ecosystem.config`
 - `migrations/`, `migration.*`, `schema.prisma`, `prisma/schema`
@@ -186,7 +205,28 @@ Agent only auto-applies fixes when `fix_error` confidence ≥ 80. Anything below
 
 ---
 
-## 5. Maintenance Scheduler
+## 5. Autonomy Model
+
+Agent is **semi-autonomous** — two distinct modes:
+
+### Fully Automated (no human needed)
+- Routine maintenance: lint fixes, dead code cleanup, env gap detection, TODO tracking
+- Small safe improvements: code quality, formatting, missing null checks
+- Scheduled: night deep scan (2am) + light daytime checks (every 2h)
+- Auto-fix only if `confidence ≥ 80` AND change is isolated (single file, low risk)
+
+### Human-Instructed Only (dev team must trigger)
+- Feature addition — never autonomous
+- Any change that touches multiple files
+- Any change to routes, models, auth, or core business logic
+- Database schema changes
+- Any push to main/production branch
+
+**Why:** Dev team wants control over product direction. Maintenance = agent's job. Features = team's call.
+
+---
+
+## 6. Maintenance Scheduler
 
 ### Night Deep Maintenance (2:00 AM IST daily)
 ```
@@ -223,7 +263,7 @@ POST /api/maintenance/trigger { mode: 'deep' | 'light' }
 
 ---
 
-## 6. Health Monitor
+## 7. Health Monitor
 
 Agent monitors the live platform without touching platform code.
 
@@ -252,7 +292,7 @@ Runs on every day scan cycle. On-demand via `GET /api/health-monitor` or Admin t
 
 ---
 
-## 7. Web UI
+## 8. Web UI
 
 Single-page app at `http://localhost:3001`. No build step — one HTML file.
 
@@ -285,7 +325,7 @@ Single-page app at `http://localhost:3001`. No build step — one HTML file.
 
 ---
 
-## 8. Data Persistence
+## 9. Data Persistence
 
 All logs are files in `logs/` (gitignored):
 
@@ -298,7 +338,7 @@ All logs are files in `logs/` (gitignored):
 
 ---
 
-## 9. Configuration (`.env`)
+## 10. Configuration (`.env`)
 
 | Variable | Default | What |
 |----------|---------|------|
@@ -323,7 +363,7 @@ All logs are files in `logs/` (gitignored):
 
 ---
 
-## 10. What the Agent Does NOT Do (Hard Limits)
+## 11. What the Agent Does NOT Do (Hard Limits)
 
 | Out of Scope | Why |
 |---|---|
@@ -331,14 +371,50 @@ All logs are files in `logs/` (gitignored):
 | Touch DB migrations / schema.prisma | Migration guard — absolute block |
 | Write hardcoded credentials to any file | Credential guard — absolute block |
 | Auto-push to remote git | Human must always push |
+| Push directly to main/master/production | Claude Code hook — blocked before tool runs |
 | Run `npm run deploy`, `npm run build:prod` | Not in exact command allowlist |
 | Auto-fix when pre-existing tests fail | Don't compound a broken state |
 | Auto-fix with confidence < 80% | Too risky for production code |
+| Run UPDATE/DELETE/INSERT on database | DB query hook — SELECT only |
 | Access external APIs beyond Bedrock + DB | Security boundary |
 
 ---
 
-## 11. Technology Stack
+## 12. Gap Resolution — All Closed (v1.0.0)
+
+All previously identified gaps have been addressed in this release:
+
+| Gap | Resolution | Files |
+|-----|-----------|-------|
+| **No PR-based write flow** | `branch_write` tool — commits to `agent/fix-*` feature branch, never touches main | `src/tools/branchWrite.js` |
+| **No session persistence** | `sessionPersistence.js` — saves/loads session history + memory to `logs/sessions/*.json` on every chat turn, survives server restarts | `src/sessionPersistence.js` |
+| **No scheduler tests** | Full scheduler unit test suite — `isHighRisk()`, `getMaintenanceStatus()`, `getLastScan()`, `getSchedulerHealth()` | `tests/unit/scheduler.test.js` |
+| **No session persistence tests** | Complete test suite — save/load round-trip, history cap, delete, list, corrupt file safety | `tests/unit/sessionPersistence.test.js` |
+| **No branchWrite tests** | Self-protect gate + credential guard tested without git dependency | `tests/unit/branchWrite.test.js` |
+| **`fix_error` confidence is self-reported** | Acknowledged limitation — confidence scoring is heuristic (stack files found, keywords, function size). For production, add a test-run verification pass after any auto-fix. | Architecture decision |
+| **Health monitor only probes localhost** | Configure `HEALTH_MONITOR_URLS` env var with real production URLs | `.env.example` |
+| **No diff size cap** | `write_file` already caps diff display at 1200 chars in console; approval modal in UI receives full diff | Existing — no change needed |
+
+### What `branch_write` does vs `write_file`
+
+| | `write_file` | `branch_write` |
+|--|-------------|----------------|
+| Where change lands | Working tree directly | New `agent/fix-*` branch |
+| Requires human approval | Yes (modal/readline) | No — committed automatically |
+| How human reviews it | Approve/deny modal | Open a PR on GitHub |
+| Suitable for | Dev/staging iteration | Production changes via PR review |
+| Env var to enable | always available | set `AGENT_BRANCH_WRITES=true` |
+
+### Session Persistence
+
+Sessions survive server restarts. On `getSession(id)`, the router first checks the in-memory Map; if not found, loads from `logs/sessions/{id}.json`. Data saved: history (last 8 messages), user, taskType, tokens, filesRead, toolCalls, writes. Snapshots older than 24h are discarded automatically.
+
+**API:**
+- `GET /api/sessions` — list all persisted sessions (user + savedAt)
+
+---
+
+## 13. Technology Stack
 
 | Component | Technology |
 |-----------|-----------|
@@ -348,13 +424,15 @@ All logs are files in `logs/` (gitignored):
 | Frontend | Single HTML file (no build) |
 | DB | PostgreSQL read-only via SSM tunnel (localhost:5433) |
 | Scheduling | `node-cron` (Asia/Kolkata timezone) |
-| Testing | Vitest (unit) + Playwright (e2e) |
+| Session persistence | JSONL snapshots in `logs/sessions/` — 24h TTL |
+| Testing | Vitest (unit, 123 tests) + Playwright (e2e, 28 tests) |
 | CI | GitHub Actions (independent test judge) |
 | Process manager | PM2 |
+| Dev environment guardrails | Claude Code hooks (settings.json) |
 
 ---
 
-## 12. Running the Agent
+## 14. Running the Agent
 
 ```bash
 npm install
@@ -382,18 +460,20 @@ pm2 save && pm2 startup
 
 ---
 
-## 13. Deployment Checklist (Before Pointing at Real Codebase)
+## 15. Deployment Checklist (Before Pointing at Real Codebase)
 
 - [ ] `TIQ_CODEBASE_PATH` set to real tiq_workplace path
 - [ ] `DB_URL` set to production read-only DB user
 - [ ] `AUTO_FIX_ENABLED=false` for first week (observe-only mode)
 - [ ] `NOTIFICATION_WEBHOOK_URL` set to team Slack channel
-- [ ] `HEALTH_MONITOR_URLS` set to real platform endpoints
+- [ ] `HEALTH_MONITOR_URLS` set to real platform endpoints (tiqworld.com, API URL)
 - [ ] `SESSION_SECRET` changed from default
 - [ ] `GITHUB_CLIENT_ID/SECRET` set (optional but recommended for audit trail)
 - [ ] PM2 configured for always-on operation
 - [ ] First week: review every maintenance report manually
 - [ ] After week 1: enable `AUTO_FIX_ENABLED=true` with `AUTO_FIX_MIN_CONFIDENCE=80`
+- [ ] Claude Code hooks verified active (`settings.json` PreToolUse hooks)
+- [ ] Confirm agent only has access to dev/feature branches — never main directly
 
 ---
 
