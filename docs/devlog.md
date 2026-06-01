@@ -4,6 +4,69 @@
 
 ---
 
+## June 1, 2026 (Session 10) — Right panel collapsed by default, UI polish, bug fixes
+
+### What changed
+
+**Right panel: collapsed by default (src/web/index.html)**
+
+The admin/context panel on the right now starts collapsed on first visit — width 0, toggle button shows `‹`. User clicks the toggle button on the right edge to expand, same pattern as the left sidebar.
+
+Why: The right panel (Approvals / Writes / Tools / Maint / Admin) is reference information, not primary UI. Starting it collapsed gives the chat area full width by default. User can expand when they actually need to see admin stats or tool calls. This matches how VS Code and most IDEs handle secondary panels — closed until you need them, not permanently taking up space.
+
+Changes:
+- `--right-w` CSS variable starts at `0` on first load
+- Toggle button position fixed to right viewport edge when collapsed
+- `tiq-right-open` key in `localStorage` persists state across page reloads
+- Resize handle (`#right-resize-handle`) hidden while collapsed, visible when expanded
+- E2E test updated to match new collapsed-by-default behaviour — `tiq-right-open` now set to `'true'` before navigation in tests that need the panel open
+
+**UI polish — visual consistency pass (src/web/index.html)**
+
+Full visual consistency pass across the web interface:
+- Button hover states unified — consistent `opacity` + `background` transitions
+- Tab bar active state sharpened — clearer active indicator
+- Sidebar section headings — consistent spacing and font-weight
+- Chat bubble padding and line-height tuned for readability at long message lengths
+- Toggle button styling matched between left and right panels
+- Scrollbar styling applied to sidebar body and right panel body
+
+**Bug fixes (src/web/index.html, src/web/router.js)**
+
+Three fixes from testing session:
+1. Right panel resize handle was showing during collapsed state — fixed with `display: none` conditional on `--right-w === 0`
+2. `localStorage` tiq-right-open not read on page load — initialization order issue, fixed by reading storage before CSS variable is set
+3. Admin tab content not scrolling when panel is narrow — added `overflow-y: auto` to `.tab-content` wrapper
+
+**Technical documentation (docs/TECHNICAL.md)**
+
+Completed documentation pass — all 27 tools, all API endpoints, UI architecture, deployment checklist. This was flagged as a gap in Session 8's honest gap analysis. Now closed.
+
+### Commit trail (June 1)
+| SHA | What |
+|-----|------|
+| `b9293aa` | feat(ui): right panel collapsed by default, toggle to expand like left sidebar |
+| `9b0a46d` | feat(ui): polish web interface for better UX and visual consistency |
+| `96db013` | fix: bug fixes + add complete technical documentation |
+| `6c48c2e` | docs: update devlog with June 1 2026 workflow review session |
+| `cbf84b0` / `fbc7d27` / `a839986` / `32c639e` | docs: incremental documentation updates |
+
+### Current state (June 1, 2026)
+
+| Area | Status |
+|------|--------|
+| 27 tools | All wired, tested |
+| Right panel collapsed by default | Done — localStorage persisted |
+| Resize handle hidden when collapsed | Done |
+| UI visual consistency | Done |
+| Technical docs complete | Done |
+| 151 tests (123 unit + 28 e2e) | All passing |
+| Session persistence | Done |
+| Branch-write flow | Done |
+| Production safety hardening | Done |
+
+---
+
 ## May 29, 2026 (Session 9) — v1.0.0: All gaps closed, 27 tools, 151 tests passing
 
 ### What changed
