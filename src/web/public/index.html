@@ -35,7 +35,7 @@
       --user-bg:      #1c2230;
       --radius:       10px;
       --left-w:       228px;
-      --right-w:      272px;
+      --right-w:      0px;
       --header-h:     52px;
       --progress-h:   36px;
     }
@@ -1185,7 +1185,7 @@
 <!-- PANEL TOGGLE BUTTONS + RESIZE HANDLES (fixed, outside .body) -->
 <button id="left-panel-toggle" onclick="toggleLeftPanel()" title="Toggle left panel">‹</button>
 <div id="sidebar-resize-handle" title="Drag to resize"></div>
-<button id="right-panel-toggle" onclick="toggleRightPanel()" title="Toggle right panel">›</button>
+<button id="right-panel-toggle" class="collapsed" onclick="toggleRightPanel()" title="Toggle right panel">‹</button>
 
 <!-- MAIN BODY -->
 <div class="body">
@@ -1298,10 +1298,10 @@
   </main>
 
   <!-- RIGHT PANEL RESIZE HANDLE -->
-  <div id="right-resize-handle" title="Drag to resize panel"></div>
+  <div id="right-resize-handle" title="Drag to resize panel" style="display:none"></div>
 
   <!-- RIGHT SIDEBAR -->
-  <aside class="sidebar-right" id="ctx-panel">
+  <aside class="sidebar-right collapsed" id="ctx-panel">
     <div class="sidebar-tabs">
       <div class="sidebar-tab active" onclick="switchTab('approvals',this)" title="Approvals"><span class="tab-icon">✅</span><span class="tab-label">Approve</span></div>
       <div class="sidebar-tab" onclick="switchTab('writes',this)" title="File Writes"><span class="tab-icon">✏️</span><span class="tab-label">Writes</span></div>
@@ -2112,17 +2112,19 @@ function toggleRightPanel() {
     panel.classList.remove('collapsed');
     panel.style.width = savedW + 'px';
     document.documentElement.style.setProperty('--right-w', savedW + 'px');
-    btn.textContent = '›';   // open = arrow points right (click to close)
+    btn.textContent = '›';
     btn.classList.remove('collapsed');
     if (handle) handle.style.display = '';
+    localStorage.setItem('tiq-right-open', '1');
   } else {
     localStorage.setItem('tiq-right-w', panel.offsetWidth);
-    panel.style.width = '';  // remove inline so !important works
+    panel.style.width = '';
     panel.classList.add('collapsed');
     document.documentElement.style.setProperty('--right-w', '0px');
-    btn.textContent = '‹';   // closed = arrow points left (click to open)
+    btn.textContent = '‹';
     btn.classList.add('collapsed');
     if (handle) handle.style.display = 'none';
+    localStorage.removeItem('tiq-right-open');
   }
 }
 
@@ -2158,13 +2160,19 @@ function toggleRightPanel() {
     document.addEventListener('mouseup', onUp);
   });
 
-  // Restore saved right-panel width on load (capped to safe range)
-  const savedW = parseInt(localStorage.getItem('tiq-right-w') || '272', 10);
-  if (savedW && !isNaN(savedW)) {
-    const leftW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--left-w')) || 228;
-    const safeW = Math.min(Math.max(savedW, 220), window.innerWidth - leftW - 320 - 5);
-    panel.style.width = safeW + 'px';
-    document.documentElement.style.setProperty('--right-w', safeW + 'px');
+  // Restore saved right-panel width on load — only if panel was open last time
+  if (localStorage.getItem('tiq-right-open') === '1') {
+    const savedW = parseInt(localStorage.getItem('tiq-right-w') || '272', 10);
+    if (savedW && !isNaN(savedW)) {
+      const leftW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--left-w')) || 228;
+      const safeW = Math.min(Math.max(savedW, 220), window.innerWidth - leftW - 320 - 5);
+      panel.classList.remove('collapsed');
+      panel.style.width = safeW + 'px';
+      document.documentElement.style.setProperty('--right-w', safeW + 'px');
+      if (handle) handle.style.display = '';
+      const rpBtn = document.getElementById('right-panel-toggle');
+      if (rpBtn) { rpBtn.textContent = '›'; rpBtn.classList.remove('collapsed'); }
+    }
   }
 })();
 
@@ -2844,15 +2852,16 @@ setInterval(refreshAdminCountdowns, 60000);
   const startTab = (tabParam && validTabs.includes(tabParam)) ? tabParam : 'admin';
   switchTab(startTab);
 
-  // Ensure right panel is open on load (not collapsed)
+  // Right panel starts collapsed by default; restore only if user had it open
   const panel = document.getElementById('ctx-panel');
   const btn   = document.getElementById('right-panel-toggle');
-  if (panel && panel.classList.contains('collapsed')) {
-    const savedW = parseInt(localStorage.getItem('tiq-right-w') || '272', 10);
-    panel.classList.remove('collapsed');
-    panel.style.width = savedW + 'px';
-    document.documentElement.style.setProperty('--right-w', savedW + 'px');
-    if (btn) { btn.textContent = '‹'; btn.classList.remove('collapsed'); }
+  if (panel && !localStorage.getItem('tiq-right-open')) {
+    panel.classList.add('collapsed');
+    panel.style.width = '';
+    document.documentElement.style.setProperty('--right-w', '0px');
+    const handle = document.getElementById('right-resize-handle');
+    if (handle) handle.style.display = 'none';
+    if (btn) { btn.textContent = '‹'; btn.classList.add('collapsed'); }
   }
 })();
 init();

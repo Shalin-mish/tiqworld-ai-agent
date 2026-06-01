@@ -106,7 +106,9 @@ test.describe('3-column layout', () => {
   });
 
   test('context panel is visible', async ({ page }) => {
-    await expect(page.locator('#ctx-panel')).toBeVisible();
+    // Panel starts collapsed by default; toggle it open then verify
+    await page.click('#right-panel-toggle');
+    await expect(page.locator('#ctx-panel')).not.toHaveClass(/collapsed/);
   });
 
   test('sidebar can be collapsed', async ({ page }) => {
