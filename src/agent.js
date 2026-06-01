@@ -320,14 +320,15 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
         return result;
       } catch (err) {
         clearTimeout(timer);
-        if (err.name === 'AbortError') throw new Error(`Bedrock call timed out after ${config.bedrockTimeoutMs}ms`);
+        const isTimeout  = err.name === 'AbortError';
         const isThrottle = err.name === 'ThrottlingException' || err.$metadata?.httpStatusCode === 429;
-        const isTransient = isThrottle || err.name === 'ServiceUnavailableException';
+        const isTransient = isTimeout || isThrottle || err.name === 'ServiceUnavailableException';
         if (isTransient && attempt < retries) {
-          const delay = Math.pow(2, attempt) * 1000;
-          console.warn(`[Agent] Bedrock ${err.name} — retry ${attempt}/${retries} in ${delay}ms`);
+          const delay = Math.pow(2, attempt) * 2000;
+          console.warn(`[Agent] Bedrock ${isTimeout ? 'timeout' : err.name} — retry ${attempt}/${retries} in ${delay}ms`);
           await new Promise(r => setTimeout(r, delay));
         } else {
+          if (isTimeout) throw new Error(`Bedrock call timed out after ${config.bedrockTimeoutMs}ms (${retries} attempts)`);
           throw err;
         }
       }
