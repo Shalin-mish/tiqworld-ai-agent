@@ -137,6 +137,57 @@ app.get('/auth/logout', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GitHub Webhook — auto-trigger agent review on PR open/push
+// ---------------------------------------------------------------------------
+import crypto from 'crypto';
+
+app.post('/webhook/github', express.raw({ type: 'application/json' }), (req, res) => {
+  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+
+  // Verify signature if secret is configured
+  if (secret) {
+    const sig = req.headers['x-hub-signature-256'];
+    if (!sig) { res.status(401).send('Missing signature'); return; }
+    const expected = `sha256=${crypto.createHmac('sha256', secret).update(req.body).digest('hex')}`;
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+      res.status(401).send('Invalid signature'); return;
+    }
+  }
+
+  const event   = req.headers['x-github-event'];
+  const payload = JSON.parse(req.body.toString());
+
+  // PR opened or synchronized — trigger a review scan
+  if (event === 'pull_request' && ['opened', 'synchronize'].includes(payload.action)) {
+    const pr     = payload.pull_request;
+    const branch = pr.head.ref;
+    const title  = pr.title;
+    console.log(`[webhook] PR "${title}" on branch ${branch} — triggering review scan`);
+    logEvent({ user: 'webhook', action: 'pr_review_trigger', sessionId: 'webhook', branch, title });
+    triggerScan('review').catch(err => console.error('[webhook scan error]', err.message));
+    res.json({ ok: true, message: 'Review scan triggered', branch, title });
+    return;
+  }
+
+  // Push to non-main branch — trigger light scan
+  if (event === 'push' && payload.ref && !payload.ref.includes('/main')) {
+    const branch = payload.ref.replace('refs/heads/', '');
+    console.log(`[webhook] Push on branch ${branch} — triggering light scan`);
+    logEvent({ user: 'webhook', action: 'push_scan_trigger', sessionId: 'webhook', branch });
+    triggerScan('light').catch(err => console.error('[webhook scan error]', err.message));
+    res.json({ ok: true, message: 'Light scan triggered', branch });
+    return;
+  }
+
+  res.json({ ok: true, message: 'Event received, no action needed' });
+});
+
+// GET /webhook/status — confirm webhook endpoint is alive
+app.get('/webhook/status', (_req, res) => {
+  res.json({ ok: true, message: 'Webhook endpoint active', githubAuthEnabled });
+});
+
+// ---------------------------------------------------------------------------
 // All API routes (shared with tests via router.js)
 // ---------------------------------------------------------------------------
 app.use('/', createRouter({ githubAuthEnabled }));
