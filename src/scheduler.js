@@ -11,9 +11,11 @@ import { acquireLock, releaseAllLocks } from './tools/fileLock.js';
 import { saveMaintenanceReport, formatReportSummary } from './tools/maintenanceReport.js';
 import { config } from './config.js';
 import { notify } from './notifications.js';
+import { sendWeeklyReport } from './weeklyReport.js';
 
 let _nightTask     = null;
 let _dayTask       = null;
+let _weeklyTask    = null;
 let lastScanResult = null;
 let lastScanTime   = null;
 
@@ -349,12 +351,22 @@ export function startScheduler(intervalMinutes = 0) {
   } else {
     console.warn(`[Scheduler] Invalid DAY_LIGHT_SCAN_CRON: "${dayCron}"`);
   }
+
+  // Weekly report — every Monday 9:00 AM IST
+  const weeklyCron = process.env.WEEKLY_REPORT_CRON || '0 9 * * 1';
+  if (cron.validate(weeklyCron)) {
+    _weeklyTask = cron.schedule(weeklyCron, () => {
+      sendWeeklyReport().catch(err => console.error('[Weekly Report] Error:', err.message));
+    }, { timezone: 'Asia/Kolkata' });
+    console.log(`[Scheduler] Weekly report     : ${weeklyCron} IST (Mon 9am)`);
+  }
+
   runDayScan();
 }
 
 export function stopScheduler() {
-  _nightTask?.stop(); _dayTask?.stop();
-  _nightTask = null;  _dayTask = null;
+  _nightTask?.stop(); _dayTask?.stop(); _weeklyTask?.stop();
+  _nightTask = null;  _dayTask = null;  _weeklyTask = null;
   console.log('[Scheduler] Stopped.');
 }
 
@@ -362,8 +374,10 @@ export function getSchedulerHealth() {
   return {
     night_task_active:       !!_nightTask,
     day_task_active:         !!_dayTask,
+    weekly_task_active:      !!_weeklyTask,
     night_cron:              config.nightMaintenanceCron,
     day_cron:                config.dayLightScanCron,
+    weekly_cron:             process.env.WEEKLY_REPORT_CRON || '0 9 * * 1',
     auto_fix_enabled:        config.autoFixEnabled,
     auto_fix_min_confidence: config.autoFixMinConfidence,
     last_scan_at:            lastScanTime,
@@ -371,7 +385,8 @@ export function getSchedulerHealth() {
 }
 
 export async function triggerScan(mode = 'light') {
-  if (mode === 'deep') return runNightMaintenance();
+  if (mode === 'deep')   return runNightMaintenance();
+  if (mode === 'weekly') return sendWeeklyReport();
   await runDayScan();
   return lastScanResult;
 }

@@ -14,6 +14,7 @@ import { logEvent } from '../activityLog.js';
 import { listReports } from '../tools/maintenanceReport.js';
 import { getNotifications, markAllRead, unreadCount } from '../notifications.js';
 import { createRouter, sessions } from './router.js';
+import { reviewPR } from '../prReview.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -162,10 +163,14 @@ app.post('/webhook/github', express.raw({ type: 'application/json' }), (req, res
     const pr     = payload.pull_request;
     const branch = pr.head.ref;
     const title  = pr.title;
-    console.log(`[webhook] PR "${title}" on branch ${branch} — triggering review scan`);
+    const owner  = payload.repository.owner.login;
+    const repo   = payload.repository.name;
+    console.log(`[webhook] PR #${pr.number} "${title}" on ${owner}/${repo} — starting review`);
     logEvent({ user: 'webhook', action: 'pr_review_trigger', sessionId: 'webhook', branch, title });
-    triggerScan('review').catch(err => console.error('[webhook scan error]', err.message));
-    res.json({ ok: true, message: 'Review scan triggered', branch, title });
+    // Post automated review comment on the PR
+    reviewPR({ owner, repo, pull_number: pr.number, branch })
+      .catch(err => console.error('[webhook PR review error]', err.message));
+    res.json({ ok: true, message: 'PR review started', branch, title, pr: pr.number });
     return;
   }
 
