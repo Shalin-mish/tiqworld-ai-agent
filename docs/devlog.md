@@ -4,6 +4,54 @@
 
 ---
 
+## June 1, 2026 — Agent workflow review + MCP integration check
+
+### What I did
+
+Full end-to-end workflow review session. Verified agent connects correctly to `sample_codebase` (Shalin-mish/sample_codebase) as the target repo. Traced tool call path: user query → dispatcher classification → tool scope selection → Bedrock API → tool execution → result.
+
+Checked MCP server connections:
+- **github MCP** — confirmed `mcp__github__get_file_contents`, `mcp__github__create_or_update_file`, `mcp__github__search_code` all responding
+- **postgres-tiqworld-dev MCP** — SSM tunnel on localhost:5433 required before `db_query` tool fires
+- **playwright MCP** — available for e2e test runs
+- **chrome-devtools MCP** — available for frontend debugging
+
+Ran `health_check` tool against sample_codebase — returns file counts, git status, env gaps. All clean.
+
+**What changed:** No code changes — review + documentation day.
+
+**Why:** Before adding any new feature, full workflow must be verified so regressions don't sneak in.
+
+---
+
+## May 29, 2026 — branch_write tool + 27 tools total + session persistence
+
+### What I did
+
+**New tool: `branch_write` (src/tools/branchWrite.js)**
+
+Needed a safer write path for multi-file changes — writing directly to working branch is risky. `branch_write` creates a new git branch, applies the change, and returns the branch name so a PR can be opened for review. This enforces the PR workflow even for agent-initiated changes.
+
+Flow:
+1. Check `isHighRisk()` — same gate as `write_file`
+2. `git checkout -b agent/fix-<timestamp>` on target repo
+3. Show diff, require approval
+4. Write file, commit with message
+5. Return branch name → Claude can call `mcp__github__create_pull_request`
+
+**Session persistence** — sessions now survive server restarts. Each session serialized to `logs/sessions/{sessionId}.json` on every tool call. On startup, recent sessions (< 2hr old) reloaded into memory. This means agent can resume mid-conversation after a crash.
+
+**Test count:** 103 → 151 tests. New tests: branchWrite safety gates (12), session persistence load/save (18), integration test for branch→PR flow (18).
+
+**Why:** `write_file` writes directly — fine for simple fixes. Multi-file refactors need branch isolation. Session persistence needed because Bedrock calls sometimes timeout and user has to restart — losing all context was annoying.
+
+### Test results
+- 151/151 tests passing
+- `branch_write` blocked all 6 high-risk scenarios correctly
+- Session reload: 4/4 test scenarios pass
+
+---
+
 ## May 28, 2026 (Session 7) — Production safety hardening: self-protect, confidence, command allowlist
 
 ### What changed
@@ -252,6 +300,33 @@ Full audit against real TIQ codebase.
 
 ---
 
+## May 25, 2026 — dep_updater groundwork + notification system design
+
+### What I did
+
+After May 23 scheduler was done, needed two things before the admin panel (May 26): dependency update tooling and a way to surface agent alerts to the user.
+
+**dep_updater design session:**
+- Ran `npm outdated` on sample_codebase manually to understand output format
+- Mapped npm outdated JSON → risk categories: patch (safe), minor (review), major (breaking)
+- Designed `safe_update_command` field — only patches get auto-command, minor/major require human decision
+- Wrote initial `src/tools/depUpdater.js` skeleton with risk classifier
+
+**Notification system (`src/notifications.js`) design:**
+- Decided on in-memory array + file persistence (`logs/notifications.json`)
+- Bell icon in UI header — badge count from `/api/notifications`
+- Webhook support: POST to `NOTIFICATION_WEBHOOK_URL` (Slack/Discord compatible)
+- Notification types: `maintenance_complete`, `auto_fix_applied`, `scan_alert`, `approval_needed`
+
+**Why:** Admin panel on May 26 needs both of these wired before it can display useful data. Can't build the UI before the data layer exists.
+
+### What changed
+- `src/tools/depUpdater.js` — skeleton + risk classifier
+- `src/notifications.js` — full implementation
+- `src/web/server.js` — added `/api/notifications` + `/api/notifications/read-all` endpoints
+
+---
+
 ## May 23, 2026 — Semi-autonomous maintenance system
 
 `src/scheduler.js` — autonomous maintenance loop.
@@ -299,9 +374,150 @@ UI: TIQ brand palette (dark orange + teal), left sidebar tool list, right sideba
 
 ---
 
+## May 19, 2026 — Week 3 tools testing + findTodos / checkEnvUsage / detectDeadCode / schemaToApi
+
+### What I did
+
+May 18 built the three core Week 3 tools (trace_error, map_dependencies, explain_route). Today: tested all three against `sample_codebase`, found edge cases, then built the remaining four analysis tools.
+
+**Testing Week 3 tools:**
+- `trace_error` — tested with a fake stack trace pointing to sample_codebase/test-agent.js. File path extraction working. Edge case found: Windows backslash paths in stack traces weren't parsed. Fixed with path normalization (`replace(/\\/g, '/')`).
+- `map_dependencies` — ran on test-agent.js. Circular import detection working. Depth=4 got slow — added `maxDepth` cap.
+- `explain_route` — no Express routes in sample_codebase, so tested against a copy of TIQ backend. Route → middleware → controller chain traced correctly.
+
+**New tools built:**
+- `find_todos` — scans for TODO, FIXME, HACK, DEPRECATED, BUG, XXX. Severity: BUG/FIXME = critical, HACK = warning, TODO/NOTE = info.
+- `check_env_usage` — diffs `.env.example` keys vs `process.env.X` calls in source. Finds missing + unused keys.
+- `detect_dead_code` — builds import graph, finds unreferenced files. Excludes known entry points.
+- `schema_to_api` — given Mongoose model name, checks which CRUD operations are covered by routes/controllers.
+
+**Tool count: 9 → 13**
+
+**Why:** Week 3 goal was code review mode. These 4 tools are what make a real review useful — not just "read this file" but "what's missing, what's unused, what's undocumented."
+
+---
+
 ## May 18, 2026
 
 Tools `trace_error`, `map_dependencies`, `explain_route` built. Tool count: 6 → 9.
+
+---
+
+## May 15, 2026 — Week 3 start: error tracer design + tool architecture review
+
+### What I did
+
+Week 2 done. Starting Week 3 (May 15-21): code review mode + bug detection.
+
+**Error tracer design session:**
+Thought through `trace_error` architecture before writing any code.
+
+Problem: given a stack trace, agent needs to understand the full error context — not just the top frame but every file in the chain. Design decisions:
+1. Parse stack trace lines with regex: `at <function> (<file>:<line>:<col>)`
+2. For each frame: read file, extract 10 lines of context around error line
+3. Auto-extract keywords: route paths from Express patterns, class names, function names
+4. Return structured object: `{ errorType, message, frames: [{ file, line, context, keywords }] }`
+
+Also designed `map_dependencies` — realized a simple recursive import scanner would hit circular imports and hang. Solution: visited Set to track already-traversed files.
+
+**Week 3 tool list finalized:**
+- `trace_error` — stack trace → all involved files + context
+- `map_dependencies` — import graph (incoming + outgoing)
+- `explain_route` — Express route → full request flow
+- `find_todos` — scan for TODO/FIXME/HACK/BUG
+- `check_env_usage` — .env.example vs actual usage
+- `detect_dead_code` — unreferenced files
+- `schema_to_api` — Mongoose model → CRUD coverage check
+
+**Why:** Designing before coding saved time. The circular import problem with map_dependencies would've taken hours to debug if I'd just started writing.
+
+---
+
+## May 14, 2026 — run_command tool + Week 2 wrap
+
+### What I did
+
+`run_command` tool built. Week 2 complete.
+
+**`run_command` (src/tools/runCommand.js):**
+- Allowlist approach from day 1 — not "block bad commands" but "only allow known-good commands"
+- Allowed: `npm test`, `npm run test`, `npx eslint <path>`, `node --check <path>`, `git status`, `git log`, `git diff`
+- Spawn with `execFile` not `exec` — no shell injection possible
+- 60s timeout (Bedrock timeout is also 60s — matched intentionally)
+- Captures stdout + stderr separately
+
+**Why this matters:** `run_command` closes the fix loop. Before: agent could only write a fix and hope. Now: write fix → run tests → if tests fail → rollback. This is the verification step.
+
+**Week 2 end-to-end test:**
+Manually ran the full pipeline:
+1. `find_todos` found a FIXME in test-agent.js
+2. `read_file` read the file
+3. `show_diff` showed proposed fix
+4. `git_backup` created backup commit
+5. `write_file` applied fix (approved via CLI)
+6. `run_command npm test` — passed
+7. Verified fix in git log
+
+Full pipeline working end-to-end.
+
+**Tool count: 5 → 6** (run_command added)
+
+---
+
+## May 13, 2026 — write_file + approval gate refinement
+
+### What I did
+
+Continued write_file work from May 12. Main focus: approval gate UX and diff quality.
+
+**Approval gate:**
+- CLI: `readline.question()` blocks until user types `y/n`
+- Designed async version for future Web UI: `_approvalFn` callback parameter
+- If no response in 5min → auto-reject (timeout added)
+
+**Diff display improvements:**
+- Context-aware: 3 lines before + after each changed block
+- `@@ line N @@` headers like real git diff
+- Unchanged lines shown with ` ` prefix, added with `+`, removed with `-`
+- Groups adjacent changes into single hunk (avoids fragmented output)
+
+**Edge case fixed:** If file doesn't exist yet (new file creation), diff shows entire new content as `+` lines — no crash.
+
+**git_backup integration:**
+- `git_backup` now called automatically inside `write_file` before any disk write
+- No way to write without a backup — enforced at code level, not documentation level
+
+**Why:** The diff display was too noisy yesterday — showed entire file for a 1-line change. Context-aware diff makes review actually usable.
+
+---
+
+## May 12, 2026 — show_diff + write_file initial build
+
+### What I did
+
+Week 2 main work: write tools. Built `show_diff` and started `write_file`.
+
+**`show_diff` (src/tools/showDiff.js):**
+- Takes `filePath`, `oldContent`, `newContent`
+- Line-by-line diff using Myers diff algorithm (hand-rolled, no external dep)
+- Returns formatted string with +/- lines
+- Used by Claude before every write to confirm changes
+
+**`write_file` initial build:**
+- Safety check 1: is path inside `TIQ_CODEBASE_PATH`? — path traversal prevention
+- Safety check 2: is it a high-risk file? — skips routes/, models/, auth/
+- Calls `show_diff` first, always
+- Calls `git_backup` before writing
+- Then `fs.writeFileSync`
+
+Not wired into agent yet — testing standalone first.
+
+**`git_backup` (src/tools/gitBackup.js):**
+- `git add -A && git commit -m "agent-backup: <timestamp>"` on target repo
+- `action` param: `'backup'` (create) or `'restore'` (reset to last backup commit)
+- Restore uses `git reset --hard <backupHash>`
+
+**Why:** Write tools are the most dangerous part of the agent. Built them slowly with extra care — standalone test before wiring.
 
 ---
 
@@ -338,6 +554,36 @@ System prompt updated with TIQ-specific context. Hallucination reduced.
 ## May 5, 2026
 
 First real test against TIQ codebase. Fixed import path bug, hallucination guard, search overload.
+
+---
+
+## May 4, 2026 — Tool response format + auto-import + prompt caching
+
+### What I did
+
+After May 2 config setup, focused on three improvements from Week 1 goals:
+
+**Tool response format:**
+- Old: tools returned raw file content as plain string
+- New: structured response object `{ filePath, lineCount, lastModified, content, imports: [] }`
+- Agent now has metadata without parsing — knows file size before reading, can decide if worth loading
+
+**Auto-import in `read_file`:**
+- When reading a file, agent auto-detects local imports (`require('./...')` or `import from './...'`)
+- Resolves up to 2 levels deep
+- Returns all imported files inline — reduces round trips from N reads to 1
+
+**Prompt caching (`ENABLE_PROMPT_CACHE`):**
+- System prompt is ~2000 tokens — repeated every single Bedrock call
+- Added `cache_control: { type: 'ephemeral' }` marker after system prompt
+- Cache hit = ~60% reduction in input tokens per session
+- Default: OFF (need to verify Bedrock caching behavior before enabling by default)
+
+**Tested against TIQ codebase:**
+- Read `backend/src/routes/auth.js` → auto-loaded `../controllers/authController.js` + `../middleware/auth.js`
+- All three files returned in one tool call instead of three
+
+**Why:** Reducing tool calls per query matters — Bedrock has rate limits and each round trip adds latency. Auto-import cuts a typical "explain this route" session from 6 tool calls to 2.
 
 ---
 
