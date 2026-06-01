@@ -11,6 +11,100 @@
 > context you remember when typing it into the doc.
 ---
 
+## June 1, 2026 — Right panel UX, UI polish, bug fixes
+
+**What I did:**
+
+Three separate things today, all in the web interface — no backend changes.
+
+**1. Right panel collapsed by default**
+
+The admin/context panel on the right side of the screen now starts collapsed when you first open the app. Before today, it opened at 272px taking up a chunk of the screen even when you just wanted to chat.
+
+The change: `--right-w` CSS variable initialises to `0`. The toggle button sits on the right viewport edge showing `‹`. Click it to expand, same pattern as the left sidebar. State persists in `localStorage` under `tiq-right-open` — so if you expand it and reload the page, it stays expanded.
+
+Also hid the resize drag handle while the panel is collapsed — it was a confusing UI element when there's nothing visible to resize.
+
+**Why this matters:** The right panel (Approvals, Writes, Tools, Maintenance, Admin) is reference information — you don't need it front and centre every time you chat. Collapsing by default gives the full viewport to the chat area. You expand when you actually need to check something. This is the same pattern VS Code and JetBrains use for secondary panels, and it's a much less cluttered first impression for anyone opening the tool for the first time.
+
+**2. UI visual consistency pass**
+
+Went through the whole interface and standardised things that had drifted — button hover states had inconsistent transitions, tab active indicators were slightly different between the left and right panels, sidebar section headings had inconsistent spacing.
+
+Nothing dramatic, but these small inconsistencies add up. A tool that looks polished is one people trust to work well. A tool that looks cobbled together makes people nervous about what else might be inconsistent under the hood.
+
+**3. Bug fixes (3)**
+
+Found and fixed three bugs from testing:
+- Resize handle showing during collapsed state — shouldn't be visible when there's nothing to resize. Fixed with `display: none` when width is 0.
+- `localStorage` state wasn't being read before the CSS variable was set on page load — so the persisted state was being overwritten on every reload. Fixed by reading storage earlier in the init sequence.
+- Admin tab content wasn't scrollable when the panel was narrow — added `overflow-y: auto` to the tab content wrapper.
+
+None of these were showstoppers but all three were polish issues that would have annoyed regular users.
+
+**Decisions I made:**
+
+*Why localStorage for panel state?*
+Simple, zero-dependency, works without a backend round trip. The alternative is user preferences in the DB, which is overkill for a panel toggle. If this were a multi-device product I'd reconsider, but for a dev tool used on one machine, localStorage is the right call.
+
+*Why keep UI changes separate from backend commits?*
+Each commit today was scoped to one thing: right panel behaviour, visual consistency, bug fixes. This makes the git history readable — if the right panel toggle breaks after a future change, you can immediately see which commit introduced it and what exactly changed. Bundling everything into one "misc UI fixes" commit makes debugging much harder.
+
+**What I noticed:**
+The E2E tests needed updating too — the Playwright test that opens the right panel was failing because it expected the panel to be open by default. Fixed the test to set `tiq-right-open: 'true'` in localStorage before navigation. This is the right fix — the test should simulate real usage, and a user who wants the panel open would have it persisted in storage.
+
+**Current state:**
+- 27 tools, all wired
+- 151 tests passing (123 unit + 28 e2e)
+- Web UI fully functional with collapsed-by-default right panel
+- Technical documentation complete (done as part of today's commits)
+
+---
+
+## May 27, 2026 — UI Polish & Responsive Design
+
+**What I did:**
+Focused entirely on the web UI — no backend changes, purely front-end improvements.
+
+Three things I tackled:
+
+**1. Welcome screen cleanup**
+The welcome screen had "TIQ WORLD" showing twice — once in the logo image, and again as a text heading below it. Removed the duplicate heading. Now the logo is the brand mark and "AI AGENT" sits cleanly beside it as a tag. Also rewrote the tagline to be product-language rather than a feature list.
+
+Before: *"Ask anything about the codebase. I'll read files, trace errors, review code, and suggest fixes — with your approval before any change."*
+After: *"Your AI-powered engineering teammate for the TIQ World codebase. You review and approve every change before it happens."*
+
+The first version reads like a documentation sentence. The second is a product value proposition.
+
+**2. Right panel — resizable and collapsible**
+The Approvals / Writes / Tools / Maint / Admin panel on the right was a fixed 272px. Two problems: too narrow for Admin stats when you want to read them properly, and no way to hide it when you just want to chat.
+
+Added:
+- A drag handle on the left edge of the panel. Drag left to expand (up to 55% of viewport), drag right to shrink (minimum 220px).
+- A `‹ ›` toggle button that collapses the panel completely so the chat area goes full-width.
+
+This is the pattern used in most professional IDEs — VS Code, JetBrains, etc. Resize when you need detail, collapse when you don't.
+
+**3. Mobile responsive layout**
+The app had no mobile handling at all — everything was fixed-width, sidebars overlapped on small screens.
+
+Added a full responsive breakpoint at 768px:
+- Left sidebar becomes a drawer (slides in from left)
+- Right panel becomes a drawer (slides in from right)
+- Both panels are triggered by a bottom navigation bar with five buttons: Menu, Approvals, Tools, Maint, Admin
+- A dark overlay appears behind open drawers, tap to close
+- Header simplifies — model badge and maintenance button hidden on mobile to save space
+
+Tested on 390×844 (iPhone 14 viewport).
+
+**Why this matters:**
+The agent is used during code reviews and maintenance checks, which often happen on the go. A UI that only works on desktop is a tool that only gets used when you're at your desk.
+
+**What I didn't touch:**
+All backend logic, API routes, tool execution, and maintenance engine are unchanged. This was purely visual.
+
+---
+
 ## April 22, 2026 — Day 1
 
 **What I did:**
@@ -266,49 +360,5 @@ Every day I work, I commit and push. Every day I commit, I update this Google Do
 - v0.1: Complete (CLI, review, Q&A, health check, tools, prompts, config)
 - v0.2 in progress: tool-use loop designed but not coded, approval gate designed but not integrated, git tools and DB tools not started
 - Week 2 priority: implement real tool-use loop in agent.py
-
----
-
-## May 27, 2026 — UI Polish & Responsive Design
-
-**What I did:**
-Focused entirely on the web UI — no backend changes, purely front-end improvements.
-
-Three things I tackled:
-
-**1. Welcome screen cleanup**
-The welcome screen had "TIQ WORLD" showing twice — once in the logo image, and again as a text heading below it. Removed the duplicate heading. Now the logo is the brand mark and "AI AGENT" sits cleanly beside it as a tag. Also rewrote the tagline to be product-language rather than a feature list.
-
-Before: *"Ask anything about the codebase. I'll read files, trace errors, review code, and suggest fixes — with your approval before any change."*
-After: *"Your AI-powered engineering teammate for the TIQ World codebase. You review and approve every change before it happens."*
-
-The first version reads like a documentation sentence. The second is a product value proposition.
-
-**2. Right panel — resizable and collapsible**
-The Approvals / Writes / Tools / Maint / Admin panel on the right was a fixed 272px. Two problems: too narrow for Admin stats when you want to read them properly, and no way to hide it when you just want to chat.
-
-Added:
-- A drag handle on the left edge of the panel. Drag left to expand (up to 55% of viewport), drag right to shrink (minimum 220px).
-- A `‹ ›` toggle button that collapses the panel completely so the chat area goes full-width.
-
-This is the pattern used in most professional IDEs — VS Code, JetBrains, etc. Resize when you need detail, collapse when you don't.
-
-**3. Mobile responsive layout**
-The app had no mobile handling at all — everything was fixed-width, sidebars overlapped on small screens. 
-
-Added a full responsive breakpoint at 768px:
-- Left sidebar becomes a drawer (slides in from left)
-- Right panel becomes a drawer (slides in from right)
-- Both panels are triggered by a bottom navigation bar with five buttons: Menu, Approvals, Tools, Maint, Admin
-- A dark overlay appears behind open drawers, tap to close
-- Header simplifies — model badge and maintenance button hidden on mobile to save space
-
-Tested on 390×844 (iPhone 14 viewport).
-
-**Why this matters:**
-The agent is used during code reviews and maintenance checks, which often happen on the go. A UI that only works on desktop is a tool that only gets used when you're at your desk.
-
-**What I didn't touch:**
-All backend logic, API routes, tool execution, and maintenance engine are unchanged. This was purely visual.
 
 ---
