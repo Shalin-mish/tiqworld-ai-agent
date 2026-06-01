@@ -1,8 +1,22 @@
+import fs   from 'fs';
+import path from 'path';
 import { execSync } from 'child_process';
 import { config } from '../config.js';
 
-// Track the last backup branch so restore() knows where to roll back to
-let _lastBackupBranch = null;
+// Persist backup branch name to disk so restore() survives server restarts.
+const BACKUP_STATE_FILE = path.join(process.cwd(), 'logs', '.last-backup-branch');
+
+function loadBackupBranch() {
+  try { return fs.readFileSync(BACKUP_STATE_FILE, 'utf-8').trim() || null; } catch { return null; }
+}
+function saveBackupBranch(name) {
+  try {
+    fs.mkdirSync(path.dirname(BACKUP_STATE_FILE), { recursive: true });
+    fs.writeFileSync(BACKUP_STATE_FILE, name, 'utf-8');
+  } catch { /* best-effort */ }
+}
+
+let _lastBackupBranch = loadBackupBranch();
 
 export const gitBackupDefinition = {
   name: 'git_backup',
@@ -67,6 +81,7 @@ export function gitBackup({ reason = 'manual', action = 'backup' } = {}) {
     execSync(`git checkout -b "${branchName}"`, { cwd, stdio: 'pipe' });
     execSync('git checkout -', { cwd, stdio: 'pipe' });
     _lastBackupBranch = branchName;
+    saveBackupBranch(branchName);
     return {
       status:          'success',
       branch:          branchName,

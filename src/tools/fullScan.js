@@ -47,7 +47,7 @@ export async function fullScan({ lint_path, todo_path } = {}) {
     timed('health_check',    () => healthCheck()),
     timed('find_todos',      () => findTodos({ directory: todo_path ?? cb })),
     timed('check_env_usage', () => checkEnvUsage()),
-    timed('detect_dead_code',() => detectDeadCode({ directory: todo_path ?? `${cb}/backend/src` })),
+    timed('detect_dead_code',() => detectDeadCode({ directory: lint_path ? `${cb}/${lint_path}` : `${cb}/backend/src` })),
     timed('git_log',         () => gitLog({ count: 20, since: '7 days ago' })),
     timed('lint_file',       () => lintFile({ file_path: lint_path ?? 'backend/src' })),
   ]);

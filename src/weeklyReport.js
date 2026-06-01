@@ -74,7 +74,7 @@ export function formatSlackReport(report) {
     lines.push(``, `🟢 *Codebase is clean — no outstanding issues.*`);
   }
 
-  lines.push(``, `_Powered by TIQ AI Agent • sample_codebase_`);
+  lines.push(``, `_Powered by TIQ AI Agent • tiq_workplace_`);
   return lines.join('\n');
 }
 

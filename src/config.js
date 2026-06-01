@@ -21,5 +21,9 @@ export const config = {
   healthMonitorUrls:       process.env.HEALTH_MONITOR_URLS ?? '',
   githubClientId:        process.env.GITHUB_CLIENT_ID     ?? null,
   githubClientSecret:    process.env.GITHUB_CLIENT_SECRET ?? null,
-  sessionSecret:         process.env.SESSION_SECRET       ?? 'tiq-agent-dev-secret-change-me',
+  sessionSecret:         (() => {
+    const s = process.env.SESSION_SECRET;
+    if (!s) console.warn('[Config] SESSION_SECRET not set — using insecure default. Set it in .env for production.');
+    return s ?? 'tiq-agent-dev-secret-change-me';
+  })(),
 };

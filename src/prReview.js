@@ -13,7 +13,7 @@ export async function postPRReviewComment({ owner, repo, pull_number, findings }
   const lines = [
     '## 🤖 TIQ AI Agent — Automated Review',
     '',
-    `**Codebase:** \`sample_codebase\` | **Scan time:** ${new Date().toLocaleString('en-IN')}`,
+    `**Codebase:** \`${repo}\` | **Scan time:** ${new Date().toLocaleString('en-IN')}`,
     '',
   ];
 
