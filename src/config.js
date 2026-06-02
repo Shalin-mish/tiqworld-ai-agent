@@ -1,7 +1,7 @@
 import 'dotenv/config';
 
 export const config = {
-  codebasePath:          process.env.TIQ_CODEBASE_PATH   || 'C:/Users/Shalini Mishra/TIQ',
+  codebasePath:          process.env.CODEBASE_PATH || process.env.TIQ_CODEBASE_PATH || process.cwd(),
   awsRegion:             process.env.AWS_REGION           || 'us-east-2',
   awsAccessKeyId:        process.env.AWS_ACCESS_KEY_ID,
   awsSecretAccessKey:    process.env.AWS_SECRET_ACCESS_KEY,

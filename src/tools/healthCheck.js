@@ -7,7 +7,7 @@ import { getAllFiles, toRel, CODE_EXTS, CONTENT_EXTS } from '../utils/fs.js';
 export const healthCheckDefinition = {
   name: 'health_check',
   description:
-    'Run a comprehensive health snapshot of the TIQ codebase: file counts by type, TODO/FIXME totals, git status (uncommitted files), env var gaps, and whether key config files exist. Returns everything in one call — ideal as the first thing to run at the start of a review session.',
+    'Run a comprehensive health snapshot of the target codebase: file counts by type, TODO/FIXME totals, git status (uncommitted files), env var gaps, and whether key config files exist. Returns everything in one call — ideal as the first thing to run at the start of a review session.',
   input_schema: { type: 'object', properties: {} },
 };
 
@@ -77,14 +77,23 @@ function envGaps(codebasePath) {
 }
 
 function keyFilesPresent(codebasePath) {
-  const checks = [
-    '.env.example', '.gitignore', 'package.json',
-    'backend/package.json', 'frontend/package.json',
-    'backend/src/app.js', 'backend/src/server.js',
+  // Universal config/entry files across all languages and frameworks
+  const candidates = [
+    '.env.example', '.env.sample', '.gitignore',
+    'package.json', 'tsconfig.json',
+    'requirements.txt', 'pyproject.toml', 'setup.py',
+    'go.mod', 'Cargo.toml', 'pom.xml', 'build.gradle',
+    'Gemfile', 'composer.json', 'Makefile', 'Dockerfile',
+    'docker-compose.yml', 'docker-compose.yaml',
+    '.eslintrc.json', '.eslintrc.js', 'eslint.config.js',
+    'vitest.config.js', 'jest.config.js',
+    'README.md', 'CONTRIBUTING.md',
   ];
-  return Object.fromEntries(
-    checks.map(f => [f, fs.existsSync(path.join(codebasePath, f))])
-  );
+  const present = {};
+  for (const f of candidates) {
+    if (fs.existsSync(path.join(codebasePath, f))) present[f] = true;
+  }
+  return present;
 }
 
 export function healthCheck() {

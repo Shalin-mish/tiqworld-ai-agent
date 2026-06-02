@@ -5,14 +5,14 @@ import { config } from '../config.js';
 export const readFileDefinition = {
   name: 'read_file',
   description:
-    'Read the full content of a specific file in the TIQ codebase. Automatically reads local imports up to 2 levels deep so you have full context without extra tool calls.',
+    'Read the full content of a specific file in the target codebase. Automatically reads local imports up to 2 levels deep so you have full context without extra tool calls.',
   input_schema: {
     type: 'object',
     properties: {
       file_path: {
         type: 'string',
         description:
-          'Relative path to the file inside TIQ codebase, e.g. "backend/src/controllers/auth.controller.js"',
+          'Relative path to the file inside the codebase, e.g. "src/controllers/auth.js" or "backend/auth-service/src/index.ts"',
       },
       include_imports: {
         type: 'boolean',

@@ -5,14 +5,14 @@ import { config } from '../config.js';
 export const listFilesDefinition = {
   name: 'list_files',
   description:
-    'List all files and folders inside a directory of the TIQ codebase. Use this to explore the project structure before reading specific files.',
+    'List all files and folders inside a directory of the target codebase. Use this to explore the project structure before reading specific files.',
   input_schema: {
     type: 'object',
     properties: {
       directory: {
         type: 'string',
         description:
-          'Relative path inside TIQ codebase, e.g. "backend/src/controllers" or "frontend/src". Use empty string "" for root.',
+          'Relative path inside the codebase, e.g. "src/controllers" or "backend". Use empty string "" for root.',
       },
     },
     required: ['directory'],

@@ -5,9 +5,9 @@ import { config } from '../config.js';
 export const searchCodeDefinition = {
   name: 'search_code',
   description:
-    'Search for a keyword or regex pattern across all files in the TIQ codebase. ' +
+    'Search for a keyword or regex pattern across all files in the target codebase. ' +
     'Returns file paths and matching lines with line numbers. ' +
-    'Supports regex (e.g. "^export function", "require\(.+\)"). ' +
+    'Supports regex (e.g. "^export function", "require\\(.+\\)"). ' +
     'Use directory to narrow scope. Searches .env, .yaml, .sh files too.',
   input_schema: {
     type: 'object',
@@ -18,7 +18,7 @@ export const searchCodeDefinition = {
       },
       directory: {
         type: 'string',
-        description: 'Limit search to this subdirectory, e.g. "backend/src". Leave empty for entire codebase.',
+        description: 'Limit search to this subdirectory, e.g. "src" or "backend/auth-service". Leave empty for entire codebase.',
       },
       is_regex: {
         type: 'boolean',

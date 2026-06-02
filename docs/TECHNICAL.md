@@ -22,6 +22,53 @@
 
 ---
 
+## 0. Any-Codebase Design
+
+The agent is **not tied to any specific project**. It works on any codebase — any language, any size, any structure — without code changes.
+
+### How it works
+
+At startup the agent calls `discoverProject(codebasePath)` (`src/projectDiscovery.js`) which:
+
+1. **Reads root config files** — `package.json`, `go.mod`, `Cargo.toml`, `pyproject.toml`, `pom.xml`, `composer.json`, `Gemfile`, etc.
+2. **Detects language + framework** — Node.js/TypeScript, Python (Django/FastAPI/Flask), Go (Gin/Echo), Rust, Java (Maven/Gradle), Ruby (Rails), PHP (Laravel/Symfony)
+3. **Detects monorepo** — workspace fields in `package.json` OR multiple `package.json` files in subdirectories
+4. **Reads README** — first 25 lines used as project description in system prompt
+5. **Walks top-2-level directory tree** — gives Claude a map of the codebase structure
+6. **Extracts scripts** — `test`, `build`, `lint` commands from `package.json` scripts (or language equivalent)
+
+The result feeds into `buildSystemPrompt()` which assembles the full Claude system prompt **dynamically, every time the agent starts**.
+
+### To point the agent at a new codebase
+
+```bash
+# Option 1: env var
+CODEBASE_PATH=/path/to/any/project npm start
+
+# Option 2: .env file
+CODEBASE_PATH=C:/path/to/your-new-project
+
+# Option 3: no config — defaults to current working directory
+cd /path/to/project && npm start
+```
+
+No code changes needed. No system prompt edits needed. The agent re-discovers the project on next start.
+
+### Supported languages and frameworks
+
+| Language | Auto-detected from | Frameworks detected |
+|----------|-------------------|---------------------|
+| JavaScript / TypeScript | `package.json`, `tsconfig.json` | Express, Fastify, NestJS, Next.js, React, Vue, Angular, Svelte, Koa, Hapi |
+| Python | `requirements.txt`, `pyproject.toml`, `setup.py` | Django, FastAPI, Flask |
+| Go | `go.mod` | Gin, Echo, Fiber |
+| Rust | `Cargo.toml` | — |
+| Java / Kotlin | `pom.xml`, `build.gradle` | Maven, Gradle |
+| Ruby | `Gemfile`, `config/routes.rb` | Rails |
+| PHP | `composer.json` | Laravel, Symfony |
+| Monorepo | `workspaces` in `package.json` OR ≥2 subdirs with `package.json` | All of the above per-package |
+
+---
+
 ## 1. Architecture Overview
 
 ```
@@ -88,7 +135,8 @@ All configuration is loaded from `.env` via `dotenv/config` in `src/config.js`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TIQ_CODEBASE_PATH` | `C:/Users/.../TIQ` | Absolute path to the target codebase |
+| `CODEBASE_PATH` | `process.cwd()` | Absolute path to ANY target codebase — any language, any size. Falls back to `TIQ_CODEBASE_PATH` then `cwd`. |
+| `TIQ_CODEBASE_PATH` | _(legacy)_ | Backward-compatible alias for `CODEBASE_PATH` |
 | `AWS_REGION` | `us-east-2` | Bedrock region |
 | `AWS_ACCESS_KEY_ID` | — | AWS credentials |
 | `AWS_SECRET_ACCESS_KEY` | — | AWS credentials |
@@ -797,4 +845,4 @@ tiqworld-ai-agent/
 
 ---
 
-*Last updated: June 2025 — covers all features through Phase 4 (Bedrock retry, GitHub webhook, weekly reports, PR review automation).*
+*Last updated: June 2026 — Section 0 added: any-codebase design with auto-discovery (`src/projectDiscovery.js`). `CODEBASE_PATH` env var replaces hardcoded TIQ path. System prompt now dynamically generated from codebase scan at startup.*

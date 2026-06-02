@@ -5,41 +5,44 @@ import { classify, getTools, TASK_LABELS } from '../../src/dispatcher.js';
 // classify() — multi-keyword confidence scoring
 // ---------------------------------------------------------------------------
 
+// classify() returns { type, confidence, scores } — we check .type
+const t = (input) => classify(input).type;
+
 describe('classify() — clear single-type inputs', () => {
   it('review: health/scan keywords', () => {
-    expect(classify('run a full scan')).toBe('review');
-    expect(classify('health check the codebase')).toBe('review');
-    expect(classify('find todos in backend')).toBe('review');
-    expect(classify('check for dead code')).toBe('review');
-    expect(classify('any secrets leaked')).toBe('review');
-    expect(classify('are dependencies outdated')).toBe('review');
+    expect(t('run a full scan')).toBe('review');
+    expect(t('health check the codebase')).toBe('review');
+    expect(t('find todos in backend')).toBe('review');
+    expect(t('check for dead code')).toBe('review');
+    expect(t('any secrets leaked')).toBe('review');
+    expect(t('are dependencies outdated')).toBe('review');
   });
 
   it('maintenance: fix/bug keywords', () => {
-    expect(classify('fix the login bug')).toBe('maintenance');
-    expect(classify('refactor the auth middleware')).toBe('maintenance');
-    expect(classify('there is an error in submissions')).toBe('maintenance');
-    expect(classify('trace this stack trace')).toBe('maintenance');
+    expect(t('fix the login bug')).toBe('maintenance');
+    expect(t('refactor the auth middleware')).toBe('maintenance');
+    expect(t('there is an error in submissions')).toBe('maintenance');
+    expect(t('trace this stack trace')).toBe('maintenance');
   });
 
   it('feature: add/create keywords', () => {
-    expect(classify('add a new route')).toBe('feature');
-    expect(classify('create a new component')).toBe('feature');
-    expect(classify('implement the export endpoint')).toBe('feature');
-    expect(classify('scaffold a new page')).toBe('feature');
+    expect(t('add a new route')).toBe('feature');
+    expect(t('create a new component')).toBe('feature');
+    expect(t('implement the export endpoint')).toBe('feature');
+    expect(t('scaffold a new page')).toBe('feature');
   });
 
   it('query: explain/what/where keywords only', () => {
-    expect(classify('what does this function do')).toBe('query');
-    expect(classify('where is the auth middleware')).toBe('query');
-    expect(classify('explain the auth flow')).toBe('query');
-    expect(classify('describe the Track model')).toBe('query');
+    expect(t('what does this function do')).toBe('query');
+    expect(t('where is the auth middleware')).toBe('query');
+    expect(t('explain the auth flow')).toBe('query');
+    expect(t('describe the Track model')).toBe('query');
   });
 
   it('defaults to query for unrecognised input', () => {
-    expect(classify('hello world')).toBe('query');
-    expect(classify('')).toBe('query');
-    expect(classify('   ')).toBe('query');
+    expect(t('hello world')).toBe('query');
+    expect(t('')).toBe('query');
+    expect(t('   ')).toBe('query');
   });
 });
 
@@ -47,38 +50,35 @@ describe('classify() — ambiguous inputs (tie-break by TYPE_PRIORITY)', () => {
   // "explain how to fix" — explain=1 (query), fix=1 (maintenance) → tie
   // TYPE_PRIORITY: maintenance(2) > query(0) → maintenance wins
   it('tie between query and maintenance → maintenance wins', () => {
-    expect(classify('explain how to fix this error')).toBe('maintenance');
+    expect(t('explain how to fix this error')).toBe('maintenance');
   });
 
   // "explain the scan results" — explain=1 (query), scan=1 (review) → tie
   // TYPE_PRIORITY: review(1) > query(0) → review wins
   it('tie between query and review → review wins', () => {
-    expect(classify('explain the scan results')).toBe('review');
+    expect(t('explain the scan results')).toBe('review');
   });
 
   // Pure query — no other keyword → query
   it('pure explain sentence → query', () => {
-    expect(classify('explain the certificate flow')).toBe('query');
+    expect(t('explain the certificate flow')).toBe('query');
   });
 });
 
 describe('classify() — multi-keyword scoring (higher count wins)', () => {
   // "scan for bugs and fix errors" → review:1, maintenance:2 → maintenance
   it('maintenance beats review when fix-words outnumber scan-words', () => {
-    const result = classify('fix the bug and trace the error');
-    expect(result).toBe('maintenance');
+    expect(t('fix the bug and trace the error')).toBe('maintenance');
   });
 
   // "review security and scan for secrets" → review:3 → review
   it('review wins with multiple review-type keywords', () => {
-    const result = classify('review security and scan for secrets and dead code');
-    expect(result).toBe('review');
+    expect(t('review security and scan for secrets and dead code')).toBe('review');
   });
 
   // "add new route and create new endpoint" → feature:2 → feature
   it('feature wins with stacked feature keywords', () => {
-    const result = classify('add a new route and create a new endpoint');
-    expect(result).toBe('feature');
+    expect(t('add a new route and create a new endpoint')).toBe('feature');
   });
 });
 
