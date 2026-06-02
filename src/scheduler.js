@@ -1,12 +1,10 @@
 import cron from 'node-cron';
 import { fullScan }         from './tools/fullScan.js';
-import { lintFile }         from './tools/lintFile.js';
-import { findTodos }        from './tools/findTodos.js';
 import { healthCheck }      from './tools/healthCheck.js';
 import { healthMonitor }    from './tools/healthMonitor.js';
 import { runCommand }       from './tools/runCommand.js';
 import { gitBackup }        from './tools/gitBackup.js';
-import { runAgent, ALL_TOOLS }   from './agent.js';
+import { runAgent, ALL_TOOLS, projectInfo } from './agent.js';
 import { acquireLock, releaseAllLocks } from './tools/fileLock.js';
 import { saveMaintenanceReport, formatReportSummary } from './tools/maintenanceReport.js';
 import { config } from './config.js';
@@ -21,8 +19,8 @@ let lastScanTime   = null;
 
 // Prevents day scan from running while night maintenance is still active.
 let _maintenanceRunning = false;
-// Max wall-clock time for a single maintenance run (4 hours).
-const MAINTENANCE_TIMEOUT_MS = 4 * 60 * 60 * 1000;
+// AbortController for the current maintenance run — lets the timeout truly kill runAgent().
+let _maintenanceAbortController = null;
 
 // ---------------------------------------------------------------------------
 // Live status
@@ -42,6 +40,7 @@ export function setBroadcastFn(fn) { _broadcastFn = fn; }
 
 function pushProgress(step, msg) {
   const entry = { step, msg, at: new Date().toISOString() };
+  if (_status.progress.length >= 200) _status.progress.shift(); // cap at 200 entries
   _status.progress.push(entry);
   _broadcastFn?.(entry);
   console.log(`[Maintenance] ${step}: ${msg}`);
@@ -142,9 +141,11 @@ function makeWriteApprovalFn(writeLog) {
 // ---------------------------------------------------------------------------
 
 async function runTests() {
+  // Use the project's detected test command (e.g. "pytest", "go test ./...", "npm test")
+  const testCmd = projectInfo?.testCmd || 'npm test';
   try {
     const result = await runCommand({
-      command:            'npm test',
+      command:            testCmd,
       directory:          '',
       _commandApprovalFn: () => true,
       _user:              'maintenance-scheduler',
@@ -182,17 +183,23 @@ async function runNightMaintenance() {
     return null;
   }
   _maintenanceRunning = true;
+  _maintenanceAbortController = new AbortController();
+  const { signal } = _maintenanceAbortController;
+  const timeoutMs  = config.maintenanceTimeoutMs;
 
-  // Hard timeout — releases flag even if agent hangs.
+  // Hard timeout — aborts the running runAgent() call and releases the flag.
   const timeoutHandle = setTimeout(() => {
-    pushProgress('timeout', `Maintenance exceeded ${MAINTENANCE_TIMEOUT_MS / 3600000}h limit — aborting run.`);
-    _status.error  = 'Maintenance timeout exceeded.';
-    _status.state  = 'done';
+    const hrs = (timeoutMs / 3600000).toFixed(1);
+    pushProgress('timeout', `Maintenance exceeded ${hrs}h limit — aborting run.`);
+    _maintenanceAbortController?.abort();
+    _status.error      = 'Maintenance timeout exceeded.';
+    _status.state      = 'done';
     _status.finishedAt = new Date().toISOString();
-    _maintenanceRunning = false;
+    _maintenanceRunning        = false;
+    _maintenanceAbortController = null;
     releaseAllLocks('maintenance-scheduler');
-    notify('error', 'Night Maintenance Timeout', `Run exceeded ${MAINTENANCE_TIMEOUT_MS / 3600000}h — aborted.`);
-  }, MAINTENANCE_TIMEOUT_MS);
+    notify('error', 'Night Maintenance Timeout', `Run exceeded ${hrs}h — aborted.`);
+  }, timeoutMs);
 
   _status.state      = 'running';
   _status.mode       = 'deep';
@@ -232,19 +239,22 @@ async function runNightMaintenance() {
     const issueCount = (scan?.summary?.lint_errors ?? 0) + (scan?.summary?.critical_todos ?? 0);
     if (config.autoFixEnabled && issueCount > 0) {
       pushProgress('fix', `Auto-fixing ${issueCount} issue(s)...`);
+      const testCmd = projectInfo?.testCmd || 'npm test';
+      const highRiskSample = HIGH_RISK_PATTERNS.slice(0, 12).join(', ');
       let fixAborted = false;
       try {
         await runAgent(
           `AUTONOMOUS MAINTENANCE MODE — proceed without human confirmation.\n\n` +
+          `Project: ${projectInfo?.name ?? 'unknown'} (${projectInfo?.language ?? 'unknown'})\n` +
           `Codebase scan summary:\n${JSON.stringify(scan?.summary ?? {}, null, 2)}\n\n` +
           `Task: Fix all SAFE issues only (lint errors, missing null checks, unused variables, console.log cleanup).\n\n` +
           `MANDATORY RULES:\n` +
-          `1. SKIP any file containing: routes/, models/, middleware/, auth, config.js, index.js, server.js, app.js\n` +
+          `1. SKIP any file whose path matches high-risk patterns — these are enforced by the safety gate and writes will be rejected. Patterns include: ${highRiskSample}\n` +
           `2. NEVER touch test files (tests/, *.test.*, *.spec.*) — tests are written by humans and reviewed independently\n` +
           `3. Only apply fix if fix_error confidence >= ${config.autoFixMinConfidence}\n` +
           `4. Sequence: git_backup → show_diff → write_file → run_command\n` +
           `5. Fix one file at a time\n` +
-          `6. Run npm test after each fix\n` +
+          `6. Run \`${testCmd}\` after each fix\n` +
           `7. If run_command shows test failure after a write_file, IMMEDIATELY call git_backup with action=restore, then STOP\n` +
           `8. Feature additions, schema changes, route changes are STRICTLY OFF-LIMITS.`,
           [],
@@ -255,6 +265,7 @@ async function runNightMaintenance() {
           commandApprovalFn,
           'maintenance-scheduler',
           20,
+          signal,
         );
       } catch (err) {
         pushProgress('fix', `Auto-fix error: ${err.message}`);
@@ -323,7 +334,8 @@ async function runNightMaintenance() {
 
   console.log(`\n${formatReportSummary(report)}`);
   clearTimeout(timeoutHandle);
-  _maintenanceRunning = false;
+  _maintenanceRunning        = false;
+  _maintenanceAbortController = null;
   releaseAllLocks('maintenance-scheduler');
   return report;
 }
@@ -348,19 +360,17 @@ async function runDayScan() {
   const t0 = Date.now();
   pushProgress('start', 'Day light scan started');
   try {
-    const [lint, todos, health, monitor] = await Promise.all([
-      lintFile({   file_path: '' }),
-      findTodos({  directory: '' }),
+    // Day scan is intentionally lightweight — full lint/todos run at night.
+    // Only healthCheck + healthMonitor here to avoid unnecessary token spend.
+    const [health, monitor] = await Promise.all([
       healthCheck(),
       healthMonitor({ last_minutes: 60 }),
     ]);
-    lastScanResult = { lint, todos, health, monitor };
+    lastScanResult = { health, monitor };
     lastScanTime   = new Date().toISOString();
-    const errors    = lint?.total_errors ?? 0;
-    const criticals = todos?.by_severity?.critical ?? 0;
     const elapsed   = ((Date.now() - t0) / 1000).toFixed(1);
     const monStatus = monitor?.overall ?? 'UNKNOWN';
-    pushProgress('done', `Day scan done in ${elapsed}s — ${errors} lint errors, ${criticals} critical TODOs, health: ${monStatus}`);
+    pushProgress('done', `Day scan done in ${elapsed}s — health: ${monStatus}`);
 
     // Alert if platform is unhealthy
     if (monStatus === 'UNHEALTHY' || monStatus === 'DEGRADED') {
@@ -428,7 +438,7 @@ export function getSchedulerHealth() {
     day_task_active:          !!_dayTask,
     weekly_task_active:       !!_weeklyTask,
     maintenance_running:      _maintenanceRunning,
-    maintenance_timeout_hrs:  MAINTENANCE_TIMEOUT_MS / 3600000,
+    maintenance_timeout_hrs:  config.maintenanceTimeoutMs / 3600000,
     night_cron:               config.nightMaintenanceCron,
     day_cron:                 config.dayLightScanCron,
     weekly_cron:              process.env.WEEKLY_REPORT_CRON || '0 9 * * 1',

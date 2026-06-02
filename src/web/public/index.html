@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TIQ World AI Agent</title>
+  <title>Codebase AI Agent</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1153,6 +1153,7 @@
     <span style="font-size:11px;font-weight:500;color:var(--accent);letter-spacing:.8px;text-transform:uppercase;background:var(--accent-dim);padding:2px 7px;border-radius:4px;margin-left:2px;">Agent</span>
   </div>
   <div class="header-spacer"></div>
+  <span class="header-badge" id="hdr-project" style="display:none"></span>
   <span class="header-badge model" id="hdr-model">claude-sonnet</span>
   <span class="header-badge" id="tool-count-badge">— tools</span>
   <button id="hdr-maint-btn" onclick="quickMaintenance()" title="Ctrl+M">
@@ -1254,13 +1255,13 @@
           <div id="welcome-logo-fallback" style="display:none;align-items:center;gap:12px">
             <span style="font-size:36px">◆</span>
             <div class="welcome-logo-text">
-              <span class="wlt-brand">TIQ WORLD</span>
+              <span class="wlt-brand" id="welcome-logo-brand">CODEBASE</span>
               <span class="wlt-tag">AI Agent</span>
             </div>
           </div>
         </div>
         <div style="text-align:center">
-          <p class="welcome-sub">Your AI-powered engineering teammate for the TIQ World codebase.</p>
+          <p class="welcome-sub" id="welcome-sub">Your AI-powered code agent — ready to explore, analyse, and fix any codebase.</p>
           <p style="font-size:12px;color:var(--text-dim);margin-top:6px;">Every change is reviewed and approved by you before it happens.</p>
         </div>
         <div class="welcome-chips">
@@ -1562,6 +1563,21 @@ document.getElementById('header-user-btn').onclick = async () => {
 async function init() {
   const res = await fetch('/api/status').then(r => r.json()).catch(() => ({}));
   if (res.tool_count) document.getElementById('tool-count-badge').textContent = res.tool_count + ' tools';
+
+  // Show detected project name + language in header badge + welcome text
+  if (res.project_name && res.project_name !== 'Unknown Project') {
+    const lang = (res.language && res.language !== 'unknown') ? ` · ${res.language}` : '';
+    const mono = res.is_monorepo ? ' · monorepo' : '';
+    const proj = document.getElementById('hdr-project');
+    proj.textContent = res.project_name + lang + mono;
+    proj.style.display = '';
+    const sub = document.getElementById('welcome-sub');
+    if (sub) sub.textContent = `Pointed at ${res.project_name}${lang}${mono} — ready to explore, analyse, and fix.`;
+    document.title = `${res.project_name} · AI Agent`;
+    const brand = document.getElementById('welcome-logo-brand');
+    if (brand) brand.textContent = res.project_name.toUpperCase();
+  }
+
   if (res.model) {
     const m = res.model;
     // Convert model ID to friendly name: "us.anthropic.claude-sonnet-4-5-*" → "Claude Sonnet 4.5"

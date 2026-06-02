@@ -182,7 +182,7 @@ async function executeTool(name, input, executors, user = 'unknown', approvalFn 
   return result;
 }
 
-export async function runAgent(userQuestion, conversationHistory = [], tools = null, onEvent = null, user = 'unknown', approvalFn = null, commandApprovalFn = null, sessionId = 'default', toolBudget = 8) {
+export async function runAgent(userQuestion, conversationHistory = [], tools = null, onEvent = null, user = 'unknown', approvalFn = null, commandApprovalFn = null, sessionId = 'default', toolBudget = 8, abortSignal = null) {
   const { definitions, executors } = tools ?? ALL_TOOLS;
   const bedrockTools = toBedrockTools(definitions);
 
@@ -199,8 +199,16 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
 
   async function callBedrock(msgs, retries = 3) {
     for (let attempt = 1; attempt <= retries; attempt++) {
+      // If the outer maintenance timeout fired, stop immediately.
+      if (abortSignal?.aborted) throw new Error('Maintenance run aborted by timeout.');
+
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), config.bedrockTimeoutMs);
+
+      // Link outer abort signal: if maintenance is cancelled, abort this Bedrock call too.
+      const onOuterAbort = () => controller.abort();
+      abortSignal?.addEventListener('abort', onOuterAbort, { once: true });
+
       try {
         const result = await client.send(new ConverseCommand({
           modelId:         config.model,
@@ -210,9 +218,13 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
           inferenceConfig: { maxTokens: config.maxTokens },
         }), { abortSignal: controller.signal });
         clearTimeout(timer);
+        abortSignal?.removeEventListener('abort', onOuterAbort);
         return result;
       } catch (err) {
         clearTimeout(timer);
+        abortSignal?.removeEventListener('abort', onOuterAbort);
+        // If outer signal caused this, propagate as a hard stop (no retry).
+        if (abortSignal?.aborted) throw new Error('Maintenance run aborted by timeout.');
         const isTimeout  = err.name === 'AbortError';
         const isThrottle = err.name === 'ThrottlingException' || err.$metadata?.httpStatusCode === 429;
         const isTransient = isTimeout || isThrottle || err.name === 'ServiceUnavailableException';

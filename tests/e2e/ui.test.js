@@ -17,7 +17,7 @@ async function completeIdentity(page, name = 'TestUser') {
 test.describe('Page load', () => {
   test('loads with correct title', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/TIQ World AI Agent/);
+    await expect(page).toHaveTitle(/AI Agent/);
   });
 
   test('shows identity modal on first visit', async ({ page }) => {
@@ -215,8 +215,8 @@ test.describe('/api/session/:id/memory', () => {
 test.describe('Admin panel', () => {
   test('/admin redirects to main page with admin tab', async ({ page }) => {
     await page.goto('/admin');
-    // Redirects to /?tab=admin — title is the main app title
-    await expect(page).toHaveTitle(/TIQ/);
+    // Redirects to /?tab=admin — title is the main app title (dynamic: "<project> · AI Agent")
+    await expect(page).toHaveTitle(/AI Agent/);
     await expect(page).toHaveURL(/tab=admin/);
   });
 

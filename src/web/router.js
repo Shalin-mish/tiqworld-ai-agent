@@ -1,6 +1,6 @@
 import { Router }      from 'express';
 import rateLimit       from 'express-rate-limit';
-import { runAgent, TOOL_COUNT } from '../agent.js';
+import { runAgent, TOOL_COUNT, projectInfo } from '../agent.js';
 import { classify, getTools, TASK_LABELS } from '../dispatcher.js';
 import { clearLog }    from '../session.js';
 import { config }      from '../config.js';
@@ -142,6 +142,10 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
       last_scan:            scannedAt ?? null,
       scan_summary:         result?.summary ?? null,
       unread_notifications: unreadCount(),
+      project_name:         projectInfo?.name        ?? 'Unknown Project',
+      language:             projectInfo?.language     ?? 'unknown',
+      framework:            projectInfo?.framework    ?? 'unknown',
+      is_monorepo:          projectInfo?.isMonorepo   ?? false,
     });
   });
 
@@ -195,6 +199,21 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }
+  });
+
+  // POST /api/override — force task type for a session (when confidence is low)
+  router.post('/api/override', (req, res) => {
+    const { sessionId, taskType } = req.body ?? {};
+    const valid = ['query', 'review', 'maintenance', 'feature'];
+    if (!sessionId || !valid.includes(taskType)) {
+      res.status(400).json({ error: `sessionId and taskType required. Valid types: ${valid.join(', ')}` });
+      return;
+    }
+    const session  = getSession(sessionId);
+    session.taskType = taskType;
+    session.history  = [];
+    logEvent({ user: session.user, action: 'task_override', sessionId, detail: { taskType } });
+    res.json({ ok: true, taskType, label: TASK_LABELS[taskType] });
   });
 
   // POST /api/clear
@@ -298,8 +317,15 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
       res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
 
     if (!session.taskType) {
-      session.taskType = classify(question);
-      send('task_type', { label: TASK_LABELS[session.taskType], raw: session.taskType });
+      const classResult = classify(question);
+      session.taskType  = classResult.type;
+      send('task_type', {
+        label:      TASK_LABELS[session.taskType],
+        raw:        session.taskType,
+        confidence: classResult.confidence,
+        scores:     classResult.scores,
+        lowConfidence: classResult.confidence < 50,
+      });
     }
 
     const tools             = getTools(session.taskType);
