@@ -19,6 +19,11 @@ let _weeklyTask    = null;
 let lastScanResult = null;
 let lastScanTime   = null;
 
+// Prevents day scan from running while night maintenance is still active.
+let _maintenanceRunning = false;
+// Max wall-clock time for a single maintenance run (4 hours).
+const MAINTENANCE_TIMEOUT_MS = 4 * 60 * 60 * 1000;
+
 // ---------------------------------------------------------------------------
 // Live status
 // ---------------------------------------------------------------------------
@@ -71,19 +76,28 @@ const HIGH_RISK_PATTERNS = [
   'schema.prisma', 'prisma/schema',
   'seeds/', 'seeders/',
   'knexfile', 'typeorm-config',
+  'alembic/',                 // Python migrations
+  'db/migrate/',              // Rails migrations
 
-  // ── Original MERN patterns ────────────────────────────────────────────────
+  // ── Payment + certificate (sensitive business logic — never auto-touch) ───
+  'payment', 'billing', 'subscription', 'certificate', 'cert-service',
+  'stripe', 'paypal', 'webhook',
+
+  // ── Core auth/modules path — auth logic is high-risk across any service ──
+  '/modules/auth/',
+
+  // ── Generic entry/routing/model/middleware files (any framework) ────────
   '/routes/', '/models/', '/middleware/',
-  'config.js', 'index.js', 'server.js', 'app.js',
-
-  // ── tiq_workplace microservice patterns (TypeScript) ─────────────────────
-  'config.ts', 'server.ts', 'app.ts',
-  '/config/', 'database.config', 'env.ts', 'env.js',
-  'auth-service/src/modules/auth/',
-  'auth-service/src/config/',
+  'config.js', 'config.ts', 'config.py',
+  'settings.py', 'settings.js',
+  'index.js', 'server.js', 'app.js', 'main.py', 'main.go', 'main.rs',
+  'server.ts', 'app.ts',
+  '/config/', 'database.config', 'env.ts', 'env.js', 'env.py',
+  // Block .env files but NOT .env.example (that's a safe template)
+  '/.env',
 
   // ── Test files — agent must never be its own judge ───────────────────────
-  'tests/', '__tests__/', '.test.', '.spec.',
+  'tests/', '__tests__/', '.test.', '.spec.', '_test.go', '_test.py',
 ];
 
 export function isHighRisk(filePath) {
@@ -162,6 +176,24 @@ async function rollbackLastWrite(label) {
 // ---------------------------------------------------------------------------
 
 async function runNightMaintenance() {
+  // Overlap guard — skip if previous run is still active.
+  if (_maintenanceRunning) {
+    console.warn('[Scheduler] Night maintenance already running — skipping this trigger.');
+    return null;
+  }
+  _maintenanceRunning = true;
+
+  // Hard timeout — releases flag even if agent hangs.
+  const timeoutHandle = setTimeout(() => {
+    pushProgress('timeout', `Maintenance exceeded ${MAINTENANCE_TIMEOUT_MS / 3600000}h limit — aborting run.`);
+    _status.error  = 'Maintenance timeout exceeded.';
+    _status.state  = 'done';
+    _status.finishedAt = new Date().toISOString();
+    _maintenanceRunning = false;
+    releaseAllLocks('maintenance-scheduler');
+    notify('error', 'Night Maintenance Timeout', `Run exceeded ${MAINTENANCE_TIMEOUT_MS / 3600000}h — aborted.`);
+  }, MAINTENANCE_TIMEOUT_MS);
+
   _status.state      = 'running';
   _status.mode       = 'deep';
   _status.startedAt  = new Date().toISOString();
@@ -262,6 +294,18 @@ async function runNightMaintenance() {
   _status.finishedAt = new Date().toISOString();
   _status.lastReport = report;
 
+  // Log feature opportunities discovered during scan (TODOs marked FEATURE/ENHANCEMENT).
+  const featureTodos = (scan?.todos?.items ?? []).filter(t =>
+    /feature|enhancement|improve|consider|could add|should add/i.test(t.text ?? t.message ?? '')
+  );
+  if (featureTodos.length > 0) {
+    const oppPath = saveMaintenanceReport(
+      { mode: 'feature_opportunities', discovered_at: _status.finishedAt, items: featureTodos },
+      'feature-opportunities',
+    );
+    pushProgress('opportunities', `${featureTodos.length} feature opportunity/ies logged → ${oppPath}`);
+  }
+
   // — Send notification —
   const s = scan?.summary ?? {};
   const hasIssues = (s.critical_todos ?? 0) > 0 || (s.lint_errors ?? 0) > 0 || !testsResult.passed;
@@ -278,6 +322,8 @@ async function runNightMaintenance() {
   }
 
   console.log(`\n${formatReportSummary(report)}`);
+  clearTimeout(timeoutHandle);
+  _maintenanceRunning = false;
   releaseAllLocks('maintenance-scheduler');
   return report;
 }
@@ -287,6 +333,12 @@ async function runNightMaintenance() {
 // ---------------------------------------------------------------------------
 
 async function runDayScan() {
+  // Don't start a light scan while night maintenance is running — it would read
+  // partially-written files and produce misleading lint/health results.
+  if (_maintenanceRunning) {
+    console.log('[Scheduler] Day scan skipped — night maintenance still running.');
+    return;
+  }
   _status.state     = 'running';
   _status.mode      = 'light';
   _status.startedAt = new Date().toISOString();
@@ -297,8 +349,8 @@ async function runDayScan() {
   pushProgress('start', 'Day light scan started');
   try {
     const [lint, todos, health, monitor] = await Promise.all([
-      lintFile({   file_path: 'backend/src' }),
-      findTodos({  directory: config.codebasePath }),
+      lintFile({   file_path: '' }),
+      findTodos({  directory: '' }),
       healthCheck(),
       healthMonitor({ last_minutes: 60 }),
     ]);
@@ -372,15 +424,17 @@ export function stopScheduler() {
 
 export function getSchedulerHealth() {
   return {
-    night_task_active:       !!_nightTask,
-    day_task_active:         !!_dayTask,
-    weekly_task_active:      !!_weeklyTask,
-    night_cron:              config.nightMaintenanceCron,
-    day_cron:                config.dayLightScanCron,
-    weekly_cron:             process.env.WEEKLY_REPORT_CRON || '0 9 * * 1',
-    auto_fix_enabled:        config.autoFixEnabled,
-    auto_fix_min_confidence: config.autoFixMinConfidence,
-    last_scan_at:            lastScanTime,
+    night_task_active:        !!_nightTask,
+    day_task_active:          !!_dayTask,
+    weekly_task_active:       !!_weeklyTask,
+    maintenance_running:      _maintenanceRunning,
+    maintenance_timeout_hrs:  MAINTENANCE_TIMEOUT_MS / 3600000,
+    night_cron:               config.nightMaintenanceCron,
+    day_cron:                 config.dayLightScanCron,
+    weekly_cron:              process.env.WEEKLY_REPORT_CRON || '0 9 * * 1',
+    auto_fix_enabled:         config.autoFixEnabled,
+    auto_fix_min_confidence:  config.autoFixMinConfidence,
+    last_scan_at:             lastScanTime,
   };
 }
 

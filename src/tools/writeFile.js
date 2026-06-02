@@ -10,14 +10,14 @@ import { guardCheck } from './credentialGuard.js';
 export const writeFileDefinition = {
   name: 'write_file',
   description:
-    'Write or update a file in the TIQ codebase. Shows a diff first and requires user approval before making any changes. Creates a git backup automatically before every write.',
+    'Write or update a file in the target codebase. Shows a diff first and requires user approval before making any changes. Creates a git backup automatically before every write.',
   input_schema: {
     type: 'object',
     properties: {
       file_path: {
         type: 'string',
         description:
-          'Relative path to the file inside TIQ codebase, e.g. "backend/src/controllers/auth.controller.js"',
+          'Relative path to the file inside the codebase, e.g. "src/controllers/auth.js" or "backend/auth-service/src/utils/helper.ts"',
       },
       new_content: {
         type: 'string',

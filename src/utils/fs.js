@@ -9,20 +9,29 @@ export const SKIP_DIRS = new Set([
 export const CODE_EXTS    = new Set(['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs']);
 export const CONTENT_EXTS = new Set([...CODE_EXTS, '.json', '.md']);
 
+// Hard caps to keep scans fast on any codebase size
+export const MAX_FILES   = 50_000;  // stop collecting after this many files
+export const MAX_DEPTH   = 12;      // never descend more than 12 directory levels
+
 /**
  * Recursively collect all files under dirPath whose extension is in exts.
  * SKIP_DIRS and dot-directories are never descended into.
+ * Capped at MAX_FILES files and MAX_DEPTH levels to work safely on any repo size.
  */
-export function getAllFiles(dirPath, exts = CODE_EXTS, out = []) {
+export function getAllFiles(dirPath, exts = CODE_EXTS, out = [], _depth = 0) {
+  if (out.length >= MAX_FILES || _depth > MAX_DEPTH) return out;
   if (!fs.existsSync(dirPath)) return out;
   let entries;
   try { entries = fs.readdirSync(dirPath, { withFileTypes: true }); }
   catch { return out; }
 
   for (const e of entries) {
+    if (out.length >= MAX_FILES) break;
     const full = path.join(dirPath, e.name);
     if (e.isDirectory()) {
-      if (!SKIP_DIRS.has(e.name) && !e.name.startsWith('.')) getAllFiles(full, exts, out);
+      if (!SKIP_DIRS.has(e.name) && !e.name.startsWith('.')) {
+        getAllFiles(full, exts, out, _depth + 1);
+      }
     } else if (exts.has(path.extname(e.name))) {
       out.push(full);
     }

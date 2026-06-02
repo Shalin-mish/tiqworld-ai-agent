@@ -6,7 +6,7 @@ import { getAllFiles, toRel, CODE_EXTS } from '../utils/fs.js';
 export const findTodosDefinition = {
   name: 'find_todos',
   description:
-    'Scan the TIQ codebase for TODO, FIXME, HACK, DEPRECATED, BUG, and OPTIMIZE comments. Returns results grouped by file with line numbers and severity (critical / warning / info). Essential for surfacing technical debt.',
+    'Scan the target codebase for TODO, FIXME, HACK, DEPRECATED, BUG, and OPTIMIZE comments. Returns results grouped by file with line numbers and severity (critical / warning / info). Essential for surfacing technical debt.',
   input_schema: {
     type: 'object',
     properties: {

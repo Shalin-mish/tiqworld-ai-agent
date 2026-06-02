@@ -15,11 +15,11 @@ export const fullScanDefinition = {
     properties: {
       lint_path: {
         type: 'string',
-        description: 'Directory to lint (default: backend/src)',
+        description: 'Directory to lint and check for dead code (default: codebase root). Example: "src" or "backend/auth-service/src".',
       },
       todo_path: {
         type: 'string',
-        description: 'Directory to scan for TODOs (default: entire codebase)',
+        description: 'Directory to scan for TODOs (default: entire codebase).',
       },
     },
   },
@@ -42,14 +42,16 @@ export async function fullScan({ lint_path, todo_path } = {}) {
   const scanStarted = new Date().toISOString();
   const t0 = Date.now();
 
-  // Run all scans in parallel — independent of each other
+  // Run all scans in parallel — independent of each other.
+  // detect_dead_code and lint_file use the provided lint_path or fall back to
+  // codebase root — works for any project layout.
   const sections = await Promise.all([
     timed('health_check',    () => healthCheck()),
-    timed('find_todos',      () => findTodos({ directory: todo_path ?? cb })),
+    timed('find_todos',      () => findTodos({ directory: todo_path ?? '' })),
     timed('check_env_usage', () => checkEnvUsage()),
-    timed('detect_dead_code',() => detectDeadCode({ directory: lint_path ? `${cb}/${lint_path}` : `${cb}/backend/src` })),
+    timed('detect_dead_code',() => detectDeadCode({ directory: lint_path ?? '' })),
     timed('git_log',         () => gitLog({ count: 20, since: '7 days ago' })),
-    timed('lint_file',       () => lintFile({ file_path: lint_path ?? 'backend/src' })),
+    timed('lint_file',       () => lintFile({ file_path: lint_path ?? '' })),
   ]);
 
   const totalMs = Date.now() - t0;

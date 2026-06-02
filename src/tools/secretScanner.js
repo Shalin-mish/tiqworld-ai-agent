@@ -26,7 +26,7 @@ export const secretScannerDefinition = {
   input_schema: {
     type: 'object',
     properties: {
-      directory: { type: 'string', description: 'Root directory to scan (defaults to TIQ codebase)' },
+      directory: { type: 'string', description: 'Root directory to scan (defaults to codebase root)' },
     },
     required: [],
   },
@@ -94,18 +94,22 @@ export async function secretScanner({ directory } = {}) {
   };
 }
 
-function walkDir(dir, rel = '') {
-  const results = [];
+const MAX_WALK_FILES = 50_000;
+const MAX_WALK_DEPTH = 12;
+
+function walkDir(dir, rel = '', _depth = 0, _out = []) {
+  if (_out.length >= MAX_WALK_FILES || _depth > MAX_WALK_DEPTH) return _out;
   try {
     for (const name of readdirSync(dir)) {
+      if (_out.length >= MAX_WALK_FILES) break;
       if (SKIP_DIRS.includes(name)) continue;
       const full = path.join(dir, name);
       const r    = rel ? rel + '/' + name : name;
       try {
-        if (statSync(full).isDirectory()) results.push(...walkDir(full, r));
-        else results.push(r);
+        if (statSync(full).isDirectory()) walkDir(full, r, _depth + 1, _out);
+        else _out.push(r);
       } catch { /* skip */ }
     }
   } catch { /* skip */ }
-  return results;
+  return _out;
 }

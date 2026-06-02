@@ -3,25 +3,39 @@ import path from 'path';
 import fs from 'fs';
 import { config } from '../config.js';
 
+// Walk from startPath up to codebase root looking for node_modules/.bin/eslint
+function findEslintBin(startPath) {
+  let dir = fs.statSync(startPath).isDirectory() ? startPath : path.dirname(startPath);
+  const root = config.codebasePath;
+  // Traverse up until we reach or pass the codebase root
+  while (dir.length >= root.length) {
+    const bin = path.join(dir, 'node_modules', '.bin', 'eslint');
+    if (fs.existsSync(bin)) return bin;
+    const parent = path.dirname(dir);
+    if (parent === dir) break; // filesystem root
+    dir = parent;
+  }
+  return null;
+}
+
 export const lintFileDefinition = {
   name: 'lint_file',
   description:
-    'Run ESLint on a specific file or directory in the TIQ codebase and return structured results grouped by severity (error / warning). Use before refactoring or after writing a fix to catch lint issues. Requires ESLint to be installed in the target project.',
+    'Run ESLint on a specific file or directory and return structured results grouped by severity (error / warning). Use before refactoring or after writing a fix to catch lint issues. Requires ESLint to be installed in the target project.',
   input_schema: {
     type: 'object',
     properties: {
       file_path: {
         type: 'string',
-        description: 'Relative path to lint, e.g. "backend/src/controllers/auth.controller.js" or "backend/src".',
+        description: 'Relative path to lint, e.g. "src/controllers/auth.js" or "backend/src".',
       },
     },
     required: ['file_path'],
   },
 };
 
-export function lintFile({ file_path } = {}) {
-  if (!file_path?.trim()) return { error: 'file_path is required' };
-
+export function lintFile({ file_path = '' } = {}) {
+  // Empty string → lint codebase root
   const fullPath = path.join(config.codebasePath, file_path);
   if (!fs.existsSync(fullPath)) {
     return {
@@ -30,19 +44,16 @@ export function lintFile({ file_path } = {}) {
     };
   }
 
-  // Find which sub-project owns this path and use its eslint binary.
-  const projectRoot = fullPath.includes('/backend/')
-    ? path.join(config.codebasePath, 'backend')
-    : fullPath.includes('/frontend/')
-      ? path.join(config.codebasePath, 'frontend')
-      : config.codebasePath;
+  // Walk up from the target path to find the nearest package.json with an eslint binary.
+  // This works for any structure: monorepo, flat, nested services.
+  const eslintBin = findEslintBin(fullPath);
+  const projectRoot = eslintBin ? path.dirname(path.dirname(path.dirname(eslintBin))) : config.codebasePath;
 
-  const eslintBin = path.join(projectRoot, 'node_modules', '.bin', 'eslint');
-  if (!fs.existsSync(eslintBin)) {
+  if (!eslintBin) {
     return {
       error: 'ESLint binary not found',
-      searched: eslintBin,
-      suggestion: 'Run npm install in the backend or frontend directory first',
+      searched: fullPath,
+      suggestion: 'Run npm install in the project root or relevant service directory first',
     };
   }
 

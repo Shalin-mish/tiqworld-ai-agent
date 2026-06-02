@@ -9,7 +9,7 @@ export const depUpdaterDefinition = {
   input_schema: {
     type: 'object',
     properties: {
-      directory: { type: 'string', description: 'Package root directory (defaults to TIQ codebase root)' },
+      directory: { type: 'string', description: 'Package root directory with package.json (defaults to codebase root)' },
     },
     required: [],
   },

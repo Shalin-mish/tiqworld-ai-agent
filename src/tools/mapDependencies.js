@@ -28,13 +28,18 @@ export const mapDependenciesDefinition = {
 const EXCLUDE_DIRS = ['node_modules', '.git', 'dist', 'build', '.vite', '.cache'];
 const CODE_EXTENSIONS = ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'];
 
-function getAllSourceFiles(dirPath, fileList = []) {
+const MAX_SOURCE_FILES = 50_000;
+const MAX_SOURCE_DEPTH = 12;
+
+function getAllSourceFiles(dirPath, fileList = [], _depth = 0) {
+  if (fileList.length >= MAX_SOURCE_FILES || _depth > MAX_SOURCE_DEPTH) return fileList;
   if (!fs.existsSync(dirPath)) return fileList;
   for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    if (fileList.length >= MAX_SOURCE_FILES) break;
     const fullPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
       if (!EXCLUDE_DIRS.includes(entry.name) && !entry.name.startsWith('.')) {
-        getAllSourceFiles(fullPath, fileList);
+        getAllSourceFiles(fullPath, fileList, _depth + 1);
       }
     } else if (CODE_EXTENSIONS.includes(path.extname(entry.name))) {
       fileList.push(fullPath);
@@ -186,7 +191,7 @@ export function mapDependencies({ file_path, directory, depth = 2 }) {
   } catch (err) {
     return {
       error: err.message,
-      suggestion: 'Check the file_path is a valid relative path within the TIQ codebase',
+      suggestion: 'Check the file_path is a valid relative path within the codebase',
     };
   }
 }

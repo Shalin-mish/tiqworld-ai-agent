@@ -2,31 +2,42 @@ import { execSync } from 'child_process';
 import path from 'path';
 import { config } from '../config.js';
 
-// tiq_workplace services — each is run via npm --prefix backend/<service>
-const TIQ_SERVICES = [
-  'auth-service', 'training-service', 'assessment-service',
-  'inference-service', 'notification-service', 'job-posting-service',
-  'payment-service', 'shared',
-].join('|');
-
+// Generic safe-command allowlist — works for any codebase structure.
+// "npm --prefix <any-path> <safe-cmd>" covers all monorepo layouts.
 const ALLOWED_PATTERNS = [
-  // tiq_workplace microservice commands
-  new RegExp(`^npm --prefix backend/(${TIQ_SERVICES}) (test|run (build|test|lint|type-check|typecheck))$`),
-  new RegExp(`^npm --prefix backend/(${TIQ_SERVICES}) list --depth=0$`),
-  // Frontend apps
-  /^npm --prefix (consumer-app|admin-app) (test|run (build|test|lint|type-check))$/,
-  /^npm --prefix (consumer-app|admin-app) list --depth=0$/,
-  // Generic test runners (agent repo + fallback)
+  // Generic monorepo: npm --prefix <any-relative-path> <safe-verb>
+  /^npm --prefix [\w./-]+ (test|run (build|test|lint|type-check|typecheck))$/,
+  /^npm --prefix [\w./-]+ list --depth=0$/,
+  // Root-level npm commands
   /^npm test$/,
   /^npm run test$/,
   /^npm run test:.+$/,
+  /^npm run build$/,
+  /^npm run lint.*$/,
+  /^npm install$/,
+  // JS test runners
   /^npx vitest run.*$/,
   /^npx jest.*$/,
+  // Python test runners
+  /^pytest.*$/,
+  /^python -m pytest.*$/,
+  // Go
+  /^go test \.\/\.\.\.$/,
+  /^go build \.\/\.\.\.$/,
+  // Rust
+  /^cargo test$/,
+  /^cargo build$/,
+  // Java / Gradle / Maven
+  /^\.\/gradlew test$/,
+  /^\.\/gradlew build$/,
+  /^mvn test$/,
+  /^mvn package.*$/,
+  // Ruby
+  /^bundle exec rspec.*$/,
   // TypeScript type check
   /^npx tsc --noEmit.*$/,
   // Lint
   /^npx eslint .+$/,
-  /^npm run lint.*$/,
   // Git read-only
   /^git status$/,
   /^git log --oneline(-\d+)?$/,
@@ -45,30 +56,23 @@ function isAllowed(command) {
 export const runCommandDefinition = {
   name: 'run_command',
   description:
-    'Run a safe, whitelisted shell command in the TIQ codebase directory. ' +
-    'tiq_workplace is a microservices repo — each service has its own test/build. ' +
-    'Use "npm --prefix backend/<service> test" to run tests, ' +
-    '"npm --prefix backend/<service> run build" to verify TypeScript compiles. ' +
-    'Services: auth-service, training-service, assessment-service, inference-service, ' +
-    'notification-service, job-posting-service, payment-service. ' +
-    'Frontend: consumer-app, admin-app.',
+    'Run a safe, whitelisted shell command in the target codebase directory. ' +
+    'Works for any language or structure: npm, pytest, go test, cargo test, mvn, gradlew, rspec. ' +
+    'For monorepos use "npm --prefix <service-path> test". ' +
+    'All commands are read-only or verify-only — no deploys, no publishes.',
   input_schema: {
     type: 'object',
     properties: {
       command: {
         type: 'string',
         description:
-          'Command to run. Examples: ' +
-          '"npm --prefix backend/auth-service test", ' +
-          '"npm --prefix backend/training-service run build", ' +
-          '"npm --prefix consumer-app test", ' +
-          '"npx eslint backend/auth-service/src", ' +
-          '"git status"',
+          'Command to run. Examples: "npm test", "npm --prefix backend/auth-service test", ' +
+          '"npx eslint src/", "pytest", "go test ./...", "cargo test", "./gradlew test", "git status"',
       },
       directory: {
         type: 'string',
         description:
-          'Subdirectory of the codebase to run the command in, e.g. "backend" or "frontend". Omit for codebase root.',
+          'Subdirectory of the codebase to run the command in, e.g. "backend" or "packages/api". Omit for codebase root.',
       },
     },
     required: ['command'],
@@ -80,17 +84,20 @@ export async function runCommand({ command, directory = '', _commandApprovalFn =
     return {
       error: `Command not allowed: "${command}"`,
       allowed_commands: [
-        'npm --prefix backend/auth-service test',
-        'npm --prefix backend/training-service run build',
-        'npm --prefix backend/auth-service run lint',
-        'npm --prefix consumer-app test',
+        'npm test',
+        'npm run build',
+        'npm run lint',
+        'npm --prefix <service-path> test',
+        'npx eslint <path>',
         'npx tsc --noEmit',
-        'npx eslint backend/auth-service/src',
+        'pytest',
+        'go test ./...',
+        'cargo test',
+        './gradlew test',
         'git status',
         'git diff',
-        'node --version',
       ],
-      suggestion: 'tiq_workplace is microservices — use "npm --prefix backend/<service-name> test" to run tests per service.',
+      suggestion: 'Use one of the allowed patterns above. For monorepo services: "npm --prefix <relative-path> test".',
     };
   }
 

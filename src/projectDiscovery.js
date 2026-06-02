@@ -25,13 +25,14 @@ export function discoverProject(codebasePath) {
 
   const has = (file) => fs.existsSync(path.join(codebasePath, file));
 
-  // README description (first 25 meaningful lines)
+  // README description — first 20 meaningful lines, capped at 1500 chars
   try {
     const readme = fs.readFileSync(path.join(codebasePath, 'README.md'), 'utf-8');
-    info.description = readme.split('\n')
+    const desc = readme.split('\n')
       .filter(l => l.trim())
-      .slice(0, 25)
+      .slice(0, 20)
       .join('\n');
+    info.description = desc.length > 1500 ? desc.slice(0, 1500) + '…' : desc;
   } catch { /* no README */ }
 
   // --- Node.js / TypeScript ---
@@ -144,7 +145,7 @@ export function discoverProject(codebasePath) {
     } catch {}
   }
 
-  // --- Monorepo detection: multiple package.json in subdirs ---
+  // --- Monorepo detection: multiple package.json in subdirs (cap at 20) ---
   if (!info.isMonorepo) {
     try {
       const subdirs = fs.readdirSync(codebasePath, { withFileTypes: true })
@@ -154,31 +155,33 @@ export function discoverProject(codebasePath) {
       );
       if (withPkg.length >= 2) {
         info.isMonorepo = true;
-        info.monorepoDirs = withPkg.map(d => d.name);
+        info.monorepoDirs = withPkg.slice(0, 20).map(d => d.name);
       }
     } catch {}
   }
 
-  // --- Top-level structure (2 levels deep) ---
+  // --- Top-level structure (2 levels deep, capped to keep system prompt small) ---
   try {
     const entries = fs.readdirSync(codebasePath, { withFileTypes: true });
-    const dirs  = entries.filter(e => e.isDirectory() && !IGNORE_DIRS.has(e.name) && !e.name.startsWith('.')).map(e => e.name).sort();
-    const files = entries.filter(e => !e.isDirectory() && !e.name.startsWith('.')).map(e => e.name).sort();
+    const dirs  = entries.filter(e => e.isDirectory() && !IGNORE_DIRS.has(e.name) && !e.name.startsWith('.')).map(e => e.name).sort().slice(0, 30);
+    const files = entries.filter(e => !e.isDirectory() && !e.name.startsWith('.')).map(e => e.name).sort().slice(0, 20);
     const lines = [];
     for (const d of dirs) {
       lines.push(`  ${d}/`);
       try {
         const children = fs.readdirSync(path.join(codebasePath, d), { withFileTypes: true })
           .filter(e => !IGNORE_DIRS.has(e.name) && !e.name.startsWith('.'))
-          .slice(0, 10)
+          .slice(0, 8)
           .map(e => `    ${e.name}${e.isDirectory() ? '/' : ''}`);
         lines.push(...children);
         const total = fs.readdirSync(path.join(codebasePath, d)).length;
-        if (total > 10) lines.push(`    ... (${total - 10} more)`);
+        if (total > 8) lines.push(`    … (${total - 8} more)`);
       } catch {}
     }
     for (const f of files) lines.push(`  ${f}`);
-    info.topLevelStructure = lines.join('\n');
+    const raw = lines.join('\n');
+    // Hard cap: keep system prompt manageable even on massive repos
+    info.topLevelStructure = raw.length > 3000 ? raw.slice(0, 3000) + '\n  … (truncated)' : raw;
   } catch {}
 
   return info;
