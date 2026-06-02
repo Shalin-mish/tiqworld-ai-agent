@@ -33,12 +33,18 @@ function parseLocalImports(content, filePath) {
   while ((match = importRegex.exec(content)) !== null) {
     const importPath = match[1];
     const resolved = path.join(dir, importPath);
-    const extensions = ['', '.js', '.jsx', '.ts', '.tsx'];
+    // Include .js→.ts swap for TypeScript ESM imports (import './foo.js' → foo.ts)
+    const candidates = [
+      resolved,
+      resolved + '.js', resolved + '.jsx', resolved + '.ts', resolved + '.tsx',
+      resolved.replace(/\.js$/, '.ts'), resolved.replace(/\.js$/, '.tsx'),
+      resolved + '/index.js', resolved + '/index.ts',
+    ];
 
-    for (const ext of extensions) {
-      const candidate = (resolved + ext).replace(/\\/g, '/');
-      if (fs.existsSync(path.join(config.codebasePath, candidate))) {
-        imports.push(candidate);
+    for (const candidate of candidates) {
+      const norm = candidate.replace(/\\/g, '/');
+      if (fs.existsSync(path.join(config.codebasePath, norm))) {
+        imports.push(norm);
         break;
       }
     }

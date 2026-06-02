@@ -59,8 +59,17 @@ function parseImports(content, filePath) {
     const importPath = match[1];
     const resolved = path.resolve(dir, importPath);
 
-    // Try with and without extensions
-    const candidates = [resolved, ...CODE_EXTENSIONS.map((e) => resolved + e)];
+    // Candidates: exact, +extensions, .js→.ts swap (TypeScript ESM), /index variants
+    const candidates = [
+      resolved,
+      ...CODE_EXTENSIONS.map((e) => resolved + e),
+      // TypeScript: import './foo.js' → actual file is './foo.ts'
+      resolved.replace(/\.js$/, '.ts'),
+      resolved.replace(/\.js$/, '.tsx'),
+      resolved.replace(/\.mjs$/, '.ts'),
+      path.join(resolved, 'index.js'),
+      path.join(resolved, 'index.ts'),
+    ];
     for (const candidate of candidates) {
       if (fs.existsSync(candidate)) {
         imports.push(candidate);

@@ -25,49 +25,75 @@ export function discoverProject(codebasePath) {
 
   const has = (file) => fs.existsSync(path.join(codebasePath, file));
 
-  // README description — first 20 meaningful lines, capped at 1500 chars
-  try {
-    const readme = fs.readFileSync(path.join(codebasePath, 'README.md'), 'utf-8');
-    const desc = readme.split('\n')
-      .filter(l => l.trim())
-      .slice(0, 20)
-      .join('\n');
-    info.description = desc.length > 1500 ? desc.slice(0, 1500) + '…' : desc;
-  } catch { /* no README */ }
+  // README — try root first, then common subdirs
+  const README_CANDIDATES = ['README.md', 'backend/README.md', 'docs/README.md'];
+  for (const rp of README_CANDIDATES) {
+    try {
+      const readme = fs.readFileSync(path.join(codebasePath, rp), 'utf-8');
+      const desc = readme.split('\n').filter(l => l.trim()).slice(0, 20).join('\n');
+      info.description = desc.length > 1500 ? desc.slice(0, 1500) + '…' : desc;
+      break;
+    } catch { /* try next */ }
+  }
 
   // --- Node.js / TypeScript ---
-  if (has('package.json')) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(path.join(codebasePath, 'package.json'), 'utf-8'));
-      if (pkg.name) info.name = pkg.name;
-      if (!info.description && pkg.description) info.description = pkg.description;
-      info.scripts = pkg.scripts || {};
-      info.language = 'JavaScript/Node.js';
+  // Look for package.json at root, then 1 and 2 levels deep (handles repos like
+  // tiq_workplace where services live at backend/<service>/package.json)
+  const PKG_CANDIDATES = [
+    'package.json',
+    ...['backend', 'frontend', 'packages', 'apps', 'services'].flatMap(d => [
+      `${d}/package.json`,
+      ...(fs.existsSync(path.join(codebasePath, d)) ? (() => {
+        try {
+          return fs.readdirSync(path.join(codebasePath, d), { withFileTypes: true })
+            .filter(e => e.isDirectory())
+            .map(e => `${d}/${e.name}/package.json`);
+        } catch { return []; }
+      })() : []),
+    ]),
+  ];
 
-      if (pkg.devDependencies?.typescript || pkg.dependencies?.typescript || has('tsconfig.json')) {
+  for (const pkgRel of PKG_CANDIDATES) {
+    if (!has(pkgRel)) continue;
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(codebasePath, pkgRel), 'utf-8'));
+      // Only use name/description from root package.json
+      if (pkgRel === 'package.json') {
+        if (pkg.name) info.name = pkg.name;
+        if (!info.description && pkg.description) info.description = pkg.description;
+        info.scripts = pkg.scripts || {};
+        if (pkg.workspaces) {
+          info.isMonorepo = true;
+          const ws = Array.isArray(pkg.workspaces) ? pkg.workspaces : (pkg.workspaces.packages || []);
+          info.monorepoDirs = ws.map(d => d.replace(/\/\*$/, '')).slice(0, 20);
+        }
+      }
+
+      info.language = 'JavaScript/Node.js';
+      const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+
+      if (allDeps.typescript || has('tsconfig.json') ||
+          has(`${path.dirname(pkgRel)}/tsconfig.json`)) {
         info.language = 'TypeScript';
       }
 
-      const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
       const FW_MAP = {
         fastify: 'Fastify', express: 'Express', '@hapi/hapi': 'Hapi', koa: 'Koa',
         '@nestjs/core': 'NestJS', next: 'Next.js', nuxt: 'Nuxt.js', remix: 'Remix',
         react: 'React', vue: 'Vue', svelte: 'Svelte', '@angular/core': 'Angular',
       };
-      for (const [dep, name] of Object.entries(FW_MAP)) {
-        if (allDeps[dep]) { info.framework = name; break; }
+      if (info.framework === 'unknown') {
+        for (const [dep, name] of Object.entries(FW_MAP)) {
+          if (allDeps[dep]) { info.framework = name; break; }
+        }
       }
 
-      // Monorepo: workspaces field
-      if (pkg.workspaces) {
-        info.isMonorepo = true;
-        const ws = Array.isArray(pkg.workspaces) ? pkg.workspaces : (pkg.workspaces.packages || []);
-        info.monorepoDirs = ws.map(d => d.replace(/\/\*$/, '')).slice(0, 15);
-      }
+      if (!info.testCmd  && pkg.scripts?.test)  info.testCmd  = `npm --prefix ${path.dirname(pkgRel) || '.'} test`;
+      if (!info.buildCmd && pkg.scripts?.build) info.buildCmd = `npm --prefix ${path.dirname(pkgRel) || '.'} run build`;
+      if (!info.lintCmd  && pkg.scripts?.lint)  info.lintCmd  = `npm --prefix ${path.dirname(pkgRel) || '.'} run lint`;
 
-      info.testCmd  = pkg.scripts?.test  ? 'npm test'      : null;
-      info.buildCmd = pkg.scripts?.build ? 'npm run build' : null;
-      info.lintCmd  = pkg.scripts?.lint  ? 'npm run lint'  : null;
+      // Stop after first hit — we just need enough to detect language/framework
+      if (info.language !== 'unknown') break;
     } catch { /* malformed JSON */ }
   }
 
@@ -145,17 +171,33 @@ export function discoverProject(codebasePath) {
     } catch {}
   }
 
-  // --- Monorepo detection: multiple package.json in subdirs (cap at 20) ---
+  // --- Monorepo detection: scan 1 and 2 levels deep for package.json ---
   if (!info.isMonorepo) {
     try {
-      const subdirs = fs.readdirSync(codebasePath, { withFileTypes: true })
+      const collected = [];
+      const level1 = fs.readdirSync(codebasePath, { withFileTypes: true })
         .filter(e => e.isDirectory() && !IGNORE_DIRS.has(e.name) && !e.name.startsWith('.'));
-      const withPkg = subdirs.filter(d =>
-        fs.existsSync(path.join(codebasePath, d.name, 'package.json'))
-      );
-      if (withPkg.length >= 2) {
+
+      for (const d1 of level1) {
+        if (fs.existsSync(path.join(codebasePath, d1.name, 'package.json'))) {
+          collected.push(d1.name);
+        } else {
+          // One level deeper
+          try {
+            const level2 = fs.readdirSync(path.join(codebasePath, d1.name), { withFileTypes: true })
+              .filter(e => e.isDirectory() && !IGNORE_DIRS.has(e.name) && !e.name.startsWith('.'));
+            for (const d2 of level2) {
+              if (fs.existsSync(path.join(codebasePath, d1.name, d2.name, 'package.json'))) {
+                collected.push(`${d1.name}/${d2.name}`);
+              }
+            }
+          } catch {}
+        }
+      }
+
+      if (collected.length >= 2) {
         info.isMonorepo = true;
-        info.monorepoDirs = withPkg.slice(0, 20).map(d => d.name);
+        info.monorepoDirs = collected.slice(0, 25);
       }
     } catch {}
   }

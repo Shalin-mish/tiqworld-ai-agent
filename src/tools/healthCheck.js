@@ -77,7 +77,8 @@ function envGaps(codebasePath) {
 }
 
 function keyFilesPresent(codebasePath) {
-  // Universal config/entry files across all languages and frameworks
+  // Universal config/entry files — checked at root and one level deep
+  // so repos like tiq_workplace (no root package.json) still show results.
   const candidates = [
     '.env.example', '.env.sample', '.gitignore',
     'package.json', 'tsconfig.json',
@@ -90,8 +91,22 @@ function keyFilesPresent(codebasePath) {
     'README.md', 'CONTRIBUTING.md',
   ];
   const present = {};
+  // Check root first
   for (const f of candidates) {
     if (fs.existsSync(path.join(codebasePath, f))) present[f] = true;
+  }
+  // If nothing found at root, scan one level deep (monorepos without root config)
+  if (Object.keys(present).length === 0) {
+    try {
+      const subdirs = fs.readdirSync(codebasePath, { withFileTypes: true })
+        .filter(e => e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules');
+      for (const d of subdirs.slice(0, 10)) {
+        for (const f of candidates) {
+          const fp = path.join(codebasePath, d.name, f);
+          if (fs.existsSync(fp)) present[`${d.name}/${f}`] = true;
+        }
+      }
+    } catch {}
   }
   return present;
 }
