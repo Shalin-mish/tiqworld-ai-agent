@@ -4,6 +4,182 @@
 
 ---
 
+## June 2, 2026 (Session 11) — Any-codebase agent, maintenance timeout abort, once-daily scan, dynamic UI
+
+### What changed
+
+---
+
+#### 1. Any-codebase design — agent now works on ANY project without code changes
+
+**Problem:** The agent was hardwired for `tiq_workplace` — TIQ-specific system prompt, hardcoded paths, tools that assumed backend/frontend directory structure. Pointing it at a Python or Go project would produce wrong answers.
+
+**Solution:** Auto-discovery at startup via `src/projectDiscovery.js` (new module, ~230 lines).
+
+`discoverProject(codebasePath)` runs once on startup and returns a `projectInfo` object containing:
+- **Language** — detected from `package.json`, `go.mod`, `Cargo.toml`, `pyproject.toml`, `pom.xml`, `composer.json`, `Gemfile`
+- **Framework** — Express, Fastify, NestJS, Next.js, React, Gin, Echo, Django, FastAPI, Rails, Laravel, etc.
+- **Monorepo detection** — `workspaces` in `package.json` OR ≥2 subdirs with own `package.json` (scans 2 levels deep)
+- **README** — first 25 lines, fallback chain: root → `backend/README.md` → `docs/README.md`
+- **Top-level directory tree** — 2 levels, capped at 3000 chars
+- **Test/build/lint commands** — extracted from `package.json` scripts or language equivalent
+
+`buildSystemPrompt(projectInfo)` assembles the full Claude system prompt **dynamically** from that result. The 115-line hardcoded TIQ system prompt in `agent.js` was replaced with a single call.
+
+**How to point at a new codebase — no code change needed:**
+```bash
+CODEBASE_PATH=/path/to/any/project npm start
+# or set in .env
+```
+
+**`src/config.js`:** `codebasePath` now reads `CODEBASE_PATH || TIQ_CODEBASE_PATH || process.cwd()`.
+
+**`src/agent.js`:** Calls `discoverProject()` once at module load. Logs: `[Agent] Codebase detected: tiq_workplace · TypeScript · Fastify (monorepo)`. Exports `projectInfo` so other modules (scheduler, router) can use it.
+
+**Tools updated for any-codebase:**
+- `src/utils/fs.js` — `getAllFiles()` capped at `MAX_FILES=50,000` and `MAX_DEPTH=12` (was unbounded — would hang on huge repos)
+- `src/tools/runCommand.js` — replaced hardcoded `TIQ_SERVICES` regex with generic allowlist: pytest, `go test ./...`, `cargo test`, `./gradlew test`, `mvn test`, `bundle exec rspec`, plus generic `npm --prefix` pattern
+- `src/tools/lintFile.js` — `findEslintBin()` now walks up the directory tree to find ESLint binary instead of hardcoding `/backend/node_modules/.bin/eslint`
+- `src/tools/fullScan.js` — changed defaults from `'backend/src'` to `''` (codebase root)
+- `src/tools/healthCheck.js` — `keyFilesPresent()` now scans one level deep if root has no config files (monorepos without root package.json)
+- `src/tools/mapDependencies.js` + `src/tools/readFile.js` — added `.js→.ts` candidate swap for TypeScript ESM imports (`import './foo.js'` → actual file is `foo.ts`)
+
+**`dispatcher.test.js`:** Tests used `expect(classify('...')).toBe('review')` but `classify()` now returns `{ type, confidence, scores }`. Fixed by adding `const t = (input) => classify(input).type` helper.
+
+---
+
+#### 2. Maintenance timeout — hard abort via AbortController
+
+**Problem:** The 4-hour timeout in `scheduler.js` was a `setTimeout` that set flags but did NOT stop the running `runAgent()` call. If Bedrock was mid-stream, it kept running. The flag just meant the next run would be skipped — the current one was unstoppable.
+
+**Fix:** Full abort chain:
+
+```
+setTimeout fires
+  → controller.abort()           ← AbortController per maintenance run
+       → onOuterAbort listener   ← linked into every Bedrock call
+            → Bedrock call throws AbortError
+                 → runAgent() throws "Maintenance run aborted by timeout"
+                      → scheduler catches, marks run done, releases locks
+```
+
+**Changes:**
+- `src/config.js` — added `maintenanceTimeoutMs: parseInt(process.env.MAINTENANCE_TIMEOUT_MS) || 2 * 60 * 60 * 1000`  (default **2 hours**, was 4h hardcoded)
+- `.env.example` — added `MAINTENANCE_TIMEOUT_MS=7200000`
+- `src/agent.js` — `runAgent()` now accepts `abortSignal` as 10th parameter. Inside `callBedrock()`: adds `abortSignal.addEventListener('abort', onOuterAbort)` before each Bedrock call, removes it after. If outer signal is already aborted on entry, throws immediately — no retry.
+- `src/scheduler.js` — creates `new AbortController()` per maintenance run, passes `signal` to `runAgent()`, timeout handler calls `controller.abort()`. `_maintenanceAbortController` module-level variable; reset to `null` on normal completion and on timeout.
+
+**Why 2h default (not 4h):** Night maintenance runs at 2 AM. Even if it runs for 2 full hours, it finishes by 4 AM. 4h would risk overlapping with the 9 AM day scan.
+
+---
+
+#### 3. Day scan — once per day, lightweight only
+
+**Problem:** `DAY_LIGHT_SCAN_CRON` was `0 */2 * * *` — running **12 times per day**. Each run called `lintFile` + `findTodos` + `healthCheck` + `healthMonitor`. Lint and TODO scans are token-expensive and slow. Running them 12×/day was wasting resources for zero extra value — those checks are already done at 2 AM.
+
+**Fix:**
+- `src/config.js` — changed default from `0 */2 * * *` to `0 9 * * *` (once at 9 AM IST)
+- `.env` — updated `DAY_LIGHT_SCAN_CRON=0 9 * * *`
+- `src/scheduler.js` — `runDayScan()` simplified: removed `lintFile` + `findTodos`, now only runs `healthCheck` + `healthMonitor`. Progress log goes from 4 entries to 2 (start + done).
+
+**Rationale:** Night = full diagnosis (fullScan + auto-fix + tests). Day = liveness check only (is the platform up? is the process healthy?). Lint/TODOs don't change in 2 hours; checking them repeatedly burns tokens for nothing.
+
+---
+
+#### 4. Language-agnostic test runner
+
+**`runTests()` in `scheduler.js`** was hardcoded to `npm test` — would fail silently on Python, Go, or Rust repos.
+
+**Fix:** Uses `projectInfo?.testCmd || 'npm test'`. The detected command (e.g. `pytest`, `go test ./...`, `cargo test`, `bundle exec rspec`) is used automatically.
+
+Same command is interpolated into the maintenance agent prompt so Claude knows what to run after each fix.
+
+---
+
+#### 5. `_status.progress` ring buffer — cap at 200 entries
+
+`pushProgress()` now does `if (_status.progress.length >= 200) _status.progress.shift()` before pushing. Prevents unbounded memory growth on long maintenance runs (theoretically thousands of entries over 4 hours).
+
+---
+
+#### 6. Maintenance agent prompt — no more hardcoded TIQ patterns
+
+The prompt previously listed `routes/, models/, middleware/, auth, config.js, index.js, server.js, app.js` — TIQ-specific. Replaced with:
+- Dynamic sample from `HIGH_RISK_PATTERNS` array (first 12 entries, always current)
+- `projectInfo.testCmd` instead of hardcoded `npm test`
+- `projectInfo.name` + `projectInfo.language` in the header for context
+
+---
+
+#### 7. UI — dynamic project identity
+
+**Problem:** UI was fully TIQ-branded — external logo from `tiqworld.com/logos/tiq-logo.png` (breaks on any other deployment), hardcoded "TIQ World codebase" text in welcome screen, page title always "TIQ World AI Agent".
+
+**Fix 1 — Logo:** Replaced external `<img src="https://...">` with a self-contained inline SVG robot icon (orange-on-dark, consistent with brand palette). No external requests, works on any deployment, never broken.
+
+**Fix 2 — `/api/status` extended:** Now returns `project_name`, `language`, `framework`, `is_monorepo` from `projectInfo`.
+
+**Fix 3 — Dynamic UI:** `init()` in `index.html` reads the new fields from `/api/status` and:
+- Sets header badge: `tiq_workplace · TypeScript · monorepo`
+- Sets page `<title>`: `tiq_workplace · AI Agent`
+- Sets welcome subtitle: `Pointed at tiq_workplace · TypeScript · monorepo — ready to explore, analyse, and fix.`
+- Sets welcome logo brand text: `TIQ_WORKPLACE` (dynamic)
+
+On a Python FastAPI project, the header would show `my_api · Python · FastAPI`.
+
+---
+
+#### 8. All tests updated and passing
+
+| File | What changed |
+|------|-------------|
+| `tests/e2e/ui.test.js` | Title check: `/TIQ World AI Agent/` → `/AI Agent/` (dynamic title) |
+| `tests/e2e/ui.test.js` | Admin redirect title: `/TIQ/` → `/AI Agent/` |
+| `tests/e2e/ui.test.js` | Logo text: `'TIQ Agent'` → `'Agent'` (inline SVG has "CodebaseAI Agent") |
+
+**Final count: 123 unit + 28 e2e = 151 tests, all passing.**
+
+---
+
+#### 9. TECHNICAL.md updated
+
+- Section 3 config table: `DAY_LIGHT_SCAN_CRON` corrected, `MAINTENANCE_TIMEOUT_MS` added
+- Section 4 dispatcher: documents that `classify()` is called **once per session** (web: `router.js` first turn; CLI: `index.js` first turn), returns `{type, confidence, scores}` not a bare string
+- Section 4 agent: `runAgent()` signature updated with `abortSignal` parameter
+- Section 4 scheduler: timeout abort mechanism explained, day scan rationale documented, progress ring buffer noted
+- Section 6: `/api/status` updated to show new project fields
+- Section 8: cron table corrected (`0 9 * * *`), maintenance flow shows `abortSignal` + `testCmd`, new "Maintenance Timeout" subsection explaining the full abort chain
+- Section 12: port-busy resolution guide added
+- **Section 13 (new): Inspection & Testing Guide** — what to run, what to check, pre-review checklist table
+
+---
+
+### Commit trail (June 2)
+
+| SHA | What |
+|-----|------|
+| `a689297` | feat: maintenance timeout abort, once-daily day scan, dynamic UI project badge |
+| `6b0d7d4` | fix: inline SVG logo, day cron once/day, docs updated with inspection guide |
+
+---
+
+### Current state (June 2, 2026)
+
+| Area | Status |
+|------|--------|
+| Any-codebase support | Done — auto-discovery on startup, 7 languages detected |
+| Maintenance timeout | Done — `MAINTENANCE_TIMEOUT_MS` env var, real AbortController abort (default 2h) |
+| Day scan schedule | Done — once at 9 AM IST, healthCheck + healthMonitor only |
+| Language-agnostic test runner | Done — uses `projectInfo.testCmd` |
+| `_status.progress` bounded | Done — ring buffer, max 200 entries |
+| Maintenance prompt | Done — dynamic HIGH_RISK_PATTERNS sample + detected testCmd |
+| UI dynamic project identity | Done — header badge, title, welcome text from `/api/status` |
+| Logo self-contained | Done — inline SVG, no external URLs |
+| 151 tests (123 unit + 28 e2e) | All passing |
+| TECHNICAL.md | Complete — dispatcher usage, timeout design, day scan rationale, inspection guide |
+
+---
+
 ## June 1, 2026 (Session 10) — Right panel collapsed by default, UI polish, bug fixes
 
 ### What changed
