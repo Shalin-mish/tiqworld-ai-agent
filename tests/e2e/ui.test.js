@@ -35,7 +35,7 @@ test.describe('Page load', () => {
 
   test('header renders logo and badges', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.logo')).toContainText('TIQ Agent');
+    await expect(page.locator('.logo')).toContainText('Agent'); // dynamic logo: "CodebaseAI Agent"
     await expect(page.locator('#tool-count-badge')).toBeVisible();
   });
 });

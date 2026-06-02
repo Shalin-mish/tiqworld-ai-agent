@@ -95,9 +95,10 @@ No code changes needed. No system prompt edits needed. The agent re-discovers th
 └─────────────┘                 └────────────────────────┘
                                          │
                               ┌──────────▼──────────┐
-                              │  tiq_workplace repo  │
-                              │  TypeScript mono     │
-                              │  7 services + 2 FE   │
+                              │  ANY target codebase │
+                              │  auto-detected on    │
+                              │  startup via         │
+                              │  discoverProject()   │
                               └─────────────────────┘
 ```
 
@@ -145,7 +146,8 @@ All configuration is loaded from `.env` via `dotenv/config` in `src/config.js`.
 | `BEDROCK_TIMEOUT_MS` | `60000` | Per-call timeout (180000 recommended) |
 | `SCAN_INTERVAL_MINUTES` | `0` | If >0, use interval mode instead of cron |
 | `NIGHT_MAINTENANCE_CRON` | `0 2 * * *` | Deep maintenance schedule (IST) |
-| `DAY_LIGHT_SCAN_CRON` | `0 */2 * * *` | Light scan schedule (IST) |
+| `DAY_LIGHT_SCAN_CRON` | `0 9 * * *` | Light scan — once per day at 9 AM IST (healthCheck + healthMonitor only) |
+| `MAINTENANCE_TIMEOUT_MS` | `7200000` (2h) | Max wall-clock time for a night maintenance run. Agent is forcibly aborted (via AbortController) after this duration. |
 | `AUTO_FIX_ENABLED` | `true` | Allow autonomous file writes |
 | `AUTO_FIX_MIN_CONFIDENCE` | `80` | Minimum `fix_error` confidence to auto-fix |
 | `NOTIFICATION_WEBHOOK_URL` | — | Slack or Discord incoming webhook |
@@ -171,14 +173,19 @@ The agent loop. Handles:
 - Token usage logging and forwarding to UI
 - Duplicate tool call deduplication (same name+input → skip)
 - Tool budget enforcement (default 8 calls/turn, configurable)
-- `runAgent(question, history, tools, onEvent, user, approvalFn, commandApprovalFn, sessionId, toolBudget)`
+- `runAgent(question, history, tools, onEvent, user, approvalFn, commandApprovalFn, sessionId, toolBudget, abortSignal)`
+- `abortSignal` — optional `AbortController.signal`; when fired it immediately cancels the in-flight Bedrock call and stops the loop (used by maintenance timeout)
 
 ### `src/dispatcher.js`
 
-Task classification and tool scope gating.
+Task classification and tool scope gating. **Called once per session** — on the first user message. The classified task type is then fixed for the entire session lifetime.
 
-**Classification** — multi-keyword scoring across 4 task types:
-- `query` — read-only, exploration (→ `READ_ONLY` scope)
+**Where it's called:**
+- `src/web/router.js` — first turn of every web session (`GET /api/chat`)
+- `src/index.js` — first turn of every CLI session
+
+**`classify(input)`** — returns `{ type, confidence, scores }` (NOT a bare string). Multi-keyword scoring across 4 task types:
+- `query` — read-only exploration (→ `READ_ONLY` scope)
 - `review` — code review, security audit (→ `REVIEW_EXTRA` scope)
 - `maintenance` — scheduled fix mode (→ `WRITE` scope)
 - `feature` — new feature requests (→ `WRITE` scope, but agent is instructed to propose only)
@@ -196,19 +203,25 @@ Cron-driven autonomous maintenance.
 
 **Night maintenance** (`0 2 * * *` IST):
 1. `fullScan()` — 6 checks in parallel
-2. Run test suite (`npm test`)
-3. If tests pass AND issues found AND auto-fix enabled: call `runAgent()` in maintenance mode
+2. Run project's detected test command (`projectInfo.testCmd` — e.g. `pytest`, `go test ./...`, `npm test`)
+3. If tests pass AND issues found AND auto-fix enabled: call `runAgent()` in maintenance mode (passes `AbortController.signal`)
 4. Post-fix: run tests again → rollback via `git_backup restore` if failing
+5. Save report to `logs/maintenance-{ts}.json`, send notification
 
-**Day light scan** (`0 */2 * * *` IST):
-- Runs lint, find_todos, health_check, health_monitor in parallel
+**Maintenance timeout**: controlled by `MAINTENANCE_TIMEOUT_MS` (default 2h). On timeout the `AbortController` is fired — this cancels the in-flight Bedrock call and stops `runAgent()` cleanly. Without this the agent could run indefinitely.
+
+**Day light scan** (`0 9 * * *` IST — once per day):
+- Runs only `healthCheck` + `healthMonitor` (lightweight — no lint/todos)
+- Lint and TODOs are intentionally kept for night maintenance to avoid unnecessary token spend
 - Sends notification if platform status is UNHEALTHY or DEGRADED
 
 **Weekly report** (`0 9 * * 1` IST):
 - Aggregates last 7 days of maintenance reports
 - Sends formatted message to Slack/Discord webhook
 
-**Safety gates** (lines 55–110): `HIGH_RISK_PATTERNS` list blocks writes to agent source, migrations, test files, config files regardless of confidence score.
+**Safety gates** (`HIGH_RISK_PATTERNS` list): blocks writes to agent source, migrations, test files, config files regardless of confidence score. The maintenance agent prompt receives a dynamic sample of these patterns so Claude understands what it cannot touch.
+
+**`_status.progress`**: ring-buffer capped at 200 entries — prevents unbounded memory growth on long runs.
 
 ### `src/config.js`
 
@@ -486,7 +499,7 @@ Output: { exit_code, output, error }
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/chat` | SSE streaming chat (rate: 15/min) |
-| `GET` | `/api/status` | Tool count, model, last scan, unread count |
+| `GET` | `/api/status` | Tool count, model, last scan, unread count, **project_name, language, framework, is_monorepo** |
 | `GET` | `/api/me` | Current user + auth mode |
 | `POST` | `/api/identify` | Set session user name |
 | `POST` | `/api/clear` | Delete session |
@@ -603,32 +616,47 @@ For autonomous maintenance runs:
 
 | Schedule | Default | Task |
 |----------|---------|------|
-| `0 2 * * *` | 2:00 AM IST daily | Night deep maintenance |
-| `0 */2 * * *` | Every 2 hours | Day light scan |
+| `0 2 * * *` | 2:00 AM IST daily | Night deep maintenance (fullScan + auto-fix + tests) |
+| `0 9 * * *` | 9:00 AM IST daily | Day light scan (healthCheck + healthMonitor only) |
 | `0 9 * * 1` | Monday 9:00 AM IST | Weekly Slack report |
+
+> **Why separate schedules?** Night runs everything (expensive, full lint + todos + LLM). Day is cheap — just a liveness check. Running lint/todos 12× a day would waste tokens for zero extra value.
 
 ### Night Maintenance Flow
 
 ```
-1. fullScan()                 → 6 checks in parallel
-2. npm test                   → pre-fix baseline
-3. IF tests passing:
-   a. runAgent(maintenance)   → fix lint errors, null checks, unused vars
-   b. npm test                → post-fix verification
+1. fullScan()                              → 6 checks in parallel
+2. projectInfo.testCmd (npm/pytest/go)     → pre-fix baseline
+3. IF tests passing AND issues found:
+   a. runAgent(maintenance, abortSignal)   → fix lint errors, null checks, unused vars
+      └── AbortController: cancelled after MAINTENANCE_TIMEOUT_MS (default 2h)
+   b. projectInfo.testCmd                  → post-fix verification
    c. IF failing → git_backup restore (rollback all changes)
-4. saveMaintenanceReport()    → logs/maintenance-{ts}.json
-5. notify()                   → Slack/Discord + in-app notification
+4. saveMaintenanceReport()                 → logs/maintenance-{ts}.json
+5. notify()                                → Slack/Discord + in-app notification
 ```
+
+### Maintenance Timeout
+
+The `MAINTENANCE_TIMEOUT_MS` env var (default `7200000` = 2h) controls the hard ceiling:
+
+1. A `setTimeout` fires at the deadline
+2. It calls `controller.abort()` on the `AbortController` passed into `runAgent()`
+3. The abort signal is linked to every individual Bedrock call — the current in-flight LLM call is immediately cancelled
+4. `runAgent()` throws `"Maintenance run aborted by timeout"` — the scheduler catches it and marks the run as done
+5. All file locks are released and the running flag is cleared
+
+Without this the agent could hang indefinitely on a slow Bedrock response.
 
 ### Auto-Fix Rules (maintenance agent prompt)
 
 The agent in maintenance mode is explicitly instructed to:
-- Skip files matching high-risk patterns
+- Skip files matching the `HIGH_RISK_PATTERNS` list (a dynamic sample is included in the prompt)
 - Only fix: lint errors, null checks, unused variables, `console.log` cleanup
 - Skip: feature additions, schema changes, route changes
 - Only apply if `fix_error` confidence ≥ configured threshold (default 80)
 - Run `git_backup` before every file change
-- Run `npm test` after every file change
+- Run `projectInfo.testCmd` (not hardcoded `npm test`) after every file change
 - Rollback immediately on test failure
 
 ---
@@ -753,7 +781,24 @@ Default: **8 tool calls per user query**. Configurable via `toolBudget` paramete
 ```bash
 npm install
 cp .env.example .env   # fill in credentials
-npm start              # starts server on port 3001
+npm start              # starts web server on WEB_PORT (default 3001)
+```
+
+**Port already in use?**
+
+If `EADDRINUSE :3001` appears, the old process is still running. Kill it and restart:
+
+```bash
+# Windows — find and kill whatever owns port 3001
+node -e "require('child_process').execSync('npx kill-port 3001', {stdio:'inherit'})"
+
+# Then restart
+npm run web
+```
+
+Or set a different port in `.env`:
+```
+WEB_PORT=3002
 ```
 
 ### PM2 Production
@@ -845,4 +890,69 @@ tiqworld-ai-agent/
 
 ---
 
-*Last updated: June 2026 — Section 0 added: any-codebase design with auto-discovery (`src/projectDiscovery.js`). `CODEBASE_PATH` env var replaces hardcoded TIQ path. System prompt now dynamically generated from codebase scan at startup.*
+## 13. Inspection & Testing Guide
+
+This section explains how to verify every layer of the agent without sending actual LLM queries.
+
+### Unit tests
+
+```bash
+npm run test:unit        # 123 tests — runs in ~2s, no server needed, no AWS needed
+```
+
+Covers: dispatcher classification, scheduler safety gates, scheduler health fields, tool isolation (file read/write/search), session persistence, write archive, PR review logic, credential guard, config validation.
+
+### End-to-end tests (Playwright)
+
+```bash
+npm run test:e2e         # 28 tests — requires server running on port 3001
+```
+
+Covers: page load + dynamic title, identity modal, GitHub login flow, layout (sidebar/right panel), brand colours, keyboard shortcuts, API health endpoints, session memory API, admin panel routing, SSE-based streaming (partial).
+
+### Manual API inspection (no browser)
+
+```bash
+# 1. Confirm project auto-detection
+curl http://localhost:3001/api/status
+# → project_name, language, framework, is_monorepo
+
+# 2. Confirm scheduler config
+curl http://localhost:3001/api/scheduler/health
+# → day_cron "0 9 * * *", maintenance_timeout_hrs 2
+
+# 3. Trigger a light scan and watch it complete
+curl -X POST http://localhost:3001/api/maintenance/trigger \
+  -H "Content-Type: application/json" -d '{"mode":"light"}'
+sleep 6
+curl http://localhost:3001/api/maintenance/status
+# → state "done", progress has 2 entries: start + done
+
+# 4. Run a tool directly
+curl -X POST http://localhost:3001/api/scan \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId":"manual-test"}'
+# → health_check + health_monitor results
+
+# 5. Check activity log
+curl "http://localhost:3001/api/activity?limit=5"
+```
+
+### What to check before review
+
+| Check | How |
+|-------|-----|
+| All tests pass | `npm test` — should be 123 unit + 28 e2e |
+| Server starts cleanly | `npm run web`, check for `[Scheduler]` lines in output |
+| Codebase detected | Look for `[Agent] Codebase detected: <name> · <lang>` in startup log |
+| Day cron once/day | `/api/scheduler/health` → `day_cron: "0 9 * * *"` |
+| Timeout is 2h | `/api/scheduler/health` → `maintenance_timeout_hrs: 2` |
+| Project shown in UI | Open browser → header badge shows project name + language |
+| Light scan is lightweight | Trigger light scan, check `/api/maintenance/status` → only 2 progress entries |
+| Safety gate blocks self | Try to write `src/agent.js` via write_file → expect `blocked: high-risk` response |
+
+---
+
+*Last updated: June 2026*
+
+**This session:** any-codebase design (Section 0) · maintenance timeout abort via `AbortController` · day scan changed to once/day (9 AM IST) · day scan simplified to healthCheck+healthMonitor only · `runTests()` uses `projectInfo.testCmd` · `_status.progress` capped at 200 · UI dynamic project badge from `/api/status` · inline SVG logo (no external URLs) · all 151 tests passing.

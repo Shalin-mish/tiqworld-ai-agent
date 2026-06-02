@@ -1148,9 +1148,18 @@
 <header class="header">
   <button id="sidebar-toggle" onclick="toggleLeftPanel()" title="Toggle sidebar" style="background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;padding:4px 6px;border-radius:4px;display:none">☰</button>
   <div class="header-logo logo">
-    <img src="https://tiqworld.com/logos/tiq-logo.png" alt="TIQ World" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
-    <span style="display:none"><span class="dot">◆</span> TIQ Agent</span>
-    <span style="font-size:11px;font-weight:500;color:var(--accent);letter-spacing:.8px;text-transform:uppercase;background:var(--accent-dim);padding:2px 7px;border-radius:4px;margin-left:2px;">Agent</span>
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+      <rect width="26" height="26" rx="7" fill="var(--accent-dim)"/>
+      <rect x="6" y="9" width="14" height="10" rx="3" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+      <circle cx="10" cy="14" r="1.4" fill="var(--accent)"/>
+      <circle cx="16" cy="14" r="1.4" fill="var(--accent)"/>
+      <line x1="13" y1="9" x2="13" y2="6" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="13" cy="5" r="1.2" fill="var(--accent)"/>
+      <line x1="6" y1="13" x2="3.5" y2="13" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="22.5" y1="13" x2="20" y2="13" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <span style="font-weight:700;font-size:14px;letter-spacing:-.2px">Codebase<span style="color:var(--accent)">AI</span></span>
+    <span style="font-size:10px;font-weight:500;color:var(--accent);letter-spacing:.8px;text-transform:uppercase;background:var(--accent-dim);padding:2px 7px;border-radius:4px;margin-left:2px;">Agent</span>
   </div>
   <div class="header-spacer"></div>
   <span class="header-badge" id="hdr-project" style="display:none"></span>
@@ -1251,9 +1260,17 @@
     <div class="chat-messages" id="chat-messages">
       <div class="welcome" id="welcome">
         <div class="welcome-logo">
-          <img src="https://tiqworld.com/logos/tiq-logo.png" alt="TIQ World" onerror="this.style.display=’none’;document.getElementById(‘welcome-logo-fallback’).style.display=’flex’">
-          <div id="welcome-logo-fallback" style="display:none;align-items:center;gap:12px">
-            <span style="font-size:36px">◆</span>
+          <div style="display:flex;align-items:center;gap:16px">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="56" height="56" rx="16" fill="var(--accent-dim)"/>
+              <rect x="13" y="20" width="30" height="20" rx="6" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+              <circle cx="21" cy="30" r="3" fill="var(--accent)"/>
+              <circle cx="35" cy="30" r="3" fill="var(--accent)"/>
+              <line x1="28" y1="20" x2="28" y2="14" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="28" cy="11" r="2.5" fill="var(--accent)"/>
+              <line x1="13" y1="28" x2="8" y2="28" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/>
+              <line x1="48" y1="28" x2="43" y2="28" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/>
+            </svg>
             <div class="welcome-logo-text">
               <span class="wlt-brand" id="welcome-logo-brand">CODEBASE</span>
               <span class="wlt-tag">AI Agent</span>
