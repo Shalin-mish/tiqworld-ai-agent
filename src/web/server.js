@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import net from 'net';
 import { fileURLToPath } from 'url';
 import session from 'express-session';
 import passport from 'passport';
@@ -209,24 +210,64 @@ app.get('/admin', (_req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-const server = app.listen(config.webPort, () => {
-  console.log(`\nTIQ Agent Web UI   → http://localhost:${config.webPort}`);
-  console.log(`TIQ Agent Admin    → http://localhost:${config.webPort}/?tab=admin`);
-  console.log(`Tool count: ${TOOL_COUNT} | Model: ${config.model}`);
-  startScheduler(config.scanIntervalMinutes);
-});
-
-// Graceful shutdown — lets PM2 / Docker / systemd restart cleanly without EADDRINUSE
-function shutdown(signal) {
-  console.log(`\n[Server] ${signal} received — shutting down gracefully...`);
-  server.close((err) => {
-    if (err) console.error('[Server] Error during shutdown:', err.message);
-    else console.log('[Server] All connections closed. Bye.');
-    process.exit(err ? 1 : 0);
+// Port binding — behaviour differs by environment:
+//   production : hard fail with kill instructions (nginx expects fixed port)
+//   development: auto-find next free port so devs aren't blocked
+// ---------------------------------------------------------------------------
+function isPortFree(port) {
+  return new Promise((resolve) => {
+    const tester = net.createServer();
+    tester.on('error', () => { resolve(false); });
+    tester.on('listening', () => { tester.close(() => resolve(true)); });
+    tester.listen(port);
   });
-  // Force-exit after 10s if connections won't drain
-  setTimeout(() => { console.error('[Server] Forced exit after timeout.'); process.exit(1); }, 10000).unref();
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT',  () => shutdown('SIGINT'));
+async function findFreePort(preferred, maxTries = 10) {
+  for (let i = 0; i < maxTries; i++) {
+    if (await isPortFree(preferred + i)) return preferred + i;
+  }
+  throw new Error(`No free port found in range ${preferred}–${preferred + maxTries - 1}`);
+}
+
+async function startServer() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  let port = config.webPort;
+
+  if (!(await isPortFree(port))) {
+    if (isProduction) {
+      console.error(`\n[Server] FATAL: Port ${port} is already in use.`);
+      console.error(`[Server] In production, port must be fixed. Kill the blocking process:`);
+      console.error(`  Windows: netstat -ano | findstr :${port}  → then: taskkill /PID <id> /F`);
+      console.error(`  Linux:   fuser -k ${port}/tcp`);
+      console.error(`  PM2:     pm2 restart tiq-agent`);
+      process.exit(1);
+    } else {
+      const fallback = await findFreePort(port + 1);
+      console.warn(`\n[Server] Port ${port} busy — using ${fallback} instead (dev mode).`);
+      port = fallback;
+    }
+  }
+
+  const server = app.listen(port, () => {
+    console.log(`\nTIQ Agent Web UI   → http://localhost:${port}`);
+    console.log(`TIQ Agent Admin    → http://localhost:${port}/?tab=admin`);
+    console.log(`Tool count: ${TOOL_COUNT} | Model: ${config.model}`);
+    startScheduler(config.scanIntervalMinutes);
+  });
+
+  function shutdown(signal) {
+    console.log(`\n[Server] ${signal} received — shutting down gracefully...`);
+    server.close((err) => {
+      if (err) console.error('[Server] Error during shutdown:', err.message);
+      else console.log('[Server] All connections closed. Bye.');
+      process.exit(err ? 1 : 0);
+    });
+    setTimeout(() => { console.error('[Server] Forced exit after timeout.'); process.exit(1); }, 10000).unref();
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT',  () => shutdown('SIGINT'));
+}
+
+startServer();
