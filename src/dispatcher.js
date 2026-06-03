@@ -33,15 +33,29 @@ export function classify(input) {
     if (matches > 0) scores[type] = (scores[type] ?? 0) + matches;
   }
 
-  if (Object.keys(scores).length === 0) return 'query';
+  if (Object.keys(scores).length === 0) {
+    return { type: 'query', confidence: 0, scores: {} };
+  }
 
-  // Pick highest score; on tie prefer the higher-priority type.
-  return Object.entries(scores).reduce((best, [type, score]) => {
+  const [type] = Object.entries(scores).reduce((best, [type, score]) => {
     const [bestType, bestScore] = best;
     if (score > bestScore) return [type, score];
     if (score === bestScore && TYPE_PRIORITY[type] > TYPE_PRIORITY[bestType]) return [type, score];
     return best;
-  }, ['query', 0])[0];
+  }, ['query', 0]);
+
+  const total = Object.values(scores).reduce((s, v) => s + v, 0);
+  const confidence = total === 0 ? 0 : Math.round((scores[type] / total) * 100);
+
+  return { type, confidence, scores };
+}
+
+export function formatClassification({ type, confidence, scores }) {
+  const label = TASK_LABELS[type] ?? type;
+  const scoreStr = Object.entries(scores)
+    .map(([t, s]) => `${t}:${s}`)
+    .join(' ');
+  return `  [${label}] confidence: ${confidence}% (${scoreStr || 'no keywords'})`;
 }
 
 // ---------------------------------------------------------------------------
