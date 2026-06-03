@@ -209,9 +209,24 @@ app.get('/admin', (_req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-app.listen(config.webPort, () => {
+const server = app.listen(config.webPort, () => {
   console.log(`\nTIQ Agent Web UI   → http://localhost:${config.webPort}`);
   console.log(`TIQ Agent Admin    → http://localhost:${config.webPort}/?tab=admin`);
   console.log(`Tool count: ${TOOL_COUNT} | Model: ${config.model}`);
   startScheduler(config.scanIntervalMinutes);
 });
+
+// Graceful shutdown — lets PM2 / Docker / systemd restart cleanly without EADDRINUSE
+function shutdown(signal) {
+  console.log(`\n[Server] ${signal} received — shutting down gracefully...`);
+  server.close((err) => {
+    if (err) console.error('[Server] Error during shutdown:', err.message);
+    else console.log('[Server] All connections closed. Bye.');
+    process.exit(err ? 1 : 0);
+  });
+  // Force-exit after 10s if connections won't drain
+  setTimeout(() => { console.error('[Server] Forced exit after timeout.'); process.exit(1); }, 10000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
