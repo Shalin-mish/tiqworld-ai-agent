@@ -1,166 +1,98 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock Octokit so tests don't need a real GitHub token
-vi.mock('@octokit/rest', () => ({
-  Octokit: vi.fn().mockImplementation(() => ({
-    issues: {
-      createComment: vi.fn().mockResolvedValue({
-        data: { html_url: 'https://github.com/test/repo/issues/1#issuecomment-123' },
-      }),
+// We control the mock createComment fn so tests can inspect what body was posted
+let mockCreateComment = vi.fn();
+
+vi.mock('@octokit/rest', () => {
+  return {
+    Octokit: function MockOctokit() {
+      this.issues = { createComment: mockCreateComment };
     },
-  })),
-}));
-
-import { postPRReviewComment } from '../../src/prReview.js';
-
-beforeEach(() => {
-  process.env.GITHUB_TOKEN = 'test-token-123';
+  };
 });
 
-describe('postPRReviewComment() — no token', () => {
-  it('returns ok:false when GITHUB_TOKEN is not set', async () => {
+const { postPRReviewComment } = await import('../../src/prReview.js');
+
+const BASE_FINDINGS = {
+  lint_errors: 0, lint_details: [],
+  critical_todos: 0, todo_details: [],
+  secrets_found: 0,
+  dead_files: [],
+};
+
+describe('postPRReviewComment', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv, GITHUB_TOKEN: 'test-token' };
+    mockCreateComment = vi.fn().mockResolvedValue({
+      data: { html_url: 'https://github.com/owner/repo/issues/1#issuecomment-123' },
+    });
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    vi.clearAllMocks();
+  });
+
+  it('returns ok:false when GITHUB_TOKEN is missing', async () => {
     delete process.env.GITHUB_TOKEN;
-    const result = await postPRReviewComment({
-      owner: 'test', repo: 'repo', pull_number: 1, findings: {},
-    });
+    const result = await postPRReviewComment({ owner: 'o', repo: 'r', pull_number: 1, findings: BASE_FINDINGS });
     expect(result.ok).toBe(false);
-    expect(result.reason).toMatch(/token/i);
+    expect(result.reason).toMatch(/GITHUB_TOKEN/i);
   });
-});
 
-describe('postPRReviewComment() — clean findings', () => {
-  it('posts comment and returns ok:true when all checks pass', async () => {
-    const result = await postPRReviewComment({
-      owner: 'test',
-      repo: 'repo',
-      pull_number: 42,
-      findings: {
-        lint_errors:    0,
-        critical_todos: 0,
-        secrets_found:  0,
-        dead_files:     [],
-      },
-    });
+  it('posts comment and returns ok:true on all-clear findings', async () => {
+    const result = await postPRReviewComment({ owner: 'o', repo: 'r', pull_number: 1, findings: BASE_FINDINGS });
     expect(result.ok).toBe(true);
-    expect(result.url).toMatch(/github\.com/);
+    expect(result.url).toContain('github.com');
+    expect(mockCreateComment).toHaveBeenCalledOnce();
   });
-});
 
-describe('postPRReviewComment() — findings with issues', () => {
-  it('includes lint errors section when lint_errors > 0', async () => {
-    const { Octokit } = await import('@octokit/rest');
-    let capturedBody = '';
-    Octokit.mockImplementation(() => ({
-      issues: {
-        createComment: vi.fn().mockImplementation(({ body }) => {
-          capturedBody = body;
-          return Promise.resolve({ data: { html_url: 'https://github.com/x' } });
-        }),
-      },
-    }));
-
+  it('includes lint error section when lint_errors > 0', async () => {
     await postPRReviewComment({
       owner: 'o', repo: 'r', pull_number: 1,
-      findings: {
-        lint_errors:  3,
-        lint_details: [
-          { file: 'src/app.js', line: 10, message: 'Missing semicolon' },
-          { file: 'src/app.js', line: 20, message: 'Unexpected var' },
-        ],
-        critical_todos: 0,
-        secrets_found:  0,
-        dead_files:     [],
-      },
+      findings: { ...BASE_FINDINGS, lint_errors: 2, lint_details: [{ file: 'a.js', line: 5, message: 'no-undef' }] },
     });
-
-    expect(capturedBody).toContain('Lint Errors');
-    expect(capturedBody).toContain('src/app.js');
+    const { body } = mockCreateComment.mock.calls[0][0];
+    expect(body).toContain('Lint Errors');
+    expect(body).toContain('a.js');
   });
 
   it('includes secrets section when secrets_found > 0', async () => {
-    const { Octokit } = await import('@octokit/rest');
-    let capturedBody = '';
-    Octokit.mockImplementation(() => ({
-      issues: {
-        createComment: vi.fn().mockImplementation(({ body }) => {
-          capturedBody = body;
-          return Promise.resolve({ data: { html_url: 'https://github.com/x' } });
-        }),
-      },
-    }));
-
-    await postPRReviewComment({
-      owner: 'o', repo: 'r', pull_number: 1,
-      findings: { lint_errors: 0, critical_todos: 0, secrets_found: 2, dead_files: [] },
-    });
-
-    expect(capturedBody).toContain('Secrets');
+    await postPRReviewComment({ owner: 'o', repo: 'r', pull_number: 1, findings: { ...BASE_FINDINGS, secrets_found: 1 } });
+    const { body } = mockCreateComment.mock.calls[0][0];
+    expect(body).toContain('Secrets');
   });
 
-  it('includes dead files section when dead_files present', async () => {
-    const { Octokit } = await import('@octokit/rest');
-    let capturedBody = '';
-    Octokit.mockImplementation(() => ({
-      issues: {
-        createComment: vi.fn().mockImplementation(({ body }) => {
-          capturedBody = body;
-          return Promise.resolve({ data: { html_url: 'https://github.com/x' } });
-        }),
-      },
-    }));
-
-    await postPRReviewComment({
-      owner: 'o', repo: 'r', pull_number: 1,
-      findings: { lint_errors: 0, critical_todos: 0, secrets_found: 0, dead_files: ['src/old.js', 'src/unused.ts'] },
-    });
-
-    expect(capturedBody).toContain('Dead');
-    expect(capturedBody).toContain('src/old.js');
+  it('includes dead files section when dead_files is non-empty', async () => {
+    await postPRReviewComment({ owner: 'o', repo: 'r', pull_number: 1, findings: { ...BASE_FINDINGS, dead_files: ['src/old.js'] } });
+    const { body } = mockCreateComment.mock.calls[0][0];
+    expect(body).toContain('Dead');
+    expect(body).toContain('src/old.js');
   });
 
-  it('includes critical TODOs section when critical_todos > 0', async () => {
-    const { Octokit } = await import('@octokit/rest');
-    let capturedBody = '';
-    Octokit.mockImplementation(() => ({
-      issues: {
-        createComment: vi.fn().mockImplementation(({ body }) => {
-          capturedBody = body;
-          return Promise.resolve({ data: { html_url: 'https://github.com/x' } });
-        }),
-      },
-    }));
-
+  it('includes critical todos section when critical_todos > 0', async () => {
     await postPRReviewComment({
       owner: 'o', repo: 'r', pull_number: 1,
-      findings: {
-        lint_errors: 0, secrets_found: 0, dead_files: [],
-        critical_todos: 2,
-        todo_details: [
-          { file: 'src/auth.js', line: 5, text: 'FIXME: remove hardcoded key', severity: 'critical' },
-        ],
-      },
+      findings: { ...BASE_FINDINGS, critical_todos: 1, todo_details: [{ file: 'b.js', line: 10, text: 'FIXME: auth bypass', severity: 'critical' }] },
     });
-
-    expect(capturedBody).toContain('TODO');
-    expect(capturedBody).toContain('src/auth.js');
+    const { body } = mockCreateComment.mock.calls[0][0];
+    expect(body).toContain('TODO');
+    expect(body).toContain('FIXME: auth bypass');
   });
-});
 
-describe('postPRReviewComment() — Octokit error handling', () => {
-  it('returns ok:false if Octokit throws', async () => {
-    const { Octokit } = await import('@octokit/rest');
-    Octokit.mockImplementation(() => ({
-      issues: {
-        createComment: vi.fn().mockRejectedValue(new Error('GitHub API rate limit')),
-      },
-    }));
-
-    const result = await postPRReviewComment({
-      owner: 'o', repo: 'r', pull_number: 1,
-      findings: { lint_errors: 0, critical_todos: 0, secrets_found: 0, dead_files: [] },
-    });
-
+  it('returns ok:false when Octokit throws', async () => {
+    mockCreateComment.mockRejectedValueOnce(new Error('API rate limit'));
+    const result = await postPRReviewComment({ owner: 'o', repo: 'r', pull_number: 1, findings: BASE_FINDINGS });
     expect(result.ok).toBe(false);
-    expect(result.reason).toMatch(/rate limit/i);
+    expect(result.reason).toContain('rate limit');
+  });
+
+  it('body always ends with agent disclaimer', async () => {
+    await postPRReviewComment({ owner: 'o', repo: 'r', pull_number: 1, findings: BASE_FINDINGS });
+    const { body } = mockCreateComment.mock.calls[0][0];
+    expect(body).toContain('TIQ AI Agent');
+    expect(body).toContain('verify before merging');
   });
 });

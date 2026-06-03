@@ -203,7 +203,8 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
 
   // POST /api/override — force task type for a session (when confidence is low)
   router.post('/api/override', (req, res) => {
-    const { sessionId, taskType } = req.body ?? {};
+    const { sessionId } = req.body ?? {};
+    const taskType = req.body?.taskType?.toLowerCase?.();
     const valid = ['query', 'review', 'maintenance', 'feature'];
     if (!sessionId || !valid.includes(taskType)) {
       res.status(400).json({ error: `sessionId and taskType required. Valid types: ${valid.join(', ')}` });
@@ -313,8 +314,13 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
     res.setHeader('Connection',    'keep-alive');
     res.flushHeaders();
 
-    const send = (type, payload) =>
+    let _clientAborted = false;
+    req.on('close', () => { _clientAborted = true; });
+
+    const send = (type, payload) => {
+      if (_clientAborted) return;
       res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
+    };
 
     if (!session.taskType) {
       const classResult = classify(question);

@@ -85,7 +85,7 @@ function gitCommit(fullPath, reason) {
     const relPath = path.relative(config.codebasePath, fullPath).replace(/\\/g, '/');
     execSync(
       `git add "${relPath}" && git commit -m "agent: ${reason}"`,
-      { cwd: config.codebasePath, stdio: 'pipe' }
+      { cwd: config.codebasePath, stdio: 'pipe', timeout: 30000 }
     );
     return { success: true, method: 'git' };
   } catch {
@@ -153,6 +153,16 @@ export async function writeFile({ file_path, new_content, reason, _user = 'unkno
     // ── End credential guard ───────────────────────────────────────────────
 
     const fullPath = path.join(config.codebasePath, file_path);
+    const base = path.resolve(config.codebasePath);
+    const resolvedFull = path.resolve(fullPath);
+    if (!resolvedFull.startsWith(base + path.sep) && resolvedFull !== base) {
+      return {
+        status: 'blocked',
+        file_path,
+        blocked_by: 'path_traversal',
+        message: `Write BLOCKED. Path "${file_path}" is outside the codebase boundary.`,
+      };
+    }
     const isNewFile = !fs.existsSync(fullPath);
     const oldContent = isNewFile ? '' : fs.readFileSync(fullPath, 'utf-8');
 

@@ -19,9 +19,22 @@ export const listFilesDefinition = {
   },
 };
 
+function isWithinCodebase(fullPath) {
+  const base = path.resolve(config.codebasePath);
+  const resolved = path.resolve(fullPath);
+  return resolved.startsWith(base + path.sep) || resolved === base;
+}
+
 export function listFiles({ directory }) {
   try {
     const targetPath = path.join(config.codebasePath, directory);
+
+    if (!isWithinCodebase(targetPath)) {
+      return {
+        error: `Access denied: path "${directory}" is outside the codebase boundary`,
+        suggestion: 'Use list_files with directory="" to see the root structure first',
+      };
+    }
 
     if (!fs.existsSync(targetPath)) {
       return {

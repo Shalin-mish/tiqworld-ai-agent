@@ -63,6 +63,14 @@ export function searchCode({ keyword, directory = '', is_regex = false, max_resu
 
   try {
     const searchPath = path.join(config.codebasePath, directory);
+    const base = path.resolve(config.codebasePath);
+    const resolvedSearch = path.resolve(searchPath);
+    if (!resolvedSearch.startsWith(base + path.sep) && resolvedSearch !== base) {
+      return {
+        error: `Access denied: path "${directory}" is outside the codebase boundary`,
+        suggestion: 'Leave directory empty to search the full codebase',
+      };
+    }
     if (!fs.existsSync(searchPath)) {
       return {
         error:      `Directory not found: ${directory || '(root)'}`,

@@ -53,8 +53,21 @@ function parseLocalImports(content, filePath) {
   return imports;
 }
 
+function isWithinCodebase(fullPath) {
+  const base = path.resolve(config.codebasePath);
+  const resolved = path.resolve(fullPath);
+  return resolved.startsWith(base + path.sep) || resolved === base;
+}
+
 function readSingleFile(file_path) {
   const fullPath = path.join(config.codebasePath, file_path);
+
+  if (!isWithinCodebase(fullPath)) {
+    return {
+      error: `Access denied: path "${file_path}" is outside the codebase boundary`,
+      path: file_path,
+    };
+  }
 
   if (!fs.existsSync(fullPath)) {
     return {

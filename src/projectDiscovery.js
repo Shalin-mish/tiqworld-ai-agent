@@ -9,6 +9,17 @@ const IGNORE_DIRS = new Set([
 
 // Detect language, framework, test commands from any codebase root
 export function discoverProject(codebasePath) {
+  if (!codebasePath || typeof codebasePath !== 'string') {
+    throw new Error('CODEBASE_PATH is not set. Add TIQ_CODEBASE_PATH to your .env file.');
+  }
+  if (!fs.existsSync(codebasePath)) {
+    throw new Error(`CODEBASE_PATH does not exist: "${codebasePath}". Check your .env file.`);
+  }
+  const stat = fs.statSync(codebasePath);
+  if (!stat.isDirectory()) {
+    throw new Error(`CODEBASE_PATH is not a directory: "${codebasePath}".`);
+  }
+
   const info = {
     name: path.basename(codebasePath),
     description: '',

@@ -53,7 +53,7 @@ export function gitBackup({ reason = 'manual', action = 'backup' } = {}) {
       };
     }
     try {
-      execSync(`git checkout "${_lastBackupBranch}" -- .`, { cwd, stdio: 'pipe' });
+      execSync(`git checkout "${_lastBackupBranch}" -- .`, { cwd, stdio: 'pipe', timeout: 30000 });
       return {
         status:  'restored',
         branch:  _lastBackupBranch,
@@ -78,8 +78,8 @@ export function gitBackup({ reason = 'manual', action = 'backup' } = {}) {
   const branchName = `backup/maint-${timestamp}-${slug}`;
 
   try {
-    execSync(`git checkout -b "${branchName}"`, { cwd, stdio: 'pipe' });
-    execSync('git checkout -', { cwd, stdio: 'pipe' });
+    execSync(`git checkout -b "${branchName}"`, { cwd, stdio: 'pipe', timeout: 30000 });
+    execSync('git checkout -', { cwd, stdio: 'pipe', timeout: 30000 });
     _lastBackupBranch = branchName;
     saveBackupBranch(branchName);
     return {

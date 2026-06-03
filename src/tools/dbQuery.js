@@ -26,11 +26,18 @@ export const dbQueryDefinition = {
 // Keywords that indicate a write operation — block them unconditionally.
 const WRITE_RE = /\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|TRUNCATE|GRANT|REVOKE|REPLACE|MERGE|CALL|EXEC)\b/i;
 
+function stripSqlComments(sql) {
+  return sql
+    .replace(/--[^\n]*/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ');
+}
+
 export async function dbQuery({ sql, description = '' } = {}) {
   if (!sql?.trim()) return { error: 'sql is required' };
 
-  if (WRITE_RE.test(sql)) {
-    const match = WRITE_RE.exec(sql);
+  const cleanSql = stripSqlComments(sql);
+  if (WRITE_RE.test(cleanSql)) {
+    const match = WRITE_RE.exec(cleanSql);
     return {
       error: `Write operations are not permitted. Blocked keyword: ${match?.[1]?.toUpperCase()}`,
       suggestion: 'Only SELECT statements are allowed',

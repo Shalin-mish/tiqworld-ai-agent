@@ -155,27 +155,33 @@ app.post('/webhook/github', express.raw({ type: 'application/json' }), (req, res
     }
   }
 
-  const event   = req.headers['x-github-event'];
-  const payload = JSON.parse(req.body.toString());
+  const event = req.headers['x-github-event'];
+  let payload;
+  try {
+    payload = JSON.parse(req.body.toString());
+  } catch {
+    res.status(400).send('Invalid JSON payload'); return;
+  }
 
   // PR opened or synchronized — trigger a review scan
   if (event === 'pull_request' && ['opened', 'synchronize'].includes(payload.action)) {
-    const pr     = payload.pull_request;
-    const branch = pr.head.ref;
+    const pr   = payload.pull_request;
+    const repo = payload.repository;
+    if (!pr || !repo) { res.json({ ok: true, message: 'Incomplete PR payload, skipped' }); return; }
+    const branch = pr.head?.ref;
     const title  = pr.title;
-    const owner  = payload.repository.owner.login;
-    const repo   = payload.repository.name;
-    console.log(`[webhook] PR #${pr.number} "${title}" on ${owner}/${repo} — starting review`);
+    const owner  = repo.owner?.login;
+    const repoName = repo.name;
+    console.log(`[webhook] PR #${pr.number} "${title}" on ${owner}/${repoName} — starting review`);
     logEvent({ user: 'webhook', action: 'pr_review_trigger', sessionId: 'webhook', branch, title });
-    // Post automated review comment on the PR
-    reviewPR({ owner, repo, pull_number: pr.number, branch })
+    reviewPR({ owner, repo: repoName, pull_number: pr.number, branch })
       .catch(err => console.error('[webhook PR review error]', err.message));
     res.json({ ok: true, message: 'PR review started', branch, title, pr: pr.number });
     return;
   }
 
   // Push to non-main branch — trigger light scan
-  if (event === 'push' && payload.ref && !payload.ref.includes('/main')) {
+  if (event === 'push' && typeof payload.ref === 'string' && !payload.ref.includes('/main')) {
     const branch = payload.ref.replace('refs/heads/', '');
     console.log(`[webhook] Push on branch ${branch} — triggering light scan`);
     logEvent({ user: 'webhook', action: 'push_scan_trigger', sessionId: 'webhook', branch });
