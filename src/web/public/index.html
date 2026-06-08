@@ -1628,6 +1628,17 @@ async function init() {
     badge.classList.toggle('visible', count > 0);
   }).catch(() => {});
 
+  // Poll badge every 30s so new notifications appear without manual refresh
+  setInterval(() => {
+    fetch('/api/status').then(r => r.json()).then(d => {
+      const badge = document.getElementById('notif-badge');
+      if (!badge) return;
+      const count = d.unread_notifications ?? 0;
+      badge.textContent = count > 0 ? count : '';
+      badge.classList.toggle('visible', count > 0);
+    }).catch(() => {});
+  }, 30_000);
+
   // restore admin auto-refresh toggle state
   if (localStorage.getItem('admin-auto-refresh') === '1') {
     const toggle = document.getElementById('admin-auto-toggle');
