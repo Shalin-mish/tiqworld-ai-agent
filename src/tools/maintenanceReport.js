@@ -7,10 +7,10 @@ function ensureLogsDir() {
   if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
 }
 
-export function saveMaintenanceReport(report) {
+export function saveMaintenanceReport(report, prefix = 'maintenance') {
   ensureLogsDir();
   const ts   = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
-  const file = path.join(LOGS_DIR, `maintenance-${ts}.json`);
+  const file = path.join(LOGS_DIR, `${prefix}-${ts}.json`);
   fs.writeFileSync(file, JSON.stringify(report, null, 2), 'utf-8');
   return file;
 }

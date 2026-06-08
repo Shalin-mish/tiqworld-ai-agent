@@ -205,6 +205,9 @@ export async function writeFile({ file_path, new_content, reason, _user = 'unkno
     let backup = { success: false };
     if (!isNewFile) {
       backup = gitCommit(fullPath, reason);
+      if (!backup.success) {
+        console.warn(`\n⚠️  Backup failed for "${file_path}" (${backup.method ?? 'no method'}) — proceeding without rollback point.`);
+      }
     }
 
     fs.mkdirSync(path.dirname(fullPath), { recursive: true });

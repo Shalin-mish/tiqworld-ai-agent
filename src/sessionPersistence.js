@@ -61,7 +61,7 @@ export function loadSession(sessionId) {
       user:     raw.user     ?? 'unknown',
       github:   raw.github   ?? null,
       taskType: raw.taskType ?? null,
-      tokens:   raw.tokens   ?? { in: 0, out: 0, cacheRead: 0 },
+      tokens:   { in: 0, out: 0, cacheRead: 0, cacheWrite: 0, ...(raw.tokens ?? {}) },
       history:  raw.history  ?? [],
       memory: {
         filesRead: new Map(Object.entries(raw.memory?.filesRead ?? {})),

@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { fullScan }         from './tools/fullScan.js';
 import { healthCheck }      from './tools/healthCheck.js';
 import { healthMonitor }    from './tools/healthMonitor.js';
-import { runCommand }       from './tools/runCommand.js';
+import { runCommand, isAllowed } from './tools/runCommand.js';
 import { gitBackup }        from './tools/gitBackup.js';
 import { runAgent, ALL_TOOLS, projectInfo } from './agent.js';
 import { acquireLock, releaseAllLocks } from './tools/fileLock.js';
@@ -103,24 +103,10 @@ export function isHighRisk(filePath) {
   return HIGH_RISK_PATTERNS.some(p => filePath.toLowerCase().includes(p));
 }
 
-// Exact allowlist — prefix match is NOT enough (e.g. "npm run deploy" starts with "npm run")
-const SAFE_COMMANDS_EXACT = new Set([
-  'npm test',
-  'npm run test',
-  'npm run test:unit',
-  'npx eslint',
-  'node --check',
-]);
-// Prefix allowlist for commands that take a path argument (e.g. "npx eslint src/foo.js")
-const SAFE_COMMAND_PREFIXES = ['npx eslint ', 'node --check '];
-
+// Delegate to the single allowlist in runCommand.js — one source of truth.
+// Previously a separate Set here caused drift (e.g. 'npm run test:unit' missing).
 function commandApprovalFn({ command = '' }) {
-  const cmd = command.trim();
-  if (SAFE_COMMANDS_EXACT.has(cmd)) return true;
-  if (SAFE_COMMAND_PREFIXES.some(p => cmd.startsWith(p))) return true;
-  // Allow "npm --prefix <service> test" pattern for monorepo per-service tests
-  if (/^npm --prefix \S+ (test|run test)$/.test(cmd)) return true;
-  return false;
+  return isAllowed(command);
 }
 
 function makeWriteApprovalFn(writeLog) {

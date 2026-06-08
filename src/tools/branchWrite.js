@@ -112,8 +112,15 @@ export async function branchWrite({ file_path, new_content, reason, _user = 'age
       fs.writeFileSync(fullPath, new_content, 'utf-8');
 
       const rel = path.relative(cwd, fullPath).replace(/\\/g, '/');
-      execSync(`git add "${rel}"`, { cwd, stdio: 'pipe' });
-      execSync(`git commit -m "agent: ${reason}"`, { cwd, stdio: 'pipe' });
+      try {
+        execSync(`git add "${rel}"`, { cwd, stdio: 'pipe' });
+        execSync(`git commit -m "agent: ${reason}"`, { cwd, stdio: 'pipe' });
+      } catch (commitErr) {
+        // Commit failed — restore original content so working tree is not dirty
+        if (isNew) { try { fs.unlinkSync(fullPath); } catch { /* best-effort */ } }
+        else { try { fs.writeFileSync(fullPath, oldContent, 'utf-8'); } catch { /* best-effort */ } }
+        throw commitErr;
+      }
       committed = true;
 
       logEvent({ user: _user, action: 'branch_write', detail: { file: file_path, branch, reason } });

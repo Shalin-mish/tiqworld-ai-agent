@@ -17,11 +17,14 @@ import { saveSession, loadSession, deleteSession, listPersistedSessions } from '
 export const sessions = new Map();
 
 // Evict sessions idle for more than 2 hours — runs every 30 minutes.
-const SESSION_TTL_MS   = 2 * 60 * 60 * 1000;
+// Sessions with an active SSE connection are never evicted mid-stream.
+const SESSION_TTL_MS      = 2 * 60 * 60 * 1000;
 const SESSION_GC_INTERVAL = 30 * 60 * 1000;
+export const activeSseSessions = new Set(); // sessionIds with live /api/chat connections
 setInterval(() => {
   const cutoff = Date.now() - SESSION_TTL_MS;
   for (const [id, s] of sessions) {
+    if (activeSseSessions.has(id)) continue; // never GC a live SSE session
     if (s.lastActiveAt < cutoff) sessions.delete(id);
   }
 }, SESSION_GC_INTERVAL).unref();
@@ -38,7 +41,7 @@ export function getSession(id) {
           user:         'unknown',
           github:       null,
           lastActiveAt: Date.now(),
-          tokens:       { in: 0, out: 0, cacheRead: 0 },
+          tokens:       { in: 0, out: 0, cacheRead: 0, cacheWrite: 0 },
           memory: {
             filesRead: new Map(),
             toolCalls: [],
@@ -332,8 +335,9 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
     res.setHeader('Connection',    'keep-alive');
     res.flushHeaders();
 
+    activeSseSessions.add(sessionId);
     let _clientAborted = false;
-    req.on('close', () => { _clientAborted = true; });
+    req.on('close', () => { _clientAborted = true; activeSseSessions.delete(sessionId); });
 
     const send = (type, payload) => {
       if (_clientAborted) return;
@@ -379,9 +383,10 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
             send('tool_result', { name: event.name, result: event.result });
           } else if (event.type === 'token_usage') {
             // Accumulate per-session token totals and forward to UI
-            session.tokens.in        += event.in        ?? 0;
-            session.tokens.out       += event.out       ?? 0;
-            session.tokens.cacheRead += event.cacheRead ?? 0;
+            session.tokens.in         += event.in         ?? 0;
+            session.tokens.out        += event.out        ?? 0;
+            session.tokens.cacheRead  += event.cacheRead  ?? 0;
+            session.tokens.cacheWrite += event.cacheWrite ?? 0;
             send('token_usage', {
               turn:    event,
               session: session.tokens,
@@ -407,6 +412,7 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
       logEvent({ user, action: 'error', sessionId, detail: { message: err.message } });
     }
 
+    activeSseSessions.delete(sessionId);
     if (!chatAbort.signal.aborted) {
       res.write('data: [DONE]\n\n');
       res.end();

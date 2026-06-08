@@ -13,7 +13,6 @@ import path from 'path';
 import http from 'http';
 import https from 'https';
 import { config }      from '../config.js';
-import { notify }      from '../notifications.js';
 import { logEvent }    from '../activityLog.js';
 
 // ---------------------------------------------------------------------------
@@ -234,22 +233,9 @@ export async function healthMonitor({ urls = [], log_paths = [], last_minutes = 
   const overall   = failCount > 0 ? 'UNHEALTHY' : (warnCount > 0 ? 'DEGRADED' : 'HEALTHY');
   const score     = Math.max(0, 100 - failCount * 25 - warnCount * 10);
 
-  // --- 6. Notify if degraded/unhealthy ---
-  if (overall !== 'HEALTHY') {
-    const lines = [];
-    if (probesFailed.length)  lines.push(`${probesFailed.length} URL(s) unreachable: ${probesFailed.map(p => p.url).join(', ')}`);
-    if (slowProbes.length)    lines.push(`${slowProbes.length} URL(s) slow (>3s)`);
-    if (totalLogIssues)       lines.push(`${totalLogIssues} error line(s) in logs (last ${last_minutes}m)`);
-    if (heapPct >= 80)        lines.push(`High heap usage: ${heapPct}%`);
-    if (lagMs >= 100)         lines.push(`Event-loop lag: ${lagMs}ms`);
-
-    notify(
-      overall === 'UNHEALTHY' ? 'error' : 'warning',
-      `Health Monitor: ${overall}`,
-      lines.join('\n'),
-    );
-  }
-
+  // Notifications are sent by the caller (scheduler.runDayScan) — not here.
+  // Emitting notify() inside the tool AND in the scheduler caused duplicate
+  // notifications with identical timestamps on every degraded day scan.
   logEvent({ user: 'health-monitor', action: 'health_monitor_run', detail: { overall, score, probes: probeResults.length } });
 
   return {

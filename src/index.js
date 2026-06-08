@@ -104,13 +104,26 @@ function prompt() {
 
     const tools = getTools(currentTaskType);
 
+    const sessionTokens = { in: 0, out: 0, cacheRead: 0, cacheWrite: 0 };
     try {
-      const { answer, messages } = await runAgent(input, conversationHistory, tools);
-      // Keep last 8 messages (4 turns) — enough context without bleeding
-      // old tool results into every Bedrock call.
+      const { answer, messages } = await runAgent(
+        input, conversationHistory, tools,
+        (event) => {
+          if (event.type === 'token_usage') {
+            sessionTokens.in         += event.in         ?? 0;
+            sessionTokens.out        += event.out        ?? 0;
+            sessionTokens.cacheRead  += event.cacheRead  ?? 0;
+            sessionTokens.cacheWrite += event.cacheWrite ?? 0;
+          }
+        },
+      );
       conversationHistory = messages.slice(-8);
       console.log('\nAgent:\n');
       console.log(answer);
+      const t = sessionTokens;
+      const cacheNote = t.cacheRead ? ` | cache_read:${t.cacheRead}` : '';
+      const writeNote = t.cacheWrite ? ` cache_write:${t.cacheWrite}` : '';
+      console.log(`\n  [Tokens] in:${t.in} out:${t.out}${cacheNote}${writeNote}`);
       console.log('\n' + '─'.repeat(54) + '\n');
     } catch (err) {
       console.error('\n  Error:', err.message);

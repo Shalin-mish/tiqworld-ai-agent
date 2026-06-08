@@ -49,7 +49,7 @@ const ALLOWED_PATTERNS = [
   /^npm list --depth=0$/,
 ];
 
-function isAllowed(command) {
+export function isAllowed(command) {
   return ALLOWED_PATTERNS.some((pattern) => pattern.test(command.trim()));
 }
 
@@ -115,7 +115,7 @@ export async function runCommand({ command, directory = '', _commandApprovalFn =
 
     const output = execSync(command, {
       cwd,
-      timeout: 60000,
+      timeout: 300000,
       encoding: 'utf-8',
       stdio: 'pipe',
     });
@@ -124,7 +124,8 @@ export async function runCommand({ command, directory = '', _commandApprovalFn =
       command,
       directory: directory || '(root)',
       exit_code: 0,
-      output: output.trim(),
+      stdout:    output.trim(),
+      output:    output.trim(),
       ranAt: new Date().toISOString(),
     };
   } catch (err) {
@@ -132,8 +133,9 @@ export async function runCommand({ command, directory = '', _commandApprovalFn =
       command,
       directory: directory || '(root)',
       exit_code: err.status || 1,
-      output: err.stdout ? err.stdout.trim() : '',
-      error: err.stderr ? err.stderr.trim() : err.message,
+      stdout:    err.stdout ? err.stdout.trim() : '',
+      output:    err.stdout ? err.stdout.trim() : '',
+      error:     err.stderr ? err.stderr.trim() : err.message,
       suggestion: 'Check the error output above for details',
     };
   }

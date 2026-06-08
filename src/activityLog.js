@@ -25,17 +25,34 @@ export function logEvent({ user = 'unknown', action, detail = {}, sessionId = nu
   return entry;
 }
 
-// Read last N lines (most-recent first)
+// Read last N lines without loading the whole file into memory.
+// Falls back to full-read only when the file is small enough (< 512 KB).
+const TAIL_CHUNK = 64 * 1024; // 64 KB — enough for ~200 JSONL lines
 export function readLog(limit = 200) {
   if (!fs.existsSync(LOG_FILE)) return [];
-  const lines = fs.readFileSync(LOG_FILE, 'utf-8')
-    .split('\n')
-    .filter(Boolean);
-  return lines
-    .slice(-limit)
-    .reverse()
-    .map(l => { try { return JSON.parse(l); } catch { return null; } })
-    .filter(Boolean);
+  try {
+    const stat = fs.statSync(LOG_FILE);
+    let raw;
+    if (stat.size <= TAIL_CHUNK * 2) {
+      raw = fs.readFileSync(LOG_FILE, 'utf-8');
+    } else {
+      // Read only the tail chunk — avoids loading megabytes of history
+      const fd  = fs.openSync(LOG_FILE, 'r');
+      const buf = Buffer.alloc(TAIL_CHUNK);
+      const offset = Math.max(0, stat.size - TAIL_CHUNK);
+      fs.readSync(fd, buf, 0, TAIL_CHUNK, offset);
+      fs.closeSync(fd);
+      raw = buf.toString('utf-8');
+    }
+    const lines = raw.split('\n').filter(Boolean);
+    return lines
+      .slice(-limit)
+      .reverse()
+      .map(l => { try { return JSON.parse(l); } catch { return null; } })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 // Summary counts for the admin panel

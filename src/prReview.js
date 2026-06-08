@@ -82,8 +82,17 @@ export async function reviewPR({ owner, repo, pull_number, branch }) {
   const { detectDeadCode } = await import('./tools/detectDeadCode.js');
   const { config }         = await import('./config.js');
 
+  // lintFile expects a single file path, not a directory.
+  // Pass the first src/ entry-point if it exists, else skip lint.
+  const path = await import('path');
+  const fs   = await import('fs');
+  const srcDir  = path.default.join(config.codebasePath, 'src');
+  const lintTarget = fs.default.existsSync(srcDir) ? 'src' : null;
+
   const [lint, todos, secrets, dead] = await Promise.allSettled([
-    lintFile({ file_path: config.codebasePath }),
+    lintTarget
+      ? lintFile({ file_path: lintTarget })
+      : Promise.resolve({ total_errors: 0, files: [] }),
     findTodos({ directory: config.codebasePath }),
     secretScanner({ directory: config.codebasePath }),
     detectDeadCode({ directory: config.codebasePath }),

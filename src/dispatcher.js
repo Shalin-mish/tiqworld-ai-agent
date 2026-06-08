@@ -7,19 +7,20 @@ import { ALL_TOOLS } from './agent.js';
 const PATTERNS = [
   {
     type: 'review',
-    re: /\b(review|audit|check quality|inspect|analyze|code smell|security|secret|leaked|find todos|dead code|env usage|schema gap|health|full.?scan|maintenance scan|scan|outdated|dependencies)\b/gi,
+    keywords: /\b(review|audit|check quality|inspect|analyze|code smell|security|secret|leaked|find todos|dead code|env usage|schema gap|health|full.?scan|maintenance scan|scan|outdated|dependencies)\b/i,
   },
   {
     type: 'maintenance',
-    re: /\b(fix|bug|revert|update dependency|refactor|clean up|rename|remove|delete|patch|migrate|deprecat|error|exception|crash|trace|stack trace)\b/gi,
+    // "update" added — "update dependency/config/handler" should get write tools
+    keywords: /\b(fix|bug|revert|update|refactor|clean up|rename|remove|delete|patch|migrate|deprecat|error|exception|crash|trace|stack trace)\b/i,
   },
   {
     type: 'feature',
-    re: /\b(add|create|build|implement|new route|new component|new endpoint|new page|new feature|scaffold)\b/gi,
+    keywords: /\b(add|create|build|implement|new route|new component|new endpoint|new page|new feature|scaffold)\b/i,
   },
   {
     type: 'query',
-    re: /\b(why|explain|what does|how does|describe|what is|where is|show me|walk me|tell me|map|route|diff|todo|log|lint|query|select)\b/gi,
+    keywords: /\b(why|explain|what does|how does|describe|what is|where is|show me|walk me|tell me|map|route|diff|todo|log|lint|query|select)\b/i,
   },
 ];
 
@@ -28,7 +29,9 @@ const TYPE_PRIORITY = { query: 0, review: 1, maintenance: 2, feature: 2 };
 
 export function classify(input) {
   const scores = {};
-  for (const { type, re } of PATTERNS) {
+  for (const { type, keywords } of PATTERNS) {
+    // Build a fresh regex each call — avoids lastIndex state bleed from /g flag
+    const re = new RegExp(keywords.source, 'gi');
     const matches = (input.match(re) ?? []).length;
     if (matches > 0) scores[type] = (scores[type] ?? 0) + matches;
   }

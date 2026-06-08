@@ -13,7 +13,6 @@ import {
 import { TOOL_COUNT } from '../agent.js';
 import { logEvent } from '../activityLog.js';
 import { listReports } from '../tools/maintenanceReport.js';
-import { getNotifications, markAllRead, unreadCount } from '../notifications.js';
 import { createRouter, sessions } from './router.js';
 import { reviewPR } from '../prReview.js';
 
@@ -77,19 +76,6 @@ app.get('/api/maintenance/reports', (_req, res) => {
 
 app.get('/api/scheduler/health', (_req, res) => {
   res.json({ ok: true, ...getSchedulerHealth() });
-});
-
-// ---------------------------------------------------------------------------
-// Notifications
-// ---------------------------------------------------------------------------
-app.get('/api/notifications', (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit ?? '50', 10), 200);
-  res.json({ ok: true, notifications: getNotifications(limit), unread: unreadCount() });
-});
-
-app.post('/api/notifications/read-all', (_req, res) => {
-  markAllRead();
-  res.json({ ok: true });
 });
 
 // ---------------------------------------------------------------------------
