@@ -107,6 +107,7 @@ export function isHighRisk(filePath) {
 const SAFE_COMMANDS_EXACT = new Set([
   'npm test',
   'npm run test',
+  'npm run test:unit',
   'npx eslint',
   'node --check',
 ]);
@@ -141,8 +142,9 @@ function makeWriteApprovalFn(writeLog) {
 // ---------------------------------------------------------------------------
 
 async function runTests() {
-  // Use the project's detected test command (e.g. "pytest", "go test ./...", "npm test")
-  const testCmd = projectInfo?.testCmd || 'npm test';
+  // Always use test:unit — avoids e2e (requires live browser+server) and bypasses
+  // projectDiscovery.testCmd which incorrectly detects 'pytest' for this repo.
+  const testCmd = 'npm run test:unit';
   try {
     const result = await runCommand({
       command:            testCmd,
@@ -239,7 +241,7 @@ async function runNightMaintenance() {
     const issueCount = (scan?.summary?.lint_errors ?? 0) + (scan?.summary?.critical_todos ?? 0);
     if (config.autoFixEnabled && issueCount > 0) {
       pushProgress('fix', `Auto-fixing ${issueCount} issue(s)...`);
-      const testCmd = projectInfo?.testCmd || 'npm test';
+      const testCmd = 'npm run test:unit';
       const highRiskSample = HIGH_RISK_PATTERNS.slice(0, 12).join(', ');
       let fixAborted = false;
       try {
