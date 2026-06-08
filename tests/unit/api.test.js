@@ -138,3 +138,60 @@ describe('GET /api/last-scan', () => {
     expect(typeof res.body.ok).toBe('boolean');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Notification endpoints (wired in fix commit 2edd5c5)
+// ---------------------------------------------------------------------------
+
+describe('GET /api/notifications', () => {
+  it('returns 200 with notifications array and unread count', async () => {
+    const res = await request(app).get('/api/notifications');
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(Array.isArray(res.body.notifications)).toBe(true);
+    expect(typeof res.body.unread).toBe('number');
+    expect(res.body.unread).toBeGreaterThanOrEqual(0);
+  });
+
+  it('respects limit query param — result length does not exceed limit', async () => {
+    const res = await request(app).get('/api/notifications?limit=3');
+    expect(res.status).toBe(200);
+    expect(res.body.notifications.length).toBeLessThanOrEqual(3);
+  });
+
+  it('unread count in /api/notifications matches /api/status unread_notifications', async () => {
+    const [notifRes, statusRes] = await Promise.all([
+      request(app).get('/api/notifications'),
+      request(app).get('/api/status'),
+    ]);
+    expect(notifRes.body.unread).toBe(statusRes.body.unread_notifications);
+  });
+});
+
+describe('POST /api/notifications/read-all', () => {
+  it('returns 200 with ok:true', async () => {
+    const res = await request(app).post('/api/notifications/read-all');
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
+  it('after read-all, unread count is 0', async () => {
+    await request(app).post('/api/notifications/read-all');
+    const res = await request(app).get('/api/notifications');
+    expect(res.body.unread).toBe(0);
+  });
+});
+
+describe('PATCH /api/notifications/:id/read', () => {
+  it('returns 200 with ok:true for a valid-looking id', async () => {
+    const res = await request(app).patch('/api/notifications/some-notif-id/read');
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
+  it('graceful no-op for unknown id — still returns ok:true', async () => {
+    const res = await request(app).patch('/api/notifications/nonexistent-xyz-id/read');
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+});
