@@ -17,6 +17,8 @@ module.exports = {
       name:         'tiq-agent',
       script:       'src/web/server.js',
       interpreter:  'node',
+      instances:    1,          // MUST stay 1 — fileLock and activeSseSessions are in-memory
+      exec_mode:    'fork',     // cluster mode would give each worker its own copy, breaking both
       watch:        false,
       autorestart:  true,
       max_restarts: 10,

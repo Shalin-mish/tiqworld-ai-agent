@@ -17,6 +17,7 @@ import { execSync } from 'child_process';
 import { config }   from '../config.js';
 import { guardCheck } from './credentialGuard.js';
 import { logEvent }   from '../activityLog.js';
+import { isSelfProtected } from '../safetyPatterns.js';
 
 export const branchWriteDefinition = {
   name: 'branch_write',
@@ -44,16 +45,7 @@ export const branchWriteDefinition = {
   },
 };
 
-const SELF_PROTECT_PATTERNS = [
-  'tiqworld-ai-agent/src/', 'src/tools/', 'src/agent.js', 'src/scheduler.js',
-  'src/config.js', 'src/web/', 'ecosystem.config',
-  'migrations/', 'migration.', 'schema.prisma', 'prisma/schema', 'seeds/', 'seeders/',
-];
-
-function isSelfProtected(fp) {
-  const n = fp.toLowerCase().replace(/\\/g, '/');
-  return SELF_PROTECT_PATTERNS.some(p => n.includes(p));
-}
+// isSelfProtected() imported from safetyPatterns.js — single source of truth.
 
 function slug(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30).replace(/-$/, '');

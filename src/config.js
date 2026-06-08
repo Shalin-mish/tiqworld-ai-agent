@@ -19,6 +19,9 @@ export const config = {
   dayLightScanCron:      process.env.DAY_LIGHT_SCAN_CRON    || '0 9 * * *',
   autoFixEnabled:        process.env.AUTO_FIX_ENABLED !== 'false',
   autoFixMinConfidence:  parseInt(process.env.AUTO_FIX_MIN_CONFIDENCE, 10) || 80,
+  // When true, agent writes go to a feature branch (branch_write) instead of the working tree (write_file).
+  // Use in shared/production environments where every change must go through PR review.
+  agentBranchWrites:     process.env.AGENT_BRANCH_WRITES === 'true',
   notificationWebhookUrl:  process.env.NOTIFICATION_WEBHOOK_URL ?? null,
   healthMonitorUrls:       process.env.HEALTH_MONITOR_URLS ?? '',
   githubClientId:        process.env.GITHUB_CLIENT_ID     ?? null,

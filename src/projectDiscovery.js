@@ -241,7 +241,7 @@ export function discoverProject(codebasePath) {
 }
 
 // Build a fully dynamic system prompt from discovered project info
-export function buildSystemPrompt(info) {
+export function buildSystemPrompt(info, { agentBranchWrites = false } = {}) {
   const keyScripts = ['start', 'dev', 'test', 'build', 'lint']
     .filter(k => info.scripts[k])
     .map(k => `  ${k}: ${info.scripts[k]}`)
@@ -310,15 +310,15 @@ ${verifyBlock}
 - dep_updater      — check outdated npm packages, categorise by risk (patch/minor/major)
 
 ### Write + verification — always follow this exact sequence
-1. git_backup   — checkpoint first, every time
-2. show_diff    — preview the change
-3. write_file   — write with human approval gate
-4. run_command  — verify with the appropriate test/lint command
-
+1. git_backup    — checkpoint first, every time
+2. show_diff     — preview the change
+3. ${agentBranchWrites ? 'branch_write  — write to a feature branch (AGENT_BRANCH_WRITES=true). Returns branch name; push it and open a PR for human review.' : 'write_file   — write with human approval gate'}
+4. run_command   — verify with the appropriate test/lint command
+${agentBranchWrites ? '\n⚠️  AGENT_BRANCH_WRITES is ON — always use branch_write instead of write_file. Never push to main directly.' : ''}
 ## Decision trees
 
 **"Fix X" / error / stack trace**
-→ fix_error(error_text) → if confidence ≥ 55: git_backup → show_diff → write_file → run_command
+→ fix_error(error_text) → if confidence ≥ 55: git_backup → show_diff → ${agentBranchWrites ? 'branch_write' : 'write_file'} → run_command
 → If run_command exit_code ≠ 0: IMMEDIATELY call git_backup with action=restore to rollback.
 
 **"Any secrets leaked?" / security audit**

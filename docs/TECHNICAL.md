@@ -2,6 +2,7 @@
 
 > Complete technical documentation for the TIQ World autonomous maintenance agent.
 > Architecture · All 27 tools · API endpoints · Safety model · Configuration
+> **Last updated: June 8, 2026 — v5.0**
 
 ---
 
@@ -143,13 +144,15 @@ All configuration is loaded from `.env` via `dotenv/config` in `src/config.js`.
 | `AWS_SECRET_ACCESS_KEY` | — | AWS credentials |
 | `WEB_PORT` | `3001` | HTTP server port |
 | `ENABLE_PROMPT_CACHE` | `true` | Bedrock prompt caching |
-| `BEDROCK_TIMEOUT_MS` | `60000` | Per-call timeout (180000 recommended) |
+| `BEDROCK_TIMEOUT_MS` | `180000` | Per-call timeout (3 min). 3 retries × this = max wait before error. |
+| `CHAT_TIMEOUT_MS` | `600000` | Overall SSE connection timeout (10 min). AbortController kills hanging requests. |
 | `SCAN_INTERVAL_MINUTES` | `0` | If >0, use interval mode instead of cron |
 | `NIGHT_MAINTENANCE_CRON` | `0 2 * * *` | Deep maintenance schedule (IST) |
 | `DAY_LIGHT_SCAN_CRON` | `0 9 * * *` | Light scan — once per day at 9 AM IST (healthCheck + healthMonitor only) |
 | `MAINTENANCE_TIMEOUT_MS` | `7200000` (2h) | Max wall-clock time for a night maintenance run. Agent is forcibly aborted (via AbortController) after this duration. |
 | `AUTO_FIX_ENABLED` | `true` | Allow autonomous file writes |
 | `AUTO_FIX_MIN_CONFIDENCE` | `80` | Minimum `fix_error` confidence to auto-fix |
+| `AGENT_BRANCH_WRITES` | `false` | When `true`: agent uses `branch_write` (feature branch + PR) instead of `write_file` (direct write). Use in production. |
 | `NOTIFICATION_WEBHOOK_URL` | — | Slack or Discord incoming webhook |
 | `HEALTH_MONITOR_URLS` | — | Comma-separated URLs to probe |
 | `GITHUB_CLIENT_ID` | — | GitHub OAuth App client ID |
@@ -210,16 +213,21 @@ Cron-driven autonomous maintenance.
 
 **Maintenance timeout**: controlled by `MAINTENANCE_TIMEOUT_MS` (default 2h). On timeout the `AbortController` is fired — this cancels the in-flight Bedrock call and stops `runAgent()` cleanly. Without this the agent could run indefinitely.
 
+**`runTests()` timeout cap**: 120 seconds per invocation (`_timeoutMs: 120000` passed to `runCommand`). Called up to 3× per maintenance run = 6 min max. Prevents a stalled test run consuming the 2h maintenance window.
+
+**Test command**: hardcoded to `npm run test:unit` (not `projectInfo.testCmd`). `projectDiscovery` is for the *target* codebase — it incorrectly detected `pytest` for this repo because `tiq_workplace` has Python files. Unit tests are deterministic, fast, and don't require a live server.
+
 **Day light scan** (`0 9 * * *` IST — once per day):
 - Runs only `healthCheck` + `healthMonitor` (lightweight — no lint/todos)
 - Lint and TODOs are intentionally kept for night maintenance to avoid unnecessary token spend
 - Sends notification if platform status is UNHEALTHY or DEGRADED
+- `_maintenanceRunning` flag blocks day scan from starting if night maintenance is still active
 
 **Weekly report** (`0 9 * * 1` IST):
 - Aggregates last 7 days of maintenance reports
 - Sends formatted message to Slack/Discord webhook
 
-**Safety gates** (`HIGH_RISK_PATTERNS` list): blocks writes to agent source, migrations, test files, config files regardless of confidence score. The maintenance agent prompt receives a dynamic sample of these patterns so Claude understands what it cannot touch.
+**Safety gates** (`HIGH_RISK_PATTERNS` from `src/safetyPatterns.js`): blocks writes to agent source, migrations, test files, config files regardless of confidence score. The maintenance agent prompt receives a dynamic sample of these patterns so Claude understands what it cannot touch.
 
 **`_status.progress`**: ring-buffer capped at 200 entries — prevents unbounded memory growth on long runs.
 
@@ -240,6 +248,15 @@ Serialize/deserialize sessions to `logs/sessions/{id}.json`. Survives server res
 In-app notification store (ring buffer, last 100) + Slack/Discord webhook delivery.
 - `notify(level, title, body)` — creates notification and sends webhook if configured
 - `getNotifications(limit)`, `markAllRead()`, `unreadCount()`
+- `notify()` is called only by the scheduler (on maintenance completion) and `runDayScan` (on DEGRADED/UNHEALTHY). It is NOT called inside `healthMonitor.js` — calling it there caused double notifications on every day scan.
+
+### `src/safetyPatterns.js`
+
+Single source of truth for file-path safety gates. Exports:
+- `SELF_PROTECT_PATTERNS` + `isSelfProtected(filePath)` — used by `write_file` and `branch_write`
+- `HIGH_RISK_PATTERNS` + `isHighRisk(filePath)` — used by the scheduler's `makeWriteApprovalFn`
+
+Imported by `writeFile.js`, `branchWrite.js`, and `scheduler.js`. Previously duplicated in all three with drift.
 
 ### `src/activityLog.js`
 
@@ -561,9 +578,13 @@ Output: { exit_code, output, error }
 
 The agent has **5 independent safety layers**. Each is enforced separately — bypassing one does not bypass others.
 
-### Layer 1 — Self-Protection (write_file + scheduler)
+### Single Source of Truth — `src/safetyPatterns.js`
 
-Defined in `scheduler.js:HIGH_RISK_PATTERNS` and `writeFile.js:SELF_PROTECT_PATTERNS`.
+`SELF_PROTECT_PATTERNS` and `HIGH_RISK_PATTERNS` are defined **once** in `src/safetyPatterns.js` and imported by all three consumers (`writeFile.js`, `branchWrite.js`, `scheduler.js`). Previously these were duplicated across all three files and had drifted out of sync (`branchWrite` was missing `server.js` and `router.js`). Adding a new protected path now requires one edit in one place.
+
+### Layer 1 — Self-Protection (write_file + branchWrite + scheduler)
+
+Defined in `src/safetyPatterns.js → isSelfProtected()`.
 
 Files matching these patterns are **never written** regardless of confidence or approval:
 - Agent own source: `tiqworld-ai-agent/src/`, `src/tools/`, `src/agent.js`, `src/scheduler.js`, etc.
@@ -710,7 +731,7 @@ Uses `crypto.timingSafeEqual` to prevent timing attacks.
   user:         "alice",     // GitHub login or name
   github:       {...},       // GitHub profile (if OAuth)
   lastActiveAt: timestamp,
-  tokens:       { in, out, cacheRead },
+  tokens:       { in, out, cacheRead, cacheWrite },
   memory: {
     filesRead: Map<path, count>,
     toolCalls: [{ name, inputSummary, at }],
@@ -759,7 +780,7 @@ Default: **8 tool calls per user query**. Configurable via `toolBudget` paramete
 
 | Setting | Default |
 |---------|---------|
-| Per-call timeout | `BEDROCK_TIMEOUT_MS` (default 60s, recommended 180s) |
+| Per-call timeout | `BEDROCK_TIMEOUT_MS` (default 180s) |
 | Max retries | 3 attempts |
 | Retry delays | 4s → 8s → 16s (exponential) |
 | Retried errors | `AbortError` (timeout), `ThrottlingException`, `ServiceUnavailableException` |
@@ -942,7 +963,7 @@ curl "http://localhost:3001/api/activity?limit=5"
 
 | Check | How |
 |-------|-----|
-| All tests pass | `npm test` — should be 123 unit + 28 e2e |
+| All tests pass | `npm run test:unit` — should be 158 unit; `npx playwright test` — 28 e2e |
 | Server starts cleanly | `npm run web`, check for `[Scheduler]` lines in output |
 | Codebase detected | Look for `[Agent] Codebase detected: <name> · <lang>` in startup log |
 | Day cron once/day | `/api/scheduler/health` → `day_cron: "0 9 * * *"` |
@@ -953,6 +974,6 @@ curl "http://localhost:3001/api/activity?limit=5"
 
 ---
 
-*Last updated: June 2026*
+*Last updated: June 8, 2026 — v5.0*
 
-**This session:** any-codebase design (Section 0) · maintenance timeout abort via `AbortController` · day scan changed to once/day (9 AM IST) · day scan simplified to healthCheck+healthMonitor only · `runTests()` uses `projectInfo.testCmd` · `_status.progress` capped at 200 · UI dynamic project badge from `/api/status` · inline SVG logo (no external URLs) · all 151 tests passing.
+**Sessions 12–13 (June 8):** Full audit (C1-C4, H1-H5, M1-M7, L1-L2) all fixed · token tracking complete (in/out/cacheRead/cacheWrite) · SSE chat timeout via AbortController · night maintenance perpetual failure fixed · `runCommand _timeoutMs` param + 120s cap for scheduler · `src/safetyPatterns.js` single source of truth · PM2 fork mode enforced · `AGENT_BRANCH_WRITES` wired end-to-end · 158 unit + 28 e2e = 186 tests passing.

@@ -4,6 +4,167 @@
 
 ---
 
+## June 8, 2026 (Sessions 12–13) — Full audit, all bugs fixed, architectural hardening
+
+### What changed
+
+---
+
+#### 1. Night maintenance test failure — root cause fixed permanently
+
+**Problem:** Night maintenance was failing with "pre-existing test failures detected" every night since May 28. The scheduler was using `projectInfo?.testCmd` which `projectDiscovery` incorrectly set to `'pytest'` (because `tiq_workplace` has some Python files in it). That failed silently, then fell back to `npm test`, which runs e2e tests that require a live browser + GitHub OAuth — guaranteed to fail in maintenance context.
+
+**Fix:** `runTests()` in `scheduler.js` hardcoded to `'npm run test:unit'`. The maintenance context must always use unit tests — deterministic, fast, no server required.
+
+*Why hardcode instead of detect:* The detection was the bug. For this specific agent repo, `npm run test:unit` is always the right command. Using `projectDiscovery` for the agent's own test runner was a design mistake — project discovery is for the target codebase, not the agent itself.
+
+---
+
+#### 2. Four token-tracking bugs fixed
+
+**Bug 1 — `token_usage` events never reached the UI**
+
+`agent.js` was logging token data to console but never calling `onEvent()`. The entire per-session token accumulation in the right sidebar was showing zeros. Fixed: added `onEvent?.({ type: 'token_usage', ... })` in `agent.js` after the log line.
+
+**Bug 2 — `cacheWrite` missing from session token struct**
+
+Session token object was `{ in, out, cacheRead }` — missing `cacheWrite`. Sessions loaded from disk were also missing it. Fixed: added `cacheWrite: 0` to the initial struct in `router.js` and spread-preserved it in `sessionPersistence.js`.
+
+**Bug 3 — No SSE timeout**
+
+A slow or hanging Bedrock call could hold an SSE connection open indefinitely, eventually exhausting server connections. Fixed: added `chatAbort` AbortController with `config.chatTimeoutMs` (10 min default). On timeout: abort signal fires, SSE sends error event, connection closes cleanly.
+
+**Bug 4 — `bedrockTimeoutMs` default 60s (too low)**
+
+3 retries × 60s = 180s max wait — tight for large prompts. Raised default to 180s. `chatTimeoutMs` set to 600s (10 min). Both configurable via env vars.
+
+---
+
+#### 3. Full codebase audit — all issues fixed
+
+Complete audit run as a senior developer + Q&A team review. Findings by severity:
+
+**Critical (4):**
+- Duplicate notification routes in `server.js` + `router.js` — Express matches first, so `server.js` routes won and `PATCH /:id/read` in router was never reachable. Fixed: removed duplicates from `server.js`.
+- `result.stdout` always `undefined` in scheduler — `runCommand` returned `output` field, scheduler read `result.stdout`. Fixed: added `stdout` alias field to both success and error returns.
+- `branchWrite` left dirty working tree on commit failure — if `git add` succeeded but `git commit` failed, the file was written but never committed. Fixed: try/catch around commit, rollback file on failure.
+- `activityLog` reading entire file into memory — on large deployments the JSONL log could be hundreds of MB. Fixed: 64KB tail-read using `fs.openSync/readSync`, fallback to full read when file < 128KB.
+
+**High (5):**
+- Double notifications on every day scan — `healthMonitor.js` called `notify()` internally AND `runDayScan` called `notify()` → every scan fired two notifications. Fixed: removed `notify()` from `healthMonitor.js`.
+- Session GC could evict active SSE sessions — if a session had an idle long-running SSE connection, GC could delete it mid-stream. Fixed: `activeSseSessions` Set; GC skips any session in the set.
+- `fileLock` stale lock blocks on crashed maintenance run — no TTL, so a crashed run could lock a file forever. Fixed: 10-min auto-expiry in `acquireLock`.
+- `dispatcher.js` regex `/g` flag `lastIndex` bleed — stateful regex with `/g` flag reused across calls caused classification bugs on alternating inputs. Fixed: fresh regex per `classify()` call.
+- `writeFile` proceeds silently when backup fails — warning was logged but no user-visible signal. Fixed: explicit `console.warn` with clear message.
+
+**Medium (7):**
+- `ENABLE_PROMPT_CACHE` default was `false` in `.env.example` — fixed to `true`.
+- Maintenance `runCommand` timeout 300s was too loose (20 tools × 5 min = 100 min, near 2h ceiling). Fixed: `_timeoutMs` parameter on `runCommand`, scheduler's `runTests()` passes 120s cap.
+- `branchWrite` self-protect patterns were a local copy diverged from `writeFile`. Consolidated into `src/safetyPatterns.js`.
+- `maintenanceReport.js` `saveReport()` function was not exported with a `prefix` param — feature-opportunities reports were going to the wrong filename. Fixed.
+- `prReview.js` called `lintFile({ file_path: 'src' })` without checking if the `src/` directory exists in the target codebase. Fixed: check exists before call.
+- Maintenance auto-fix prompt used hardcoded `'npm test'` — replaced with dynamic `testCmd` variable already in scope.
+- CLI token display was incomplete — `cacheWrite` was never shown. Fixed.
+
+**Low (2):**
+- `dispatcher.js` `re` property should be named `keywords` for clarity. Renamed.
+- `"update the config"` was scoring as `query:0` — `update` keyword was missing from maintenance patterns. Added.
+
+---
+
+#### 4. Timing audit — all relationships verified safe
+
+Full timing analysis run as expert AI agent developer:
+
+```
+Night (2:00 AM IST) + 2h hard abort → ends by 4:00 AM
+Day scan (9:00 AM IST) → 5h gap ✓
+
+runTests() cap: 120s × 3 invocations = 6 min max ✓
+runCommand via agent: 300s × 20 budget = 100 min max (within 2h) — MARGINAL, capped ✓
+Bedrock per-call: 180s × 3 retries + backoff ≈ 554s per turn (but 1 per turn) ✓
+fileLock TTL: 10 min < maintenance 120 min (no stale lock outlasts timeout) ✓
+Session GC: 2h, activeSseSessions prevents mid-stream eviction ✓
+Approval auto-reject: 5 min ✓
+Notification cap: 500 entries — 6+ months at current volume ✓
+```
+
+One marginal risk identified and fixed: `runTests()` now passes `_timeoutMs: 120000` to cap individual test runs at 2 minutes.
+
+---
+
+#### 5. Architectural hardening (4 improvements)
+
+**PM2 fork mode enforced**
+
+`ecosystem.config.cjs` now explicitly sets `instances: 1` and `exec_mode: 'fork'`. Without this, someone running PM2 with a different config could accidentally start 2 instances, breaking `fileLock` and `activeSseSessions` (both in-memory, not shared across workers).
+
+**Safety patterns — single source of truth**
+
+`HIGH_RISK_PATTERNS` and `SELF_PROTECT_PATTERNS` were duplicated across `writeFile.js`, `branchWrite.js`, and `scheduler.js`. They had already drifted apart (`branchWrite` was missing `server.js` and `router.js`). Consolidated into `src/safetyPatterns.js`. All three files import from it. A new protected path now needs to be added in one place only.
+
+**`AGENT_BRANCH_WRITES` flag — now actually wired**
+
+The flag was mentioned in `branchWrite.js`'s doc comment but completely dead — nothing in config, agent, or system prompt used it. Wired: `config.agentBranchWrites` reads `AGENT_BRANCH_WRITES=true` from `.env`, system prompt dynamically tells the agent to prefer `branch_write` when on, `.env.example` documents it.
+
+**`buildSystemPrompt` accepts options**
+
+Added `{ agentBranchWrites }` parameter so the system prompt is always correct for the current deployment mode — no manual editing needed.
+
+---
+
+#### 6. Test results
+
+| Suite | Count | Result |
+|-------|-------|--------|
+| Unit (Vitest) | 158 | All PASS |
+| E2E (Playwright) | 28 | All PASS |
+
+Unit count rose from 151 to 158 — 7 new tests covering `safetyPatterns.js` exports.
+
+---
+
+### Commit trail (June 8)
+
+| What | Files |
+|------|-------|
+| fix: hardcode test:unit in scheduler runTests() | `src/scheduler.js` |
+| fix: emit token_usage events from agent.js | `src/agent.js` |
+| fix: add cacheWrite to session token struct | `src/web/router.js`, `src/sessionPersistence.js` |
+| fix: SSE chat timeout via AbortController | `src/web/router.js`, `src/config.js` |
+| fix: bedrockTimeoutMs default 180s, chatTimeoutMs 600s | `src/config.js`, `.env.example` |
+| fix: remove duplicate notification routes from server.js | `src/web/server.js` |
+| fix: add stdout alias to runCommand returns | `src/tools/runCommand.js` |
+| fix: branchWrite rollback on commit failure | `src/tools/branchWrite.js` |
+| fix: activityLog 64KB tail-read | `src/activityLog.js` |
+| fix: remove duplicate notify() from healthMonitor | `src/tools/healthMonitor.js` |
+| fix: activeSseSessions GC guard for live SSE sessions | `src/web/router.js` |
+| fix: fileLock 10-min stale lock auto-expiry | `src/tools/fileLock.js` |
+| fix: dispatcher fresh regex per classify() call | `src/dispatcher.js` |
+| fix: writeFile warn on backup failure | `src/tools/writeFile.js` |
+| fix: runCommand _timeoutMs param, scheduler cap 120s | `src/tools/runCommand.js`, `src/scheduler.js` |
+| refactor: safety patterns single source of truth | `src/safetyPatterns.js` (new), `src/tools/writeFile.js`, `src/tools/branchWrite.js`, `src/scheduler.js` |
+| feat: PM2 fork mode enforced | `ecosystem.config.cjs` |
+| feat: wire AGENT_BRANCH_WRITES config flag | `src/config.js`, `src/agent.js`, `src/projectDiscovery.js`, `.env.example` |
+
+---
+
+### Current state (June 8, 2026)
+
+| Area | Status |
+|------|--------|
+| All audit findings fixed (C1-C4, H1-H5, M1-M7, L1-L2) | Done |
+| Token tracking complete (in/out/cacheRead/cacheWrite) | Done |
+| SSE timeout with AbortController | Done |
+| Night maintenance perpetual failure | Fixed |
+| Timing audit — all relationships verified | Done |
+| PM2 fork mode enforced | Done |
+| Safety patterns single source of truth | Done |
+| AGENT_BRANCH_WRITES wired end-to-end | Done |
+| 158 unit + 28 e2e tests | All passing |
+
+---
+
 ## June 2, 2026 (Session 11) — Any-codebase agent, maintenance timeout abort, once-daily scan, dynamic UI
 
 ### What changed

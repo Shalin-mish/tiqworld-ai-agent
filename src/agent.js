@@ -150,7 +150,7 @@ function toBedrockMessages(messages) {
 const _projectInfo = discoverProject(config.codebasePath);
 console.log(`[Agent] Codebase detected: ${_projectInfo.name} · ${_projectInfo.language} · ${_projectInfo.framework}${_projectInfo.isMonorepo ? ' (monorepo)' : ''}`);
 
-const SYSTEM_PROMPT = buildSystemPrompt(_projectInfo);
+const SYSTEM_PROMPT = buildSystemPrompt(_projectInfo, { agentBranchWrites: config.agentBranchWrites });
 
 const SYSTEM_BLOCKS = config.enablePromptCache
   ? [{ text: SYSTEM_PROMPT }, { cachePoint: { type: 'default' } }]
@@ -172,7 +172,7 @@ async function executeTool(name, input, executors, user = 'unknown', approvalFn 
     };
   }
   const extra = { _user: user, _sessionId: sessionId };
-  if (name === 'write_file'  && approvalFn)        extra._approvalFn        = approvalFn;
+  if ((name === 'write_file' || name === 'branch_write') && approvalFn) extra._approvalFn = approvalFn;
   if (name === 'run_command' && commandApprovalFn)  extra._commandApprovalFn = commandApprovalFn;
   const result  = await fn({ ...input, ...extra });
   const summary = result?.error

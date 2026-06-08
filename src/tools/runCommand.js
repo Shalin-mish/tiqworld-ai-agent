@@ -79,7 +79,7 @@ export const runCommandDefinition = {
   },
 };
 
-export async function runCommand({ command, directory = '', _commandApprovalFn = null }) {
+export async function runCommand({ command, directory = '', _commandApprovalFn = null, _timeoutMs = 300000 }) {
   if (!isAllowed(command)) {
     return {
       error: `Command not allowed: "${command}"`,
@@ -115,7 +115,7 @@ export async function runCommand({ command, directory = '', _commandApprovalFn =
 
     const output = execSync(command, {
       cwd,
-      timeout: 300000,
+      timeout: _timeoutMs,
       encoding: 'utf-8',
       stdio: 'pipe',
     });

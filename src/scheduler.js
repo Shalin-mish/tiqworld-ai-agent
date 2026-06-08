@@ -10,6 +10,7 @@ import { saveMaintenanceReport, formatReportSummary } from './tools/maintenanceR
 import { config } from './config.js';
 import { notify } from './notifications.js';
 import { sendWeeklyReport } from './weeklyReport.js';
+import { HIGH_RISK_PATTERNS, isHighRisk } from './safetyPatterns.js';
 
 let _nightTask     = null;
 let _dayTask       = null;
@@ -50,58 +51,9 @@ export function getMaintenanceStatus() { return { ..._status }; }
 export function getLastScan() { return { result: lastScanResult, scannedAt: lastScanTime }; }
 
 // ---------------------------------------------------------------------------
-// Safety gates
+// Safety gates — HIGH_RISK_PATTERNS and isHighRisk from safetyPatterns.js
 // ---------------------------------------------------------------------------
-
-// Any file whose path matches one of these patterns is NEVER auto-written.
-// IMPORTANT: tests/ and *.test.* are here so the agent cannot overwrite
-// test files to make itself appear green — an agent must not be its own judge.
-const HIGH_RISK_PATTERNS = [
-  // ── Agent self-protection (CRITICAL) ──────────────────────────────────────
-  // The agent must NEVER modify its own source, tools, scheduler, or config.
-  // A self-modifying agent could bypass every safety gate below.
-  'tiqworld-ai-agent/src/',   // absolute guard on this agent's own source tree
-  '/src/tools/',              // individual tool files
-  '/src/agent.js',
-  '/src/scheduler.js',
-  '/src/config.js',
-  '/src/web/server.js',
-  '/src/web/router.js',
-  'ecosystem.config',         // PM2 config — changing this affects process management
-
-  // ── DB migrations (CRITICAL — wrong migration = data loss) ────────────────
-  'migrations/', 'migration.',
-  '.migration.ts', '.migration.js',
-  'schema.prisma', 'prisma/schema',
-  'seeds/', 'seeders/',
-  'knexfile', 'typeorm-config',
-  'alembic/',                 // Python migrations
-  'db/migrate/',              // Rails migrations
-
-  // ── Payment + certificate (sensitive business logic — never auto-touch) ───
-  'payment', 'billing', 'subscription', 'certificate', 'cert-service',
-  'stripe', 'paypal', 'webhook',
-
-  // ── Core auth/modules path — auth logic is high-risk across any service ──
-  '/modules/auth/',
-
-  // ── Generic entry/routing/model/middleware files (any framework) ────────
-  '/routes/', '/models/', '/middleware/',
-  'config.js', 'config.ts', 'config.py',
-  'settings.py', 'settings.js',
-  'index.js', 'server.js', 'app.js', 'main.py', 'main.go', 'main.rs',
-  'server.ts', 'app.ts',
-  '/config/', 'database.config', 'env.ts', 'env.js', 'env.py',
-  // Block .env files but NOT .env.example (that's a safe template)
-  '/.env',
-
-  // ── Test files — agent must never be its own judge ───────────────────────
-  'tests/', '__tests__/', '.test.', '.spec.', '_test.go', '_test.py',
-];
-
-export function isHighRisk(filePath) {
-  return HIGH_RISK_PATTERNS.some(p => filePath.toLowerCase().includes(p));
-}
+export { isHighRisk };
 
 // Delegate to the single allowlist in runCommand.js — one source of truth.
 // Previously a separate Set here caused drift (e.g. 'npm run test:unit' missing).
@@ -137,6 +89,7 @@ async function runTests() {
       directory:          '',
       _commandApprovalFn: () => true,
       _user:              'maintenance-scheduler',
+      _timeoutMs:         120000,
     });
     const passed = !result.error &&
       (result.exit_code === 0 || String(result.stdout ?? '').includes('passing'));
