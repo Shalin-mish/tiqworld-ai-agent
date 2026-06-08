@@ -11,7 +11,8 @@ export const config = {
   webPort:               parseInt(process.env.WEB_PORT, 10) || 3001,
   // Prompt caching is ON by default — set ENABLE_PROMPT_CACHE=false to disable
   enablePromptCache:     process.env.ENABLE_PROMPT_CACHE !== 'false',
-  bedrockTimeoutMs:      parseInt(process.env.BEDROCK_TIMEOUT_MS, 10) || 60000,
+  bedrockTimeoutMs:      parseInt(process.env.BEDROCK_TIMEOUT_MS, 10) || 180000,
+  chatTimeoutMs:         parseInt(process.env.CHAT_TIMEOUT_MS,    10) || 600000,
   scanIntervalMinutes:   parseInt(process.env.SCAN_INTERVAL_MINUTES, 10) || 0,
   maintenanceTimeoutMs:  parseInt(process.env.MAINTENANCE_TIMEOUT_MS, 10) || 2 * 60 * 60 * 1000,
   nightMaintenanceCron:  process.env.NIGHT_MAINTENANCE_CRON || '0 2 * * *',

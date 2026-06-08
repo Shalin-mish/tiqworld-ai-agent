@@ -340,6 +340,15 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
       res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
     };
 
+    // Overall SSE timeout — kills hanging requests before the browser gives up
+    const chatAbort = new AbortController();
+    const chatTimeoutHandle = setTimeout(() => {
+      chatAbort.abort();
+      send('error', { message: `Request timed out after ${config.chatTimeoutMs / 1000}s` });
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }, config.chatTimeoutMs);
+
     if (!session.taskType) {
       const classResult = classify(question);
       session.taskType  = classResult.type;
@@ -383,19 +392,25 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
         approvalFn,
         commandApprovalFn,
         sessionId,
+        8,
+        chatAbort.signal,
       );
+      clearTimeout(chatTimeoutHandle);
       // Keep last 8 messages (4 turns) — matches CLI cap, saves tokens
       session.history = messages.slice(-8);
       // Persist session to disk so history survives server restarts
       saveSession(sessionId, session);
       send('answer', { text: answer });
     } catch (err) {
+      clearTimeout(chatTimeoutHandle);
       send('error', { message: err.message });
       logEvent({ user, action: 'error', sessionId, detail: { message: err.message } });
     }
 
-    res.write('data: [DONE]\n\n');
-    res.end();
+    if (!chatAbort.signal.aborted) {
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
   });
 
   return router;

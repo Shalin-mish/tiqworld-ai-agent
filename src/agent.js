@@ -243,7 +243,7 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
   while (true) {
     const response = await callBedrock(messages);
 
-    // Log token usage so we can verify caching is working
+    // Log token usage and emit to UI so session totals stay accurate
     const usage = response.usage;
     if (usage) {
       const cacheRead  = usage.cacheReadInputTokens  ?? 0;
@@ -253,6 +253,13 @@ export async function runAgent(userQuestion, conversationHistory = [], tools = n
         (cacheRead  ? ` cache_read:${cacheRead}`   : '') +
         (cacheWrite ? ` cache_write:${cacheWrite}` : ''),
       );
+      onEvent?.({
+        type:       'token_usage',
+        in:         usage.inputTokens       ?? 0,
+        out:        usage.outputTokens      ?? 0,
+        cacheRead,
+        cacheWrite,
+      });
     }
 
     const stopReason   = response.stopReason;
