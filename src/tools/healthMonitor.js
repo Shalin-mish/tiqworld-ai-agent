@@ -93,6 +93,31 @@ function httpGet(urlStr, timeoutMs = DEFAULT_TIMEOUT_MS) {
 // ---------------------------------------------------------------------------
 const ERROR_RE = /\b(ERROR|CRITICAL|FATAL|UNCAUGHT|UNHANDLED|EXCEPTION|panic)\b/i;
 
+// Actions in activity.jsonl that represent expected operational events —
+// NOT process crashes. Counting these as errors caused perpetual DEGRADED.
+const OPERATIONAL_ACTIONS = new Set([
+  'error',          // user-facing API/Bedrock errors logged per-session
+  'session_start',
+  'session_clear',
+  'query',
+  'manual_scan',
+  'maintenance_trigger_light',
+  'maintenance_trigger_deep',
+  'health_monitor_run',
+  'input_truncated',
+]);
+
+function isOperationalJsonlLine(line) {
+  try {
+    const obj = JSON.parse(line);
+    // Skip known operational action types
+    if (obj.action && (OPERATIONAL_ACTIONS.has(obj.action) || obj.action.startsWith('tool:'))) return true;
+    return false;
+  } catch {
+    return false; // not JSONL — scan as plain text
+  }
+}
+
 function scanLogFile(filePath, sinceMs) {
   const issues = [];
   if (!fs.existsSync(filePath)) return { file: filePath, scanned: false, reason: 'not found' };
@@ -102,6 +127,7 @@ function scanLogFile(filePath, sinceMs) {
     const lines = raw.split('\n');
     for (const line of lines) {
       if (!line.trim()) continue;
+
       // Try to extract timestamp from JSONL entries
       let ts = null;
       try {
@@ -110,6 +136,10 @@ function scanLogFile(filePath, sinceMs) {
       } catch { /* plain text line */ }
 
       if (ts && sinceMs && ts < sinceMs) continue;
+
+      // Skip structured activity log entries that are expected operational events
+      if (isOperationalJsonlLine(line)) continue;
+
       if (ERROR_RE.test(line)) {
         issues.push(line.trim().slice(0, 300));
       }
@@ -172,8 +202,10 @@ export async function healthMonitor({ urls = [], log_paths = [], last_minutes = 
   const probeResults = await Promise.all(targetUrls.map(u => httpGet(u)));
 
   // --- 3. Log anomaly scan ---
+  // Also scan pm2-error.log — that's where real Node.js crashes land
   const agentLogPath   = path.join(process.cwd(), 'logs', 'activity.jsonl');
-  const logsToScan     = [agentLogPath, ...log_paths];
+  const pm2ErrorLog    = path.join(process.cwd(), 'logs', 'pm2-error.log');
+  const logsToScan     = [agentLogPath, pm2ErrorLog, ...log_paths];
   const logResults     = logsToScan.map(p => scanLogFile(p, sinceMs));
 
   // --- 4. Process vitals + event loop lag ---
