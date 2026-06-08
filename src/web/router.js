@@ -7,7 +7,7 @@ import { config }      from '../config.js';
 import { getLastScan, triggerScan } from '../scheduler.js';
 import { logEvent, readLog, logStats } from '../activityLog.js';
 import { listArchives } from '../writeArchive.js';
-import { unreadCount } from '../notifications.js';
+import { unreadCount, getNotifications, markAllRead, markRead } from '../notifications.js';
 import { healthMonitor } from '../tools/healthMonitor.js';
 import { saveSession, loadSession, deleteSession, listPersistedSessions } from '../sessionPersistence.js';
 
@@ -242,6 +242,24 @@ export function createRouter({ githubAuthEnabled = false } = {}) {
   // GET /api/writes
   router.get('/api/writes', (_req, res) => {
     res.json({ ok: true, archives: listArchives(100) });
+  });
+
+  // GET /api/notifications
+  router.get('/api/notifications', (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit ?? '50', 10), 200);
+    res.json({ ok: true, notifications: getNotifications(limit), unread: unreadCount() });
+  });
+
+  // POST /api/notifications/read-all
+  router.post('/api/notifications/read-all', (_req, res) => {
+    markAllRead();
+    res.json({ ok: true });
+  });
+
+  // PATCH /api/notifications/:id/read
+  router.patch('/api/notifications/:id/read', (req, res) => {
+    markRead(req.params.id);
+    res.json({ ok: true });
   });
 
   // GET /api/session/:id/memory
